@@ -1,55 +1,15 @@
 (function () {
   const vscode = acquireVsCodeApi();
+  const { TCOLOR, fmt, el, badge, cardEl } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
-  const TIERS = ['Común', 'Poco común', 'Rara', 'Holo', 'Ultra', 'Ilustración', 'Secreta'];
-  const TCOLOR = ['--t0', '--t1', '--t2', '--t3', '--t4', '--t5', '--t6'];
 
   let S = null;            // último estado recibido
-  let filter = null;       // categoría de rareza elegida en el álbum
-  let viewing = null;      // id de la carta abierta en el visor
   let warned = 0;
-  const fmt = n => n >= 1e9 ? (n / 1e9).toFixed(2) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(Math.round(n * 100) / 100);
-
-  function el(tag, props, ...kids) {
-    const e = document.createElement(tag);
-    for (const [k, v] of Object.entries(props || {})) {
-      if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
-      else if (k === 'style') e.style.cssText = v; // CSSOM: permitido por el CSP (setAttribute('style') no)
-      else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
-      else e.setAttribute(k, v);
-    }
-    for (const kid of kids.flat()) if (kid) e.append(kid);
-    return e;
-  }
   const row = (a, b) => el('div', { class: 'row' }, el('span', { text: a }), el('span', { text: b }));
   const box = (title, ...kids) => el('div', { class: 'card-box' }, title && el('h4', { text: title }), ...kids);
   const bar = (pct, cls) => el('div', { class: 'barwrap ' + (cls || '') }, el('i', { style: 'width:' + Math.max(0, Math.min(100, pct)).toFixed(1) + '%' }));
-  const badge = t => el('span', { class: 'badge b' + t, text: TIERS[t] });
   const send = (type, extra) => vscode.postMessage(Object.assign({ type }, extra));
-
-  /* ───── carta con inclinación 3D y brillo según la rareza ───── */
-  function cardEl(c, width) {
-    const face = c.src ? el('img', { src: c.src, alt: c.name, draggable: 'false' }) : el('div', { class: 'missing', text: c.name });
-    const root = el('div', { class: 'card3d t' + c.tier, style: '--w:' + (width || 150) + 'px' },
-      el('div', { class: 'inner' }, face, el('div', { class: 'foil' }), el('div', { class: 'glare' })));
-    root.addEventListener('pointermove', e => {
-      const r = root.getBoundingClientRect();
-      const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
-      root.style.setProperty('--rx', ((0.5 - y) * 20).toFixed(1) + 'deg');
-      root.style.setProperty('--ry', ((x - 0.5) * 20).toFixed(1) + 'deg');
-      root.style.setProperty('--mx', (x * 100).toFixed(0) + '%');
-      root.style.setProperty('--my', (y * 100).toFixed(0) + '%');
-      root.classList.add('active');
-    });
-    root.addEventListener('pointerleave', () => {
-      for (const p of ['--rx', '--ry']) root.style.setProperty(p, '0deg');
-      root.style.setProperty('--mx', '50%'); root.style.setProperty('--my', '50%');
-      root.classList.remove('active');
-    });
-    return root;
-  }
-
   const freeSlot = () => !!S && S.slots.some(s => s === null);
 
   /* ───── panel principal ───── */
@@ -74,7 +34,7 @@
         el('div', { class: 'si' }, el('div', { text: i.name }), el('div', { class: 'sub', text: i.desc })),
         el('button', { class: 'btn', ...(i.price !== null && d.coins >= i.price ? {} : { disabled: '' }), text: i.price === null ? 'Máximo' : '🪙 ' + i.price, onclick: () => send('buy', { item: i.id }) }))));
 
-    const slots = d.slots.map(s => s ? slotView(s) : el('div', { class: 'empty-slot', text: d.albumUnique ? 'Hueco libre: abre una carta del álbum y pulsa «Entrenar».' : 'Abre tu primer sobre para conseguir cartas.' }));
+    const slots = d.slots.map(s => s ? slotView(s) : el('div', { class: 'empty-slot', text: d.albumUnique ? 'Hueco libre: abre el álbum, elige una carta y pulsa «Entrenar».' : 'Abre tu primer sobre para conseguir cartas.' }));
 
     const max = Math.max(1, ...d.daily.map(x => d.unit === 'credits' ? x.credits : x.total));
     const chart = el('div', { class: 'chart' }, d.daily.map(x => {
@@ -89,7 +49,7 @@
       packBox,
       box('Entrenando (' + d.slots.filter(Boolean).length + '/' + d.slots.length + ')', ...slots),
       shopBox,
-      albumView(),
+      albumBox(),
       box('Por día (mes)', chart),
       box('Por modelo', ...list(d.byModel)),
       box('Por modo', ...list(d.byMode)));
@@ -110,38 +70,21 @@
       el('div', { class: 'sub', text: fmt(s.into) + ' / ' + fmt(s.span) + ' tokens para evolucionar' + (s.evolved ? ' · evoluciones: ' + s.evolved : '') }));
   }
 
-  function albumView() {
+  /** Resumen del álbum: el álbum completo vive en una pestaña del editor. */
+  function albumBox() {
     const d = S;
-    const chips = [el('button', { class: 'chip' + (filter === null ? ' on' : ''), text: 'Todas', onclick: () => { filter = null; render(); } })]
-      .concat(TIERS.map((n, i) => el('button', { class: 'chip' + (filter === i ? ' on' : ''), text: n, onclick: () => { filter = i; render(); } })));
-    const cards = d.album.filter(c => filter === null || c.tier === filter);
-    const grid = cards.length ? el('div', { class: 'grid' }, cards.map(c => {
-      const t = el('div', { class: 'thumb' + (d.trainingIds.includes(c.id) ? ' training' : ''), style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name + ' · ' + c.rarity, onclick: () => openViewer(c.id) },
-        c.src ? el('img', { src: c.src, alt: c.name, loading: 'lazy' }) : el('div', { class: 'nm', text: c.name }),
-        c.count > 1 ? el('span', { class: 'n', text: '×' + c.count }) : null);
-      return t;
-    })) : el('div', { class: 'sub', text: d.albumUnique ? 'No tienes cartas de esta categoría.' : 'Tu álbum está vacío.' });
-    return box('Álbum (' + d.albumUnique + ' distintas · ' + d.albumTotal + ' en total · ' + d.mastered + ' completadas)', el('div', { class: 'chips' }, chips), grid);
+    const recent = d.recent.length
+      ? el('div', { class: 'recent' }, d.recent.map(c => el('div', { class: 'thumb', style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name + ' · ' + c.rarity, onclick: () => send('openAlbum', { id: c.id }) },
+        c.src ? el('img', { src: c.src, alt: c.name }) : el('div', { class: 'nm', text: c.name }))))
+      : el('div', { class: 'sub', text: 'Tu álbum está vacío.' });
+    return box('Álbum',
+      row(d.albumUnique + ' cartas distintas', d.albumTotal + ' en total'),
+      row('Líneas completadas', String(d.mastered)),
+      recent,
+      el('button', { class: 'btn', style: 'width:100%;margin-top:8px', text: 'Abrir álbum', onclick: () => send('openAlbum') }));
   }
 
-  /* ───── visor de una carta ───── */
-  function openViewer(id) {
-    const c = S.album.find(x => x.id === id);
-    if (!c) return;
-    viewing = id;
-    const training = S.trainingIds.includes(id);
-    overlay.replaceChildren(...[
-      cardEl(c, 220),
-      el('div', { class: 'row', style: 'gap:8px;justify-content:center' }, el('b', { text: c.name }), badge(c.tier)),
-      el('div', { class: 'sub', text: [c.rarity, c.stage, c.hp ? c.hp + ' PS' : '', c.set].filter(Boolean).join(' · ') }),
-      c.count > 1 ? el('div', { class: 'sub', text: 'Tienes ' + c.count + ' copias' }) : null,
-      el('div', { class: 'row', style: 'gap:8px' },
-        el('button', { class: 'btn', ...(freeSlot() && !training ? {} : { disabled: '' }), text: training ? 'Entrenando' : freeSlot() ? 'Entrenar' : 'Sin huecos', onclick: () => { send('train', { id }); closeOverlay(); } }),
-        el('button', { class: 'btn ghost', text: 'Cerrar', onclick: closeOverlay })),
-    ].filter(Boolean)); // replaceChildren(null) insertaría el texto "null"
-    send('high', { id });
-  }
-  function closeOverlay() { viewing = null; overlay.replaceChildren(); }
+  function closeOverlay() { overlay.replaceChildren(); }
 
   /* ───── apertura de sobre ───── */
   function showOpening(kind) {
@@ -194,17 +137,10 @@
 
   window.addEventListener('message', ev => {
     const m = ev.data || {};
-    if (m.type === 'state') {
-      S = m.data;
-      render();
-      if (viewing && !S.album.find(c => c.id === viewing)) closeOverlay();
-    } else if (m.type === 'opening') showOpening(m.kind);
+    if (m.type === 'state') { S = m.data; render(); }
+    else if (m.type === 'opening') showOpening(m.kind);
     else if (m.type === 'reveal') showReveal(m.cards);
     else if (m.type === 'openFailed') { closeOverlay(); toast('No se pudo abrir el sobre (sin conexión)'); }
-    else if (m.type === 'high' && viewing === m.id) {
-      const img = overlay.querySelector('.card3d img');
-      if (img) img.src = m.src;
-    }
   });
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); });
   vscode.postMessage({ type: 'ready' });

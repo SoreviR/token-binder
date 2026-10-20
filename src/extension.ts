@@ -10,6 +10,7 @@ import {
 } from './game/engine';
 import { Tcgdex } from './game/tcgdex';
 import { PokeViewProvider, WebviewMessage } from './webview/provider';
+import { AlbumPanel } from './webview/albumPanel';
 import { lastBackend } from './usage/sqlite';
 
 const cfg = () => vscode.workspace.getConfiguration('pokeToken');
@@ -27,7 +28,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
   bar.command = 'pokeToken.open';
   bar.show();
 
-  const provider = new PokeViewProvider(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m));
+  const provider = new PokeViewProvider(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m, 'side'));
+  const album = new AlbumPanel(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m, 'album'));
   let state: GameState | undefined;
   let busy = false;
   let opening = false;
@@ -76,16 +78,19 @@ export function activate(ctx: vscode.ExtensionContext): void {
       await alerts(start, pct);
       renderBar(bar, unit, usedNow, pct, agg.today, agg.month, agg.byModel, agg.byMode);
       if (provider.visible) { provider.post(await snapshot(unit, limit, usedNow, pct, agg, state, lifetime, mult, every, events, pace)); }
+      if (album.open) { album.post(await albumData(state)); }
     } finally {
       busy = false;
       if (rerun) { rerun = false; void tick(true); }
     }
   }
 
-  /** Mensajes del panel: abrir sobre, entrenar una carta, pedir la imagen grande. */
-  async function onMessage(m: WebviewMessage): Promise<void> {
+  /** Mensajes de los paneles: abrir sobre, comprar, entrenar, abrir el álbum, pedir la imagen grande. */
+  async function onMessage(m: WebviewMessage, from: 'side' | 'album'): Promise<void> {
     if (!state) { return; }
-    if (m.type === 'openPack') { await openPack(m.kind === 'premium' || m.kind === 'ball' ? m.kind : 'pack'); }
+    const target = from === 'album' ? album : provider;
+    if (m.type === 'openAlbum') { album.show(); }
+    else if (m.type === 'openPack') { await openPack(m.kind === 'premium' || m.kind === 'ball' ? m.kind : 'pack'); }
     else if (m.type === 'buy' && typeof m.item === 'string') {
       if (buy(state, m.item as Item)) { await game.save(state); await tick(true); }
     } else if (m.type === 'train' && typeof m.id === 'string') {
@@ -93,8 +98,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
     } else if (m.type === 'high' && typeof m.id === 'string') {
       const card = state.collection[m.id]?.card;
       const file = card && await tcg.image(card, 'high');
-      const src = file && provider.uri(file);
-      if (src) { provider.send({ type: 'high', id: m.id, src }); }
+      const src = file && target.uri(file); // cada webview genera sus propias URI
+      if (src) { target.send({ type: 'high', id: m.id, src }); }
     }
   }
 
@@ -119,11 +124,24 @@ export function activate(ctx: vscode.ExtensionContext): void {
     } finally { opening = false; }
   }
 
-  async function cardView(c: Card, q: 'low' | 'high', fetchIfMissing: boolean) {
+  async function cardView(c: Card, q: 'low' | 'high', fetchIfMissing: boolean, toUri: (p: string) => string | undefined = p => provider.uri(p)) {
     const file = tcg.cachedImage(c, q) ?? (fetchIfMissing ? await tcg.image(c, q) : undefined);
     return {
       id: c.id, name: c.name, rarity: c.rarity, tier: c.tier, tierName: TIER_NAMES[c.tier], stage: c.stage, hp: c.hp,
-      types: c.types, set: c.set, src: file ? provider.uri(file) : undefined,
+      types: c.types, set: c.set, src: file ? toUri(file) : undefined,
+    };
+  }
+
+  /** Datos de la pestaña del álbum: toda la colección con miniaturas (se descargan en segundo plano). */
+  async function albumData(s: GameState) {
+    const owned = Object.values(s.collection);
+    prefetchThumbs(owned.map(o => o.card));
+    const cards = await Promise.all(owned.slice(0, 1000).map(async o => ({
+      ...await cardView(o.card, 'low', false, p => album.uri(p)), count: o.count, firstAt: o.firstAt,
+    })));
+    return {
+      album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      trainingIds: s.slots.flatMap(t => (t ? [t.card.id] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };
   }
 
@@ -168,9 +186,10 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const p = trainingProgress(t, lifetime, mult);
       return { card: await cardView(t.card, 'high', true), pct: p.pct, into: p.into, span: p.span, evolved: t.evolved };
     }));
-    const owned = Object.values(s.collection).sort((a, c) => c.card.tier - a.card.tier || c.firstAt - a.firstAt);
-    prefetchThumbs(owned.slice(0, 120).map(o => o.card));
-    const album = await Promise.all(owned.slice(0, 120).map(async o => ({ ...await cardView(o.card, 'low', false), count: o.count })));
+    const owned = Object.values(s.collection);
+    const newest = owned.sort((a, c) => c.firstAt - a.firstAt).slice(0, 3).map(o => o.card);
+    prefetchThumbs(newest);
+    const recent = await Promise.all(newest.map(c => cardView(c, 'low', false)));
     return {
       unit, limit, used: usedNow, pct, events,
       today: b(agg.today), month: b(agg.month),
@@ -179,8 +198,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       daily: agg.daily,
       packs: s.packs, premium: s.premium, balls: s.balls, nextPack: nextPackProgress(s, lifetime, every),
       coins: Math.floor(s.coins), pace, shop,
-      slots, album, albumUnique: owned.length, albumTotal: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
-      trainingIds: s.slots.flatMap(t => (t ? [t.card.id] : [])),
+      slots, recent, albumUnique: owned.length, albumTotal: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
     };
   }
 
@@ -189,6 +207,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider(PokeViewProvider.viewType, provider),
     vscode.commands.registerCommand('pokeToken.open', () => vscode.commands.executeCommand('workbench.view.extension.pokeToken')),
     vscode.commands.registerCommand('pokeToken.refresh', () => tick(true)),
+    vscode.commands.registerCommand('pokeToken.openAlbum', () => album.show()),
     vscode.commands.registerCommand('pokeToken.setQuota', async () => {
       const c = cfg();
       const unit = await vscode.window.showQuickPick(

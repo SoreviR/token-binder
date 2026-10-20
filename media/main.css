@@ -98,3 +98,20 @@ button.btn.ghost { background: transparent; color: var(--vscode-foreground); bor
   .card3d .inner, .back { transition: none; }
   .pack.shake, .reveal-in, .card3d .foil, .toast { animation: none !important; }
 }
+
+/* resumen del álbum en el panel lateral */
+.recent { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
+
+/* pestaña del álbum (album.js) */
+body.album { padding: 16px 20px 40px; max-width: 1200px; margin: 0 auto; }
+.albumhead h2 { margin: 0 0 2px; font-size: 20px; font-weight: 600; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
+.search, .sorter { background: var(--vscode-input-background); color: var(--vscode-input-foreground); border: 1px solid var(--vscode-input-border, var(--vscode-widget-border, #555)); border-radius: 4px; padding: 5px 8px; font-size: 13px; font-family: inherit; }
+.search { flex: 1 1 220px; min-width: 0; }
+body.album .chip { font-size: 12px; padding: 3px 10px; }
+.agrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; margin-top: 10px; }
+.agrid .thumb { transition: transform .15s; }
+.agrid .thumb:hover { transform: translateY(-3px) scale(1.03); }
+.agrid .thumb .tr { position: absolute; left: 0; right: 0; top: 0; text-align: center; font-size: 10px; background: var(--vscode-progressBar-background); color: #fff; padding: 1px 0; }
+body.album #overlay { justify-content: center; cursor: pointer; }
+.viewer { cursor: default; display: flex; flex-direction: column; align-items: center; max-width: 100%; }

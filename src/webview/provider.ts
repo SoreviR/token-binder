@@ -47,6 +47,7 @@ export class PokeViewProvider implements vscode.WebviewViewProvider {
     return `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${w.cspSource}; style-src ${w.cspSource}; script-src 'nonce-${nonce}';">
 <link rel="stylesheet" href="${uri('main.css')}"></head>
-<body><div id="app"></div><div id="overlay"></div><script nonce="${nonce}" src="${uri('main.js')}"></script></body></html>`;
+<body><div id="app"></div><div id="overlay"></div>
+<script nonce="${nonce}" src="${uri('common.js')}"></script><script nonce="${nonce}" src="${uri('main.js')}"></script></body></html>`;
   }
 }

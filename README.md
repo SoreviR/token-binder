@@ -58,7 +58,7 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | `pokeToken.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
 | `pokeToken.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
 
-Comandos (`F1`): **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajustes**, **PokeToken: Abrir panel** y **PokeToken: Recalcular uso**.
+Comandos (`F1`): **PokeToken: Abrir álbum**, **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajustes**, **PokeToken: Abrir panel** y **PokeToken: Recalcular uso**.
 
 ## Cómo se juega
 
@@ -72,7 +72,7 @@ Comandos (`F1`): **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajus
    | 5.ª | Rara 55 % · Holo 25 % · Ultra 12 % · Ilustración 6 % · Secreta 2 % |
 
 3. **Pon una carta a entrenar** (*Entrenar*, en el sobre o desde el álbum). Mientras usas tokens, su barra avanza: a los ~1.5 M tokens **evoluciona** a la carta siguiente de su línea (por ejemplo Charmander → Charmeleon → Charizard), intentando mantener la misma rareza; las siguientes etapas duran ~4.5 M, ~6 M y ~8 M tokens. Cuando ya no tiene más evoluciones **completa su línea**, libera el hueco y te da **un sobre**. `growth.multiplier` escala estas duraciones.
-4. **Coleccionas** todo en el álbum, con filtro por rareza y contador de repetidas. Pulsa una carta para verla en grande.
+4. **Coleccionas** todo en el álbum. En el panel lateral ves un resumen y las 3 últimas cartas; el botón **Abrir álbum** (o `F1` → *PokeToken: Abrir álbum*) lo abre en una pestaña grande del editor, con búsqueda por nombre o set, filtro por rareza, orden (rareza, recientes, nombre, repetidas) y visor de carta en grande desde donde puedes entrenarla.
 
 Las cartas muestran una inclinación 3D que sigue al ratón, y las de rareza Holo o superior añaden brillo holográfico (las Ilustración y Secretas tienen efectos propios).
 
@@ -145,7 +145,7 @@ npm run package     # genera poke-token-X.Y.Z.vsix
 
 Pulsa **F5** en VS Code para abrir una ventana de desarrollo con la extensión cargada.
 
-Estructura: `src/usage/` (lectura de sesiones: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (cuota), `src/game/` (motor de sobres/entrenamiento y cliente de TCGdex), `src/webview/` y `media/` (panel lateral).
+Estructura: `src/usage/` (lectura de sesiones: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (cuota), `src/game/` (motor de sobres/entrenamiento y cliente de TCGdex), `src/webview/` y `media/` (panel lateral y pestaña del álbum).
 
 ### Publicar una versión
 
