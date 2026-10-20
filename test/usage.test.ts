@@ -4,7 +4,19 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { replayJournal } from '../src/usage/journal';
 import { extractSession } from '../src/usage/extract';
-import { periodStart } from '../src/quota';
+import { parseLimit, periodStart } from '../src/quota';
+
+test('quota: parseLimit entiende sufijos y separadores de miles', () => {
+  assert.equal(parseLimit('5M'), 5_000_000);
+  assert.equal(parseLimit('750k'), 750_000);
+  assert.equal(parseLimit('1.5M'), 1_500_000);
+  assert.equal(parseLimit('1,5m'), 1_500_000);
+  assert.equal(parseLimit('5.000.000'), 5_000_000);
+  assert.equal(parseLimit('5000000'), 5_000_000);
+  assert.equal(parseLimit('0'), undefined);
+  assert.equal(parseLimit('abc'), undefined);
+  assert.equal(parseLimit(''), undefined);
+});
 
 const text = fs.readFileSync(path.join(__dirname, 'fixtures', 'synthetic.jsonl'), 'utf8');
 

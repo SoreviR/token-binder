@@ -2,7 +2,7 @@
   "name": "poke-token",
   "displayName": "PokeToken",
   "description": "Tokens de Copilot Chat convertidos en un Pokémon que crece, con % de cuota mensual.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "sorevir",
   "license": "MIT",
   "engines": {
@@ -38,6 +38,14 @@
       {
         "command": "pokeToken.open",
         "title": "PokeToken: Abrir panel"
+      },
+      {
+        "command": "pokeToken.setQuota",
+        "title": "PokeToken: Configurar cupo mensual"
+      },
+      {
+        "command": "pokeToken.openSettings",
+        "title": "PokeToken: Abrir ajustes"
       },
       {
         "command": "pokeToken.refresh",

@@ -42,7 +42,11 @@ Después **reinicia VS Code**. Para actualizar, repite cualquiera de las dos opc
 
 ## Configuración
 
-Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porcentaje como *tu uso local ÷ el límite que tú configures*. Pregunta a tu administrador cuál es tu cupo y ponlo en los ajustes (`Ctrl+,` → busca `pokeToken`):
+Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porcentaje como *tu uso local ÷ el límite que tú configures*. Pregunta a tu administrador cuál es tu cupo.
+
+**Forma rápida:** pulsa `F1`, escribe **PokeToken: Configurar cupo mensual**, elige la unidad y escribe el número (acepta `5M`, `750k`, `5000000`). También puedes pasar el ratón sobre el contador de la barra de estado y pulsar *Configurar cupo*.
+
+**Forma manual:** `F1` → **PokeToken: Abrir ajustes** (o `Ctrl+,` y busca `pokeToken`). Los ajustes disponibles:
 
 | Ajuste | Por defecto | Descripción |
 |---|---|---|
@@ -53,7 +57,7 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | `pokeToken.growth.multiplier` | `1` | Escala los tokens que necesita el Pokémon para crecer (0.1–2). |
 | `pokeToken.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
 
-Comandos (`Ctrl+Shift+P`): **PokeToken: Abrir panel** y **PokeToken: Recalcular uso**.
+Comandos (`F1`): **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajustes**, **PokeToken: Abrir panel** y **PokeToken: Recalcular uso**.
 
 ## El Pokémon
 

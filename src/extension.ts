@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { UsageStore, totalOf } from './usage/store';
 import { defaultRoots } from './usage/paths';
-import { fmt, percent, periodStart, used, Unit } from './quota';
+import { fmt, parseLimit, percent, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
 import { advance, progressOf, LINES, GameState } from './game/engine';
 import { getSprite } from './game/sprites';
@@ -95,6 +95,24 @@ export function activate(ctx: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider(PokeViewProvider.viewType, provider),
     vscode.commands.registerCommand('pokeToken.open', () => vscode.commands.executeCommand('workbench.view.extension.pokeToken')),
     vscode.commands.registerCommand('pokeToken.refresh', () => tick(true)),
+    vscode.commands.registerCommand('pokeToken.setQuota', async () => {
+      const c = cfg();
+      const unit = await vscode.window.showQuickPick(
+        [{ label: 'tokens', description: 'Cupo medido en tokens' }, { label: 'credits', description: 'Cupo medido en créditos de IA de Copilot' }],
+        { title: 'PokeToken: unidad del cupo', placeHolder: `Actual: ${c.get('quota.unit')}` });
+      if (!unit) { return; }
+      const raw = await vscode.window.showInputBox({
+        title: 'PokeToken: cupo mensual',
+        prompt: `Tu cupo en ${unit.label}. Acepta sufijos K, M, B (ej. 5M = 5.000.000).`,
+        value: String(c.get('quota.monthlyLimit')),
+        validateInput: v => (parseLimit(v) ? undefined : 'Escribe un número mayor que 0, p. ej. 5000000 o 5M'),
+      });
+      if (raw === undefined) { return; }
+      await c.update('quota.unit', unit.label, vscode.ConfigurationTarget.Global);
+      await c.update('quota.monthlyLimit', parseLimit(raw), vscode.ConfigurationTarget.Global);
+      void vscode.window.showInformationMessage(`PokeToken: cupo fijado en ${fmt(parseLimit(raw)!)} ${unit.label}.`);
+    }),
+    vscode.commands.registerCommand('pokeToken.openSettings', () => vscode.commands.executeCommand('workbench.action.openSettings', 'pokeToken')),
     vscode.workspace.onDidChangeConfiguration(e => { if (e.affectsConfiguration('pokeToken')) { void tick(true); } }),
   );
 
@@ -121,10 +139,11 @@ function renderBar(bar: vscode.StatusBarItem, unit: Unit, usedNow: number, pct: 
   bar.backgroundColor = pct >= 100 ? new vscode.ThemeColor('statusBarItem.errorBackground')
     : pct >= 80 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
   const md = new vscode.MarkdownString(undefined, true);
+  md.isTrusted = { enabledCommands: ['pokeToken.setQuota', 'pokeToken.open'] };
   md.appendMarkdown(`**PokeToken** — ${pct.toFixed(1)}% del cupo mensual\n\n`);
   md.appendMarkdown(`Hoy: **${fmt(totalOf(today))}** tokens · Mes: **${fmt(totalOf(month))}** tokens\n\n`);
   const rows = (o: Record<string, any>) => Object.entries(o).sort(([, a], [, b]) => totalOf(b) - totalOf(a)).slice(0, 6).map(([k, v]) => `- ${k}: ${fmt(totalOf(v))}`).join('\n');
-  md.appendMarkdown(`**Por modelo**\n${rows(byModel) || '- (sin datos)'}\n\n**Por modo**\n${rows(byMode) || '- (sin datos)'}`);
+  md.appendMarkdown(`**Por modelo**\n${rows(byModel) || '- (sin datos)'}\n\n**Por modo**\n${rows(byMode) || '- (sin datos)'}\n\n[Configurar cupo](command:pokeToken.setQuota) · [Abrir panel](command:pokeToken.open)`);
   bar.tooltip = md;
 }
 
