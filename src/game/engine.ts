@@ -18,6 +18,52 @@ export const TIER_RARITIES: string[][] = [
 const TIER_BY_RARITY = new Map(TIER_RARITIES.flatMap((names, tier) => names.map(n => [n.toLowerCase(), tier] as const)));
 export const tierOf = (rarity?: string): number => TIER_BY_RARITY.get((rarity ?? '').toLowerCase()) ?? 2;
 
+/* ───────── Eras: qué cartas pueden salir en un sobre ───────── */
+
+export type Era = 'vintage' | 'classic' | 'bwxy' | 'modern' | 'current';
+
+export interface EraDef {
+  id: Era;
+  label: string;
+  series: string[];                 // series de TCGdex que pertenecen a la era
+  holoOnly: boolean;                // solo cartas con variante holo (en lo vintage la rareza dice solo "Rare")
+  rarities: [rarity: string, weight: number][];  // rarezas que pueden salir en esta era
+}
+
+/**
+ * Filtro «premium»: en las eras antiguas solo salen las holográficas; cuanto más moderna la era, más alta
+ * es la rareza mínima (nada de comunes ni de rarezas normales). Se excluyen promos varias, TCG Pocket y kits.
+ */
+export const ERAS: EraDef[] = [
+  { id: 'vintage', label: 'Vintage', series: ['base', 'gym', 'neo', 'lc', 'ecard'], holoOnly: true,
+    rarities: [['Rare', 1], ['Holo Rare', 1], ['Rare Holo', 1]] },
+  { id: 'classic', label: 'Clásica', series: ['ex', 'dp', 'pl', 'hgss', 'col'], holoOnly: true,
+    rarities: [['Rare', 3], ['Holo Rare', 3], ['Rare Holo', 3], ['Rare Holo LV.X', 2], ['Rare PRIME', 2], ['LEGEND', 1], ['Ultra Rare', 2]] },
+  { id: 'bwxy', label: 'Black & White / XY', series: ['bw', 'xy'], holoOnly: false,
+    rarities: [['Ultra Rare', 9], ['Secret Rare', 1], ['Black White Rare', 1]] },
+  { id: 'modern', label: 'Moderna', series: ['sm', 'swsh'], holoOnly: false,
+    rarities: [['Ultra Rare', 4], ['Holo Rare V', 3], ['Holo Rare VMAX', 2], ['Holo Rare VSTAR', 2], ['Secret Rare', 2], ['Radiant Rare', 1],
+      ['Amazing Rare', 1], ['Shiny rare V', 1], ['Shiny rare VMAX', 1], ['Illustration rare', 1]] },
+  { id: 'current', label: 'Actual', series: ['sv', 'me'], holoOnly: false,
+    rarities: [['Illustration rare', 5], ['Ultra Rare', 3], ['Special illustration rare', 3], ['Hyper rare', 2], ['Mega Hyper Rare', 1],
+      ['Shiny Ultra Rare', 1], ['Mega Attack Rare', 1]] },
+];
+export const ERA_BY_ID = Object.fromEntries(ERAS.map(e => [e.id, e])) as Record<Era, EraDef>;
+
+export function eraOfSerie(serie: string): Era | undefined {
+  return ERAS.find(e => e.series.includes(serie))?.id;
+}
+
+/** ¿Cumple la carta el filtro premium de su era? (Se usa para elegir bien las evoluciones.) */
+export function isPremium(c: Pick<Card, 'era' | 'rarity' | 'holo'>): boolean {
+  if (!c.era) { return false; }
+  const e = ERA_BY_ID[c.era];
+  return e.rarities.some(([r]) => r.toLowerCase() === c.rarity.toLowerCase()) && (!e.holoOnly || !!c.holo);
+}
+
+export type Variant = 'shadowless' | 'first';
+export const VARIANT_LABELS: Record<Variant, string> = { shadowless: 'Shadowless', first: '1.ª edición Shadowless' };
+
 export interface Card {
   id: string;
   name: string;
@@ -29,8 +75,17 @@ export interface Card {
   hp?: number;
   types?: string[];
   set?: string;
+  setId?: string;
+  era?: Era;
+  holo?: boolean;
+  shadowless?: boolean; // esta carta existe en versión Shadowless (solo el Set Base)
+  variant?: Variant;    // variante sacada en este ejemplar
   image: string;        // URL base de assets.tcgdex.net (se le añade /low.webp o /high.webp)
 }
+
+/** Clave única de un ejemplar: el mismo id con otra variante es una carta distinta en el álbum. */
+export const keyOf = (c: Pick<Card, 'id' | 'variant'>): string => (c.variant ? `${c.id}#${c.variant}` : c.id);
+
 export interface Owned { card: Card; count: number; firstAt: number }
 export interface Training { card: Card; born: number; evolved: number }
 export interface GameState {
@@ -51,37 +106,54 @@ export interface GameState {
 
 /* ───────── Sobres ───────── */
 
-type Weights = [tier: number, weight: number][];
-const COMMON_SLOT: Weights = [[0, 85], [1, 15]];
-const UNCOMMON_SLOT: Weights = [[1, 80], [2, 20]];
-const HIT_SLOT: Weights = [[2, 55], [3, 25], [4, 12], [5, 6], [6, 2]];
-export const PACK_SLOTS: Weights[] = [COMMON_SLOT, COMMON_SLOT, COMMON_SLOT, UNCOMMON_SLOT, HIT_SLOT];
-
-const PREMIUM_SLOTS: Weights[] = [
-  [[1, 70], [2, 30]], [[1, 70], [2, 30]], [[2, 60], [3, 40]],
-  [[2, 25], [3, 35], [4, 22], [5, 12], [6, 6]], [[2, 25], [3, 35], [4, 22], [5, 12], [6, 6]],
-];
-const BALL_SLOT: Weights = [[0, 50], [1, 25], [2, 15], [3, 6], [4, 3], [5, 0.8], [6, 0.2]];
-
 export type PackKind = 'pack' | 'premium' | 'ball';
 
-export function pickTier(w: Weights, rng: () => number = Math.random): number {
-  let r = rng() * w.reduce((s, [, x]) => s + x, 0);
-  for (const [tier, x] of w) { if ((r -= x) < 0) { return tier; } }
-  return w[w.length - 1][0];
+type EraWeights = Record<Era, number>;
+/** Reparto de eras de una carta normal, de la carta «estrella» y de las últimas cartas de un premium. */
+const BASE_W: EraWeights = { vintage: 34, classic: 28, bwxy: 16, modern: 14, current: 8 };
+const HIT_W: EraWeights = { vintage: 14, classic: 20, bwxy: 20, modern: 26, current: 20 };
+const TOP_W: EraWeights = { vintage: 8, classic: 12, bwxy: 20, modern: 30, current: 30 };
+
+export function pickWeighted<T>(items: [T, number][], rng: () => number = Math.random): T {
+  let r = rng() * items.reduce((s, [, w]) => s + w, 0);
+  for (const [v, w] of items) { if ((r -= w) < 0) { return v; } }
+  return items[items.length - 1][0];
 }
 
-/** La mejora de suerte multiplica +20 % por nivel el peso de las categorías Holo o superiores. */
-export const applyLuck = (w: Weights, luck: number): Weights => w.map(([t, x]) => [t, t >= 3 ? x * (1 + 0.2 * luck) : x] as [number, number]);
-
-/** Categorías de rareza que pide cada carta de un sobre de ese tipo. */
-export function rollTiers(kind: PackKind, luck = 0, rng: () => number = Math.random): number[] {
-  const slots = kind === 'pack' ? PACK_SLOTS : kind === 'premium' ? PREMIUM_SLOTS : [BALL_SLOT];
-  return slots.map(w => pickTier(applyLuck(w, luck), rng));
+/** La mejora de suerte da +20 % por nivel al peso de las eras modernas (las más raras). */
+export function pickEra(w: EraWeights, luck = 0, rng: () => number = Math.random): Era {
+  const boost = 1 + 0.2 * luck;
+  return pickWeighted(ERAS.map(e => [e.id, w[e.id] * (e.id === 'modern' || e.id === 'current' ? boost : 1)] as [Era, number]), rng);
 }
 
-/** Categorías de un sobre normal sin suerte (compatibilidad con los tests). */
-export const rollPackTiers = (rng: () => number = Math.random): number[] => rollTiers('pack', 0, rng);
+/** Era que pide cada carta de un sobre de ese tipo. */
+export function rollEras(kind: PackKind, luck = 0, rng: () => number = Math.random): Era[] {
+  const slots = kind === 'pack' ? [BASE_W, BASE_W, BASE_W, BASE_W, HIT_W]
+    : kind === 'premium' ? [HIT_W, HIT_W, HIT_W, TOP_W, TOP_W] : [BASE_W];
+  return slots.map(w => pickEra(w, luck, rng));
+}
+
+/** Rareza concreta dentro de una era, ordenadas al azar ponderado (para ir probando si alguna no tiene cartas). */
+export function shuffledRarities(era: Era, rng: () => number = Math.random): string[] {
+  const left = [...ERA_BY_ID[era].rarities];
+  const out: string[] = [];
+  while (left.length) {
+    const r = pickWeighted(left, rng);
+    out.push(r);
+    left.splice(left.findIndex(([x]) => x === r), 1);
+  }
+  return out;
+}
+
+/** Variante Shadowless / 1.ª edición Shadowless (solo existe en cartas del Set Base). La suerte la favorece. */
+export function rollVariant(card: Pick<Card, 'shadowless'>, luck = 0, rng: () => number = Math.random): Variant | undefined {
+  if (!card.shadowless) { return undefined; }
+  const m = 1 + 0.2 * luck;
+  const r = rng();
+  if (r < 0.06 * m) { return 'first'; }
+  if (r < 0.06 * m + 0.24 * m) { return 'shadowless'; }
+  return undefined;
+}
 
 /* ───────── Entrenamiento ───────── */
 
@@ -189,9 +261,27 @@ export function nextPackProgress(s: GameState, lifetime: number, every: number):
 
 export function addCards(s: GameState, cards: Card[], now = Date.now()): void {
   for (const c of cards) {
-    const o = s.collection[c.id];
-    if (o) { o.count++; } else { s.collection[c.id] = { card: c, count: 1, firstAt: now }; }
+    const k = keyOf(c);
+    const o = s.collection[k];
+    if (o) { o.count++; } else { s.collection[k] = { card: c, count: 1, firstAt: now }; }
   }
+}
+
+/** Monedas por vender una copia repetida: según la categoría de rareza, con extra para las variantes Shadowless. */
+const SELL_VALUE = [3, 6, 12, 30, 70, 160, 400];
+export function sellValue(c: Pick<Card, 'tier' | 'variant'>): number {
+  return SELL_VALUE[c.tier] * (c.variant === 'first' ? 5 : c.variant === 'shadowless' ? 2 : 1);
+}
+
+/** Vende las copias repetidas (siempre te quedas con una). Con `key` solo esa carta. Devuelve monedas ganadas. */
+export function sellDuplicates(s: GameState, key?: string): number {
+  let earned = 0;
+  for (const [k, o] of Object.entries(s.collection)) {
+    if (key !== undefined && k !== key) { continue; }
+    if (o.count > 1) { earned += (o.count - 1) * sellValue(o.card); o.count = 1; }
+  }
+  s.coins += earned;
+  return earned;
 }
 
 /** Pone una carta de la colección a entrenar en un hueco libre. Devuelve false si no se puede. */
@@ -199,7 +289,7 @@ export function startTraining(s: GameState, cardId: string, lifetime: number): b
   const owned = s.collection[cardId];
   const slot = s.slots.findIndex(x => x === null);
   if (!owned || slot < 0) { return false; }
-  if (s.slots.some(t => t?.card.id === cardId)) { return false; }
+  if (s.slots.some(t => t && keyOf(t.card) === cardId)) { return false; }
   s.slots[slot] = { card: owned.card, born: lifetime, evolved: 0 };
   return true;
 }

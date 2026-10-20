@@ -59,21 +59,26 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | `pokeToken.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
 | `pokeToken.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
 
-Comandos (`F1`): **PokeToken: Abrir álbum**, **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajustes**, **PokeToken: Abrir panel** y **PokeToken: Recalcular uso**.
+Comandos (`F1`): **PokeToken: Abrir álbum**, **PokeToken: Exportar progreso**, **PokeToken: Importar progreso**, **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajustes**, **PokeToken: Abrir panel** y **PokeToken: Recalcular uso**.
 
 ## Cómo se juega
 
 1. **Ganas sobres con tus tokens.** Empiezas con uno de bienvenida y recibes otro cada 750 K tokens usados (`packs.everyTokens`). Si llegas al **100 % del cupo** en un periodo, ganas un sobre extra de regalo.
-2. **Abres el sobre** (botón *Abrir sobre*): salen 5 cartas reales del Pokémon TCG. Cada una tiene una rareza, que se sortea así:
+2. **Abres el sobre** (botón *Abrir sobre*): salen 5 cartas reales del Pokémon TCG, **solo cartas de colección**. No hay comunes ni rarezas normales: cuanto más moderna es la era, más alta es la rareza mínima exigida.
 
-   | Cartas | Probabilidades |
-   |---|---|
-   | 3 primeras | Común 85 % · Poco común 15 % |
-   | 4.ª | Poco común 80 % · Rara 20 % |
-   | 5.ª | Rara 55 % · Holo 25 % · Ultra 12 % · Ilustración 6 % · Secreta 2 % |
+   | Era | Series | Qué puede salir |
+   |---|---|---|
+   | **Vintage** | Base, Gym, Neo, Legendary Collection, e-Card | Solo holográficas (Base Set, Jungle, Fossil, Neo, Aquapolis, Skyridge…) |
+   | **Clásica** | EX, Diamond & Pearl, Platinum, HeartGold SoulSilver, Call of Legends | Solo holográficas, incluidas LV.X, Prime y LEGEND, y Ultra Rare |
+   | **Black & White / XY** | BW, XY | Ultra Rare (EX y full art) y Secret Rare |
+   | **Moderna** | Sun & Moon, Sword & Shield | V, VMAX, VSTAR, Ultra, Secret, Radiant, Amazing, Shiny V… |
+   | **Actual** | Scarlet & Violet y posteriores | Illustration rare, Special illustration rare, Hyper rare, Ultra y Secret |
 
-3. **Pon una carta a entrenar** (*Entrenar*, en el sobre o desde el álbum). Mientras usas tokens, su barra avanza: a los ~1.5 M tokens **evoluciona** a la carta siguiente de su línea (por ejemplo Charmander → Charmeleon → Charizard), intentando mantener la misma rareza; las siguientes etapas duran ~4.5 M, ~6 M y ~8 M tokens. Cuando ya no tiene más evoluciones **completa su línea**, libera el hueco y te da **un sobre**. `growth.multiplier` escala estas duraciones.
-4. **Coleccionas** todo en el álbum. En el panel lateral ves un resumen y las 3 últimas cartas; el botón **Abrir álbum** (o `F1` → *PokeToken: Abrir álbum*) lo abre en una pestaña grande del editor, con búsqueda por nombre o set, filtro por rareza, orden (rareza, recientes, nombre, repetidas) y visor de carta en grande desde donde puedes entrenarla.
+   Cada carta de un sobre normal viene de una era según estas probabilidades aproximadas: Vintage 34 %, Clásica 28 %, BW/XY 16 %, Moderna 14 %, Actual 8 %. La **última carta** del sobre es la «estrella» y favorece las eras modernas (Moderna 26 %, Actual 20 %). El **sobre premium** trae 5 cartas de ese tipo, con las dos últimas aún más modernas, y la **Pokébola** es una sola carta de reparto normal.
+
+   **Shadowless:** las cartas del Set Base pueden salir en su variante **Shadowless** (24 %) o **1.ª edición Shadowless** (6 %). Son ejemplares distintos en el álbum, con etiqueta y brillo dorado, y se venden más caras.
+3. **Pon una carta a entrenar** (*Entrenar*, en el sobre o desde el álbum). Mientras usas tokens, su barra avanza y el panel estima cuántos días faltan según tu ritmo de los últimos 7 días. A los ~1.5 M tokens **evoluciona** a la carta siguiente de su línea (por ejemplo Charmander → Charmeleon → Charizard), prefiriendo cartas que cumplan el filtro de arriba y una rareza parecida; las siguientes etapas duran ~4.5 M, ~6 M y ~8 M tokens. Cuando ya no tiene más evoluciones **completa su línea**, libera el hueco y te da **un sobre**. `growth.multiplier` escala estas duraciones. Como en las eras antiguas muchas holográficas son ya la forma final, es normal que algunas cartas se gradúen sin evolucionar.
+4. **Coleccionas** todo en el álbum. En el panel lateral ves un resumen y las 3 últimas cartas; el botón **Abrir álbum** (o `F1` → *PokeToken: Abrir álbum*) lo abre en una pestaña grande del editor, con búsqueda por nombre, set o rareza, filtro por rareza y por era, orden (rareza, recientes, nombre, repetidas) y visor de carta en grande desde donde puedes entrenarla o **vender las copias repetidas**. Todo se puede usar con el teclado (Tab, Enter, Espacio, Esc).
 
 Las cartas muestran una inclinación 3D que sigue al ratón, y las de rareza Holo o superior añaden brillo holográfico (las Ilustración y Secretas tienen efectos propios).
 
@@ -81,15 +86,21 @@ Las cartas muestran una inclinación 3D que sigue al ratón, y las de rareza Hol
 
 Además de los sobres gratis, ganas **1 moneda cada 10 K tokens** usados. Hay un **bonus del +20 %** mientras tu uso del cupo vaya por debajo del ritmo del mes (por ejemplo, llevar un 40 % del cupo a mitad de mes). No se dan monedas por tokens usados antes de instalar la versión 0.3.
 
+**Vender repetidas:** cada copia repetida da monedas según su categoría (3 · 6 · 12 · 30 · 70 · 160 · 400, de Común a Secreta), ×2 si es Shadowless y ×5 si es 1.ª edición. Siempre te quedas con una copia. El botón *Vender repetidas* del álbum las vende todas de una vez (pide confirmación).
+
 | Artículo | Precio | Qué da |
 |---|---|---|
 | Sobre | 80 | 5 cartas |
 | Sobre premium | 250 | 5 cartas sin comunes y con mejores probabilidades de Holo o superior |
 | Pokébola | 15 | 1 carta |
 | Hueco de entrenamiento | 400 · 900 · 1 600 · 2 600 · 4 000 | Una carta más creciendo a la vez (hasta 6 huecos) |
-| Mejora de suerte | 300 · 600 · 1 200 · 2 400 · 4 800 | +20 % por nivel al peso de las rarezas Holo o superiores (5 niveles) |
+| Mejora de suerte | 300 · 600 · 1 200 · 2 400 · 4 800 | +20 % por nivel al peso de las eras Moderna y Actual en los sobres, y a la probabilidad de variantes Shadowless (5 niveles) |
 
 Los precios son fijos en esta versión; si te parecen caros o baratos dímelo y se ajustan.
+
+## Copia de seguridad y cambio de equipo
+
+Tu progreso (álbum, monedas, cartas en entrenamiento, compras) vive dentro de VS Code en este equipo. Para guardarlo o llevarlo a otro: `F1` → **PokeToken: Exportar progreso** crea un archivo `.json`, y en el otro equipo `F1` → **PokeToken: Importar progreso**. Importar **reemplaza** el progreso actual (pide confirmación). Los tokens que ya hayas usado en el equipo nuevo no dan monedas ni sobres retroactivos.
 
 ## Privacidad
 
@@ -112,7 +123,6 @@ Un turno de agente que encadena varias llamadas al modelo se cuenta completo (su
 
 - **El cupo es manual.** No hay forma de leer el consumo real de la organización desde el equipo; si la empresa mide distinto (por ejemplo, ponderando por modelo), el % puede diferir.
 - **Solo ve este equipo.** Si trabajas en dos máquinas, cada una cuenta lo suyo.
-- **El desglose por modo es aproximado.** VS Code guarda el modo (por ejemplo `interactive`) por *sesión*, no por turno. PokeToken etiqueta cada turno con el modo que tenía su sesión la primera vez que lo vio, y no lo cambia después. No he podido comprobar qué valores toma en los modos plan o ask: si ves `desconocido`, es que esa sesión no declara modo.
 - **La fecha de cada turno es aproximada.** Las bases de datos no guardan la hora por turno: PokeToken anota cuándo ve cada turno por primera vez. El histórico previo a instalar la extensión se fecha con la última modificación de su sesión.
 - **Los créditos son una estimación** derivada de un campo interno de VS Code cuya semántica no está documentada. Si usas `quota.unit: credits`, contrástalo con lo que muestre GitHub.
 - **El formato interno de VS Code puede cambiar** entre versiones, ya que no es una API pública.

@@ -1,6 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TCOLOR, fmt, el, badge, cardEl } = window.PT;
+  const { TCOLOR, fmt, el, badge, cardEl, press, info, eta } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
 
@@ -24,7 +24,7 @@
         el('div', { class: 'pack' }, el('div', { class: 'ball' }), el('b', { text: 'BOOSTER' })),
         el('div', { class: 'packinfo' },
           bar(d.nextPack.pct),
-          el('div', { class: 'sub', text: fmt(d.nextPack.into) + ' / ' + fmt(d.nextPack.span) + ' tokens al próximo sobre gratis' }),
+          el('div', { class: 'sub', text: fmt(d.nextPack.into) + ' / ' + fmt(d.nextPack.span) + ' tokens al próximo sobre gratis ' + eta(d.nextPack.span - d.nextPack.into, d.perDay) }),
           el('div', { class: 'btns' }, openBtn('pack', d.packs, 'Sobre'), openBtn('premium', d.premium, 'Premium'), openBtn('ball', d.balls, 'Pokébola')))));
 
     const shopBox = box('Tienda',
@@ -34,7 +34,7 @@
         el('div', { class: 'si' }, el('div', { text: i.name }), el('div', { class: 'sub', text: i.desc })),
         el('button', { class: 'btn', ...(i.price !== null && d.coins >= i.price ? {} : { disabled: '' }), text: i.price === null ? 'Máximo' : '🪙 ' + i.price, onclick: () => send('buy', { item: i.id }) }))));
 
-    const slots = d.slots.map(s => s ? slotView(s) : el('div', { class: 'empty-slot', text: d.albumUnique ? 'Hueco libre: abre el álbum, elige una carta y pulsa «Entrenar».' : 'Abre tu primer sobre para conseguir cartas.' }));
+    const slots = d.slots.map(s => s ? slotView(s, d.perDay) : el('div', { class: 'empty-slot', text: d.albumUnique ? 'Hueco libre: abre el álbum, elige una carta y pulsa «Entrenar».' : 'Abre tu primer sobre para conseguir cartas.' }));
 
     const max = Math.max(1, ...d.daily.map(x => d.unit === 'credits' ? x.credits : x.total));
     const chart = el('div', { class: 'chart' }, d.daily.map(x => {
@@ -51,8 +51,7 @@
       shopBox,
       albumBox(),
       box('Por día (mes)', chart),
-      box('Por modelo', ...list(d.byModel)),
-      box('Por modo', ...list(d.byMode)));
+      box('Por modelo', ...list(d.byModel)));
 
     announce(d.events || []);
     if (q >= 80 && q < 100 && warned < 80) { warned = 80; toast('Cuidado: ' + q.toFixed(0) + '% del cupo mensual'); }
@@ -60,22 +59,22 @@
     if (q < 80) warned = 0;
   }
 
-  function slotView(s) {
+  function slotView(s, perDay) {
     const c = s.card;
     return el('div', { class: 'center' },
       cardEl(c, 150),
       el('div', { class: 'row', style: 'justify-content:center;margin-top:6px' }, el('b', { text: c.name }), badge(c.tier)),
-      el('div', { class: 'sub', text: [c.stage, c.hp ? c.hp + ' PS' : '', c.set].filter(Boolean).join(' · ') }),
+      el('div', { class: 'sub', text: info(c) }),
       bar(s.pct),
-      el('div', { class: 'sub', text: fmt(s.into) + ' / ' + fmt(s.span) + ' tokens para evolucionar' + (s.evolved ? ' · evoluciones: ' + s.evolved : '') }));
+      el('div', { class: 'sub', text: fmt(s.into) + ' / ' + fmt(s.span) + ' tokens para evolucionar ' + eta(s.span - s.into, perDay) + (s.evolved ? ' · evoluciones: ' + s.evolved : '') }));
   }
 
   /** Resumen del álbum: el álbum completo vive en una pestaña del editor. */
   function albumBox() {
     const d = S;
     const recent = d.recent.length
-      ? el('div', { class: 'recent' }, d.recent.map(c => el('div', { class: 'thumb', style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name + ' · ' + c.rarity, onclick: () => send('openAlbum', { id: c.id }) },
-        c.src ? el('img', { src: c.src, alt: c.name }) : el('div', { class: 'nm', text: c.name }))))
+      ? el('div', { class: 'recent' }, d.recent.map(c => press(el('div', { class: 'thumb', style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name + ' · ' + c.rarity },
+        c.src ? el('img', { src: c.src, alt: '' }) : el('div', { class: 'nm', text: c.name })), () => send('openAlbum', { id: c.id }), 'Abrir álbum: ' + c.name)))
       : el('div', { class: 'sub', text: 'Tu álbum está vacío.' });
     return box('Álbum',
       row(d.albumUnique + ' cartas distintas', d.albumTotal + ' en total'),
@@ -99,13 +98,14 @@
     const hint = el('div', { class: 'hint', text: 'Toca cada carta para darle la vuelta' });
     const cells = cards.map(c => {
       const cell = el('div', { class: 'cell' });
-      const back = el('div', { class: 'back', style: '--w:130px', onclick: () => flip() }, el('div', { class: 'ball' }));
+      const back = press(el('div', { class: 'back', style: '--w:130px' }, el('div', { class: 'ball' })), () => flip(), 'Dar la vuelta a la carta');
       function flip() {
         if (!back.isConnected) return;
         const face = cardEl(c, 130); face.classList.add('reveal-in');
         back.replaceWith(face);
         cell.append(
           el('div', { class: 'nm' }, el('b', { text: c.name }), document.createTextNode(' '), badge(c.tier), c.isNew ? el('span', { class: 'newtag', text: ' NUEVA' }) : null),
+          el('div', { class: 'sub center', text: [c.era, c.variantLabel, c.set].filter(Boolean).join(' · ') }),
           freeSlot() ? el('button', { class: 'btn ghost', text: 'Entrenar', onclick: e => { send('train', { id: c.id }); e.target.disabled = true; e.target.textContent = 'Entrenando'; } }) : null);
         if (--left === 0) { hint.textContent = '¡Sobre completo!'; done.style.display = ''; }
       }

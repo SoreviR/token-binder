@@ -8,7 +8,7 @@ import { readSessionTimes, readTurnUsage } from './sqlite';
 interface FileEntry { mtime: number; size: number; records: UsageRecord[] }
 
 /** Fechas de primera aparición de cada turno (persistidas por la extensión). */
-export interface Stamps { baselined: boolean; firstSeen: Record<string, number>; modes?: Record<string, string> }
+export interface Stamps { baselined: boolean; firstSeen: Record<string, number> }
 
 const statSig = (f: string): { mtime: number; size: number } => {
   let mtime = 0, size = 0;
@@ -24,7 +24,7 @@ export const totalOf = (b: Bucket) => b.input + b.cached + b.output;
 
 export interface Aggregate {
   month: Bucket; today: Bucket;
-  byModel: Record<string, Bucket>; byMode: Record<string, Bucket>;
+  byModel: Record<string, Bucket>;
   daily: { date: string; total: number; credits: number }[];
 }
 
@@ -34,19 +34,6 @@ export class UsageStore {
   stampsDirty = false;
   lastError = '';
   constructor(private roots: () => string[]) {}
-
-  /**
-   * El modo es de la sesión, no del turno: se fija la primera vez que se ve cada turno para que un
-   * cambio posterior (p. ej. pasar a plan) no reetiquete los turnos anteriores.
-   */
-  private pinModes(records: UsageRecord[]): void {
-    const modes = (this.stamps.modes ??= {});
-    for (const r of records) {
-      const pinned = modes[r.key];
-      if (pinned) { r.mode = pinned; }
-      else if (r.mode !== 'desconocido') { modes[r.key] = r.mode; this.stampsDirty = true; }
-    }
-  }
 
   /** Asigna fecha a registros sin hora: la de primera aparición, o (primer escaneo) la de la sesión. */
   private stamp(records: UsageRecord[], fallbackTs: number): void {
@@ -74,9 +61,7 @@ export class UsageStore {
       if (prev && prev.mtime === sig.mtime && prev.size === sig.size) { continue; }
       try {
         const id = path.basename(path.dirname(f));
-        const { rows, mode } = readTurnUsage(f);
-        const records = extractTurnUsage(id, rows, mode);
-        this.pinModes(records);
+        const records = extractTurnUsage(id, readTurnUsage(f));
         if (records.some(r => !this.stamps.firstSeen[r.key])) {
           times ??= new Map(roots.flatMap(r => [...readSessionTimes(hostDbOf(r))]));
         }
@@ -125,7 +110,7 @@ export class UsageStore {
   }
 
   aggregate(monthStart: number, now = Date.now()): Aggregate {
-    const agg: Aggregate = { month: empty(), today: empty(), byModel: {}, byMode: {}, daily: [] };
+    const agg: Aggregate = { month: empty(), today: empty(), byModel: {}, daily: [] };
     const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
     const daily = new Map<string, { total: number; credits: number }>();
     const add = (b: Bucket, r: UsageRecord) => { b.input += r.input; b.cached += r.cached; b.output += r.output; b.credits += r.credits; };
@@ -133,7 +118,6 @@ export class UsageStore {
       if (r.ts >= monthStart) {
         add(agg.month, r);
         add(agg.byModel[r.model] ??= empty(), r);
-        add(agg.byMode[r.mode] ??= empty(), r);
         const d = new Date(r.ts).toLocaleDateString('sv');
         const x = daily.get(d) ?? { total: 0, credits: 0 };
         x.total += r.input + r.cached + r.output; x.credits += r.credits; daily.set(d, x);
@@ -143,6 +127,9 @@ export class UsageStore {
     agg.daily = [...daily].sort(([a], [b]) => a.localeCompare(b)).map(([date, v]) => ({ date, ...v }));
     return agg;
   }
+
+  /** Tokens usados desde `ts` (ms). */
+  tokensSince(ts: number): number { return this.records().reduce((n, r) => (r.ts >= ts ? n + r.input + r.cached + r.output : n), 0); }
 
   /** Total de todos los tiempos (alimenta el crecimiento del Pokémon). */
   lifetimeTokens(): number { return this.records().reduce((s, r) => s + r.input + r.cached + r.output, 0); }

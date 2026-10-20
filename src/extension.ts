@@ -5,8 +5,8 @@ import { defaultRoots } from './usage/paths';
 import { fmt, parseLimit, percent, periodEnd, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
 import {
-  addCards, buy, Card, consume, earnCoins, GameState, grantPacks, Item, MAX_LUCK, MAX_SLOTS, nextPackProgress, PackKind, priceOf,
-  resolveDue, startTraining, TIER_NAMES, trainingProgress, underPace,
+  addCards, buy, Card, consume, earnCoins, ERA_BY_ID, GameState, grantPacks, Item, keyOf, MAX_LUCK, MAX_SLOTS, nextPackProgress, normalize,
+  PackKind, priceOf, resolveDue, sellDuplicates, sellValue, startTraining, TIER_NAMES, trainingProgress, underPace, VARIANT_LABELS,
 } from './game/engine';
 import { Tcgdex } from './game/tcgdex';
 import { PokeViewProvider, WebviewMessage } from './webview/provider';
@@ -79,7 +79,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       await game.save(state);
 
       await alerts(start, pct);
-      renderBar(bar, unit, usedNow, pct, agg.today, agg.month, agg.byModel, agg.byMode);
+      renderBar(bar, unit, usedNow, pct, agg.today, agg.month, agg.byModel);
       renderPackBar(packBar, state);
       if (provider.visible) { provider.post(await snapshot(unit, limit, usedNow, pct, agg, state, lifetime, mult, every, events, pace)); }
       if (album.open) { album.post(await albumData(state)); }
@@ -97,6 +97,18 @@ export function activate(ctx: vscode.ExtensionContext): void {
     else if (m.type === 'openPack') { await openPack(m.kind === 'premium' || m.kind === 'ball' ? m.kind : 'pack'); }
     else if (m.type === 'buy' && typeof m.item === 'string') {
       if (buy(state, m.item as Item)) { await game.save(state); await tick(true); }
+    } else if (m.type === 'sell' && typeof m.id === 'string') {
+      const earned = sellDuplicates(state, m.id);
+      if (earned) { await game.save(state); await tick(true); }
+    } else if (m.type === 'sellAll') {
+      const n = Object.values(state.collection).reduce((s, o) => s + Math.max(0, o.count - 1), 0);
+      if (!n) { void vscode.window.showInformationMessage('PokeToken: no tienes cartas repetidas.'); return; }
+      const ok = await vscode.window.showWarningMessage(`¿Vender ${n} cartas repetidas? Te quedas con una copia de cada una.`, { modal: true }, 'Vender');
+      if (ok === 'Vender') {
+        const earned = sellDuplicates(state);
+        await game.save(state); await tick(true);
+        void vscode.window.showInformationMessage(`PokeToken: vendiste ${n} repetidas por ${Math.floor(earned)} monedas.`);
+      }
     } else if (m.type === 'train' && typeof m.id === 'string') {
       if (startTraining(state, m.id, usage.lifetimeTokens())) { await game.save(state); await tick(true); }
     } else if (m.type === 'high' && typeof m.id === 'string') {
@@ -123,7 +135,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       addCards(state, cards);
       await game.save(state);
       const views = await Promise.all(cards.map(c => cardView(c, 'high', true)));
-      provider.send({ type: 'reveal', cards: views.map((v, i) => ({ ...v, isNew: state!.collection[cards[i].id].count === 1 })) });
+      provider.send({ type: 'reveal', cards: views.map((v, i) => ({ ...v, isNew: state!.collection[keyOf(cards[i])].count === 1 })) });
       await tick(true);
     } finally { opening = false; }
   }
@@ -131,8 +143,10 @@ export function activate(ctx: vscode.ExtensionContext): void {
   async function cardView(c: Card, q: 'low' | 'high', fetchIfMissing: boolean, toUri: (p: string) => string | undefined = p => provider.uri(p)) {
     const file = tcg.cachedImage(c, q) ?? (fetchIfMissing ? await tcg.image(c, q) : undefined);
     return {
-      id: c.id, name: c.name, rarity: c.rarity, tier: c.tier, tierName: TIER_NAMES[c.tier], stage: c.stage, hp: c.hp,
-      types: c.types, set: c.set, src: file ? toUri(file) : undefined,
+      id: keyOf(c), name: c.name, rarity: c.rarity, tier: c.tier, tierName: TIER_NAMES[c.tier], stage: c.stage, hp: c.hp,
+      types: c.types, set: c.set, era: c.era ? ERA_BY_ID[c.era].label : undefined,
+      variant: c.variant, variantLabel: c.variant ? VARIANT_LABELS[c.variant] : undefined, sell: sellValue(c),
+      src: file ? toUri(file) : undefined,
     };
   }
 
@@ -145,13 +159,13 @@ export function activate(ctx: vscode.ExtensionContext): void {
     })));
     return {
       album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
-      trainingIds: s.slots.flatMap(t => (t ? [t.card.id] : [])), freeSlots: s.slots.filter(t => t === null).length,
+      trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };
   }
 
   /** Descarga en segundo plano las miniaturas que faltan y vuelve a pintar el panel al terminar. */
   function prefetchThumbs(cards: Card[]): void {
-    const missing = cards.filter(c => !tcg.cachedImage(c, 'low') && !failedThumbs.has(c.id));
+    const missing = [...new Map(cards.map(c => [c.id, c])).values()].filter(c => !tcg.cachedImage(c, 'low') && !failedThumbs.has(c.id));
     if (!missing.length || prefetching) { return; }
     prefetching = true;
     void (async () => {
@@ -181,7 +195,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       { id: 'premium', name: 'Sobre premium', desc: '5 cartas, mejores rarezas' },
       { id: 'ball', name: 'Pokébola', desc: '1 carta' },
       { id: 'slot', name: 'Hueco de entrenamiento', desc: `${s.slots.length}/${MAX_SLOTS} · una carta más creciendo` },
-      { id: 'luck', name: 'Mejora de suerte', desc: `nivel ${s.luck}/${MAX_LUCK} · +20 % a rarezas Holo o superiores por nivel` },
+      { id: 'luck', name: 'Mejora de suerte', desc: `nivel ${s.luck}/${MAX_LUCK} · +20 % por nivel a las eras modernas y a las variantes Shadowless` },
     ];
     const shop = shopItems.map(i => ({ ...i, price: priceOf(s, i.id) }));
     const b = (x: { input: number; cached: number; output: number; credits: number }) => ({ ...x, total: totalOf(x) });
@@ -198,10 +212,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
       unit, limit, used: usedNow, pct, events,
       today: b(agg.today), month: b(agg.month),
       byModel: Object.entries(agg.byModel).map(([k, v]) => ({ name: k, ...b(v) })).sort((a, c) => c.total - a.total),
-      byMode: Object.entries(agg.byMode).map(([k, v]) => ({ name: k, ...b(v) })).sort((a, c) => c.total - a.total),
       daily: agg.daily,
       packs: s.packs, premium: s.premium, balls: s.balls, nextPack: nextPackProgress(s, lifetime, every),
-      coins: Math.floor(s.coins), pace, shop,
+      coins: Math.floor(s.coins), pace, shop, perDay: usage.tokensSince(Date.now() - 7 * 864e5) / 7,
       slots, recent, albumUnique: owned.length, albumTotal: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
     };
   }
@@ -229,6 +242,38 @@ export function activate(ctx: vscode.ExtensionContext): void {
       await c.update('quota.monthlyLimit', parseLimit(raw), vscode.ConfigurationTarget.Global);
       void vscode.window.showInformationMessage(`PokeToken: cupo fijado en ${fmt(parseLimit(raw)!)} ${unit.label}.`);
     }),
+    vscode.commands.registerCommand('pokeToken.exportProgress', async () => {
+      if (!state) { return; }
+      const file = await vscode.window.showSaveDialog({ title: 'Exportar progreso de PokeToken', filters: { JSON: ['json'] }, defaultUri: vscode.Uri.file(path.join(require('os').homedir(), 'poketoken-progreso.json')) });
+      if (!file) { return; }
+      const payload = { app: 'poke-token', exportedAt: new Date().toISOString(), game: state };
+      await vscode.workspace.fs.writeFile(file, Buffer.from(JSON.stringify(payload, null, 2), 'utf8'));
+      void vscode.window.showInformationMessage(`PokeToken: progreso exportado (${Object.keys(state.collection).length} cartas distintas, ${Math.floor(state.coins)} monedas).`);
+    }),
+    vscode.commands.registerCommand('pokeToken.importProgress', async () => {
+      const pick = await vscode.window.showOpenDialog({ title: 'Importar progreso de PokeToken', filters: { JSON: ['json'] }, canSelectMany: false });
+      if (!pick?.length) { return; }
+      let imported: GameState;
+      try {
+        const data = JSON.parse(Buffer.from(await vscode.workspace.fs.readFile(pick[0])).toString('utf8'));
+        const g = data?.game;
+        if (data?.app !== 'poke-token' || g?.v !== 2 || typeof g.collection !== 'object' || !Array.isArray(g.slots)) { throw new Error('formato'); }
+        imported = normalize(g, usage.lifetimeTokens());
+      } catch {
+        void vscode.window.showErrorMessage('PokeToken: el archivo no es un progreso válido exportado por PokeToken.');
+        return;
+      }
+      const ok = await vscode.window.showWarningMessage(
+        `Esto reemplaza tu progreso actual por el del archivo (${Object.keys(imported.collection).length} cartas distintas, ${Math.floor(imported.coins)} monedas). ¿Continuar?`, { modal: true }, 'Reemplazar');
+      if (ok !== 'Reemplazar') { return; }
+      // Los tokens ya usados en este equipo no deben dar monedas ni sobres otra vez.
+      imported.lastLifetime = usage.lifetimeTokens();
+      imported.baseline = usage.lifetimeTokens() - imported.packsGranted * cfg().get<number>('packs.everyTokens', 750_000);
+      state = imported;
+      await game.save(state);
+      await tick(true);
+      void vscode.window.showInformationMessage('PokeToken: progreso importado.');
+    }),
     vscode.commands.registerCommand('pokeToken.openSettings', () => vscode.commands.executeCommand('workbench.action.openSettings', 'pokeToken')),
     vscode.workspace.onDidChangeConfiguration(e => { if (e.affectsConfiguration('pokeToken')) { void tick(true); } }),
   );
@@ -251,7 +296,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   void tick(true);
 }
 
-function renderBar(bar: vscode.StatusBarItem, unit: Unit, usedNow: number, pct: number, today: any, month: any, byModel: Record<string, any>, byMode: Record<string, any>): void {
+function renderBar(bar: vscode.StatusBarItem, unit: Unit, usedNow: number, pct: number, today: any, month: any, byModel: Record<string, any>): void {
   bar.text = `$(flame) ${fmt(usedNow)}${unit === 'credits' ? ' cr' : ''} · ${pct.toFixed(0)}%`;
   bar.backgroundColor = pct >= 100 ? new vscode.ThemeColor('statusBarItem.errorBackground')
     : pct >= 80 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
@@ -260,7 +305,7 @@ function renderBar(bar: vscode.StatusBarItem, unit: Unit, usedNow: number, pct: 
   md.appendMarkdown(`**PokeToken** — ${pct.toFixed(1)}% del cupo mensual\n\n`);
   md.appendMarkdown(`Hoy: **${fmt(totalOf(today))}** tokens · Mes: **${fmt(totalOf(month))}** tokens\n\n`);
   const rows = (o: Record<string, any>) => Object.entries(o).sort(([, a], [, b]) => totalOf(b) - totalOf(a)).slice(0, 6).map(([k, v]) => `- ${k}: ${fmt(totalOf(v))}`).join('\n');
-  md.appendMarkdown(`**Por modelo**\n${rows(byModel) || '- (sin datos)'}\n\n**Por modo**\n${rows(byMode) || '- (sin datos)'}\n\n[Configurar cupo](command:pokeToken.setQuota) · [Abrir panel](command:pokeToken.open)`);
+  md.appendMarkdown(`**Por modelo**\n${rows(byModel) || '- (sin datos)'}\n\n[Configurar cupo](command:pokeToken.setQuota) · [Abrir panel](command:pokeToken.open)`);
   bar.tooltip = md;
 }
 

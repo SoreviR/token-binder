@@ -115,3 +115,18 @@ body.album .chip { font-size: 12px; padding: 3px 10px; }
 .agrid .thumb .tr { position: absolute; left: 0; right: 0; top: 0; text-align: center; font-size: 10px; background: var(--vscode-progressBar-background); color: #fff; padding: 1px 0; }
 body.album #overlay { justify-content: center; cursor: pointer; }
 .viewer { cursor: default; display: flex; flex-direction: column; align-items: center; max-width: 100%; }
+
+/* variantes Shadowless / 1.ª edición */
+.card3d .vtag { position: absolute; top: 3%; left: 4%; z-index: 2; font-size: 8px; font-weight: 800; letter-spacing: .06em; padding: 1px 5px; border-radius: 3px; color: #3a2a00; background: linear-gradient(135deg, #fff3b0, #e0a800); box-shadow: 0 1px 3px rgba(0,0,0,.5); pointer-events: none; }
+.card3d.v-shadowless .inner { box-shadow: 0 0 10px rgba(255,200,40,.55), 0 4px 10px rgba(0,0,0,.45); }
+.card3d.v-first .inner { box-shadow: 0 0 16px rgba(255,215,74,.9), 0 0 4px #fff3b0, 0 6px 14px rgba(0,0,0,.5); }
+.card3d.v-first .foil, .card3d.v-shadowless .foil { display: block; background-image: linear-gradient(115deg, rgba(120,80,0,.15) 10%, rgba(255,215,74,.6) 45%, rgba(255,250,200,.7) 50%, rgba(255,215,74,.6) 55%, rgba(120,80,0,.15) 90%); }
+.thumb.v-first { box-shadow: 0 0 10px rgba(255,215,74,.85); }
+.thumb.v-shadowless { box-shadow: 0 0 7px rgba(255,200,40,.5); }
+.thumb .vt { position: absolute; left: 2px; bottom: 2px; font-size: 8px; font-weight: 800; padding: 0 4px; border-radius: 3px; color: #3a2a00; background: linear-gradient(135deg, #fff3b0, #e0a800); }
+
+/* teclado */
+[role="button"]:focus-visible, .chip:focus-visible, .btn:focus-visible, .back:focus-visible { outline: 2px solid var(--vscode-focusBorder, #3794ff); outline-offset: 2px; }
+
+/* cabecera del álbum con botón de vender */
+.albumhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }

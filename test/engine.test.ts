@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addCards, Card, FindNext, grantPacks, newState, nextPackProgress, pickTier, resolveDue, rollPackTiers,
+  addCards, Card, FindNext, grantPacks, newState, nextPackProgress, resolveDue,
   stageEnd, startTraining, tierOf, trainingProgress, TIER_RARITIES,
 } from '../src/game/engine';
 
@@ -20,19 +20,6 @@ test('tierOf agrupa rarezas conocidas y trata las desconocidas como Rara', () =>
 test('todas las rarezas de TCGdex están clasificadas (sin duplicados entre categorías)', () => {
   const all = TIER_RARITIES.flat().map(r => r.toLowerCase());
   assert.equal(new Set(all).size, all.length);
-});
-
-test('pickTier respeta los pesos', () => {
-  const w: [number, number][] = [[0, 90], [5, 10]];
-  assert.equal(pickTier(w, () => 0.0), 0);
-  assert.equal(pickTier(w, () => 0.89), 0);
-  assert.equal(pickTier(w, () => 0.95), 5);
-});
-
-test('un sobre tiene 5 cartas: 3 comunes, 1 poco común y 1 con posibilidad de rara', () => {
-  const t = rollPackTiers(() => 0);
-  assert.deepEqual(t, [0, 0, 0, 1, 2]);
-  assert.equal(rollPackTiers(() => 0.999).at(-1), 6);
 });
 
 test('sobres por tokens: se conceden desde la línea base y no se repiten', () => {
@@ -99,7 +86,7 @@ test('resolveDue: si la red falla no cambia nada (se reintenta luego)', async ()
 });
 
 /* ───── Fase 2: monedas, tienda y suerte ───── */
-import { applyLuck, buy, consume, earnCoins, MAX_SLOTS, normalize, priceOf, rollTiers, underPace } from '../src/game/engine';
+import { buy, consume, earnCoins, MAX_SLOTS, normalize, priceOf, underPace } from '../src/game/engine';
 import { periodEnd, periodStart } from '../src/quota';
 
 test('monedas: 1 cada 10 K tokens, +20 % con el bonus de ritmo, sin retroactivo', () => {
@@ -138,6 +125,14 @@ test('tienda: compra solo con monedas suficientes y descuenta el precio', () => 
   assert.equal(s.balls, 1);
 });
 
+test('suerte: 5 niveles máximo', () => {
+  const s = newState(0);
+  s.coins = 1e9;
+  for (let i = 0; i < 5; i++) { assert.equal(buy(s, 'luck'), true); }
+  assert.equal(s.luck, 5);
+  assert.equal(buy(s, 'luck'), false);
+});
+
 test('huecos: el precio sube y se detiene en el máximo', () => {
   const s = newState(0);
   s.coins = 1e9;
@@ -146,22 +141,6 @@ test('huecos: el precio sube y se detiene en el máximo', () => {
   assert.equal(s.slots.length, MAX_SLOTS);
   assert.equal(priceOf(s, 'slot'), null);
   assert.equal(buy(s, 'slot'), false);
-});
-
-test('suerte: sube el peso de Holo o superior y tiene máximo de 5 niveles', () => {
-  const w: [number, number][] = [[0, 50], [3, 10], [6, 10]];
-  assert.deepEqual(applyLuck(w, 5), [[0, 50], [3, 20], [6, 20]]);
-  const s = newState(0);
-  s.coins = 1e9;
-  for (let i = 0; i < 5; i++) { assert.equal(buy(s, 'luck'), true); }
-  assert.equal(s.luck, 5);
-  assert.equal(buy(s, 'luck'), false);
-});
-
-test('tipos de sobre: premium = 5 cartas mejores, Pokébola = 1 carta', () => {
-  assert.equal(rollTiers('ball', 0, () => 0).length, 1);
-  assert.equal(rollTiers('premium', 0, () => 0).length, 5);
-  assert.ok(Math.min(...rollTiers('premium', 0, () => 0)) >= 1); // sin comunes
 });
 
 test('consume descuenta del inventario correcto y no baja de cero', () => {

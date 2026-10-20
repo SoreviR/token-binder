@@ -23,9 +23,3 @@ test('turn_usage: sin turnTokenTotals cae a los campos de nivel superior', () =>
   const [r] = extractTurnUsage('s', [{ turnId: 'x', usage: { inputTokens: 100, outputTokens: 5, cacheReadTokens: 40, model: 'm' } }]);
   assert.deepEqual([r.input, r.cached, r.output], [60, 40, 5]);
 });
-
-test('turn_usage: el modo de la sesión se asigna a cada turno (por defecto "desconocido")', () => {
-  const row = { turnId: 't', usage: { inputTokens: 10, outputTokens: 1, model: 'm' } };
-  assert.equal(extractTurnUsage('s', [row])[0].mode, 'desconocido');
-  assert.equal(extractTurnUsage('s', [row], 'interactive')[0].mode, 'interactive');
-});
