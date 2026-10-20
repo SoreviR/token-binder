@@ -5,7 +5,7 @@ import { defaultRoots } from './usage/paths';
 import { fmt, parseLimit, percent, periodEnd, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
 import {
-  addCards, buy, Card, consume, earnCoins, ERA_BY_ID, GameState, grantPacks, Item, keyOf, MAX_LUCK, MAX_SLOTS, nextPackProgress, normalize,
+  addCards, buy, Card, consume, earnCoins, ERA_BY_ID, GameState, grantPacks, Item, keyOf, MAX_LUCK, MAX_SLOTS, newState, nextPackProgress, normalize,
   PackKind, priceOf, resolveDue, sellDuplicates, sellValue, startTraining, TIER_NAMES, trainingProgress, underPace, VARIANT_LABELS,
 } from './game/engine';
 import { Tcgdex } from './game/tcgdex';
@@ -242,13 +242,30 @@ export function activate(ctx: vscode.ExtensionContext): void {
       await c.update('quota.monthlyLimit', parseLimit(raw), vscode.ConfigurationTarget.Global);
       void vscode.window.showInformationMessage(`PokeToken: cupo fijado en ${fmt(parseLimit(raw)!)} ${unit.label}.`);
     }),
-    vscode.commands.registerCommand('pokeToken.exportProgress', async () => {
-      if (!state) { return; }
+    vscode.commands.registerCommand('pokeToken.exportProgress', async (): Promise<boolean> => {
+      if (!state) { return false; }
       const file = await vscode.window.showSaveDialog({ title: 'Exportar progreso de PokeToken', filters: { JSON: ['json'] }, defaultUri: vscode.Uri.file(path.join(require('os').homedir(), 'poketoken-progreso.json')) });
-      if (!file) { return; }
+      if (!file) { return false; }
       const payload = { app: 'poke-token', exportedAt: new Date().toISOString(), game: state };
       await vscode.workspace.fs.writeFile(file, Buffer.from(JSON.stringify(payload, null, 2), 'utf8'));
       void vscode.window.showInformationMessage(`PokeToken: progreso exportado (${Object.keys(state.collection).length} cartas distintas, ${Math.floor(state.coins)} monedas).`);
+      return true;
+    }),
+    vscode.commands.registerCommand('pokeToken.resetProgress', async () => {
+      if (!state) { return; }
+      const n = Object.keys(state.collection).length;
+      const choice = await vscode.window.showWarningMessage(
+        `¿Reiniciar PokeToken desde cero? Se borran ${n} cartas distintas, ${Math.floor(state.coins)} monedas, las cartas en entrenamiento y las mejoras compradas. Se conservan tus tokens y la configuración del cupo. Recomendado: guardar antes una copia.`,
+        { modal: true }, 'Exportar y reiniciar', 'Reiniciar sin copia');
+      if (!choice) { return; }
+      if (choice === 'Exportar y reiniciar') {
+        const saved = await vscode.commands.executeCommand<boolean>('pokeToken.exportProgress');
+        if (!saved) { return; } // canceló el guardado: no se reinicia nada
+      }
+      state = newState(usage.lifetimeTokens());
+      await game.save(state);
+      await tick(true);
+      void vscode.window.showInformationMessage('PokeToken: progreso reiniciado. Tienes un sobre de bienvenida.');
     }),
     vscode.commands.registerCommand('pokeToken.importProgress', async () => {
       const pick = await vscode.window.showOpenDialog({ title: 'Importar progreso de PokeToken', filters: { JSON: ['json'] }, canSelectMany: false });

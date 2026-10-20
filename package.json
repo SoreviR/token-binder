@@ -2,7 +2,7 @@
   "name": "poke-token",
   "displayName": "PokeToken",
   "description": "Tokens de Copilot Chat convertidos en sobres de cartas Pokémon TCG que evolucionan, con % de cuota mensual.",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "publisher": "sorevir",
   "license": "MIT",
   "engines": {
@@ -62,6 +62,10 @@
       {
         "command": "pokeToken.importProgress",
         "title": "PokeToken: Importar progreso"
+      },
+      {
+        "command": "pokeToken.resetProgress",
+        "title": "PokeToken: Reiniciar progreso"
       }
     ],
     "configuration": {

@@ -59,7 +59,7 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | `pokeToken.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
 | `pokeToken.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
 
-Comandos (`F1`): **PokeToken: Abrir álbum**, **PokeToken: Exportar progreso**, **PokeToken: Importar progreso**, **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajustes**, **PokeToken: Abrir panel** y **PokeToken: Recalcular uso**.
+Comandos (`F1`): **PokeToken: Abrir álbum**, **PokeToken: Exportar progreso**, **PokeToken: Importar progreso**, **PokeToken: Reiniciar progreso**, **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajustes**, **PokeToken: Abrir panel** y **PokeToken: Recalcular uso**.
 
 ## Cómo se juega
 
@@ -100,7 +100,9 @@ Los precios son fijos en esta versión; si te parecen caros o baratos dímelo y 
 
 ## Copia de seguridad y cambio de equipo
 
-Tu progreso (álbum, monedas, cartas en entrenamiento, compras) vive dentro de VS Code en este equipo. Para guardarlo o llevarlo a otro: `F1` → **PokeToken: Exportar progreso** crea un archivo `.json`, y en el otro equipo `F1` → **PokeToken: Importar progreso**. Importar **reemplaza** el progreso actual (pide confirmación). Los tokens que ya hayas usado en el equipo nuevo no dan monedas ni sobres retroactivos.
+Tu progreso (álbum, monedas, cartas en entrenamiento, compras) vive dentro de VS Code en este equipo. Para guardarlo o llevarlo a otro: `F1` → **PokeToken: Exportar progreso** crea un archivo `.json`, y en el otro equipo `F1` → **PokeToken: Importar progreso**. Importar **reemplaza** el progreso actual (pide confirmación).
+
+**Empezar de cero:** `F1` → **PokeToken: Reiniciar progreso**. Borra álbum, monedas, cartas en entrenamiento y mejoras, y te da un sobre de bienvenida; tus tokens y la configuración del cupo no se tocan. Te ofrece guardar antes una copia con *Exportar y reiniciar*. Los tokens que ya hayas usado en el equipo nuevo no dan monedas ni sobres retroactivos.
 
 ## Privacidad
 
