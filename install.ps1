@@ -25,7 +25,11 @@ $file = Join-Path $env:TEMP $asset.name
 Write-Host "Descargando $($asset.name) ($($release.tag_name)) ..."
 Invoke-WebRequest $asset.browser_download_url -OutFile $file
 
+# `code` escribe avisos de Node en stderr; con 'Stop' PowerShell 5.1 los trataría como error fatal.
+$ErrorActionPreference = 'Continue'
 & $code --install-extension $file --force
-if ($LASTEXITCODE -ne 0) { throw "La instalación falló (código $LASTEXITCODE)." }
+$exit = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+if ($exit -ne 0) { throw "La instalación falló (código $exit)." }
 Remove-Item $file -ErrorAction SilentlyContinue
 Write-Host "`nListo. Cierra y vuelve a abrir VS Code, y configura 'pokeToken.quota.monthlyLimit' con tu cupo."
