@@ -6,11 +6,17 @@ declare const module: { require(id: string): any };
 
 const QUERY = 'select turn_id as turnId, usage from turn_usage';
 
-// Script para el respaldo: corre con el `node` del PATH (>=22.5) y devuelve solo turn_id + usage como JSON.
+/** Modo de la sesión (p. ej. "interactive"): session_metadata › configValues › mode. */
+const MODE_QUERY = "select value from session_metadata where key = 'configValues'";
+
+// Script para el respaldo: corre con el `node` del PATH (>=22.5) y devuelve turn_id + usage y el modo como JSON.
 const CHILD = `
 const { DatabaseSync } = require('node:sqlite');
 const db = new DatabaseSync(process.argv[1], { readOnly: true });
-process.stdout.write(JSON.stringify(db.prepare('${QUERY}').all()));
+let rows = [], mode;
+try { rows = db.prepare('${QUERY}').all(); } catch {}
+try { const m = JSON.parse(db.prepare("${MODE_QUERY}").get().value).mode; if (typeof m === 'string') mode = m; } catch {}
+process.stdout.write(JSON.stringify({ rows, mode }));
 `;
 
 let inProcess: any | null | undefined;
@@ -33,23 +39,30 @@ function parse(rows: { turnId: string; usage: string }[]): TurnUsageRow[] {
   return out;
 }
 
-/** Lee turn_usage de un session.db. Devuelve [] si la tabla no existe. Lanza si no hay forma de abrir SQLite. */
-export function readTurnUsage(dbPath: string): TurnUsageRow[] {
+export interface SessionUsage { rows: TurnUsageRow[]; mode?: string }
+
+/** Lee turn_usage y el modo de un session.db. rows=[] si la tabla no existe. Lanza si no hay forma de abrir SQLite. */
+export function readTurnUsage(dbPath: string): SessionUsage {
   const mod = sqliteModule();
   if (mod) {
     lastBackend = 'in-process';
     const db = new mod.DatabaseSync(dbPath, { readOnly: true });
-    try { return parse(db.prepare(QUERY).all()); } catch { return []; } finally { db.close(); }
+    try {
+      let rows: TurnUsageRow[] = [], mode: string | undefined;
+      try { rows = parse(db.prepare(QUERY).all()); } catch { /* sin tabla turn_usage */ }
+      try { const m = JSON.parse(db.prepare(MODE_QUERY).get().value).mode; if (typeof m === 'string') { mode = m; } } catch { /* sin modo */ }
+      return { rows, mode };
+    } finally { db.close(); }
   }
   const r = spawnSync('node', ['--no-warnings', '-e', CHILD, dbPath], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, windowsHide: true });
   if (r.error || r.status !== 0) {
     lastBackend = 'none';
-    lastError = r.error ? String(r.error.message) : (r.stderr || '').split('\n').find(l => /Error|no such table/.test(l)) ?? 'node falló';
-    if (/no such table/.test(r.stderr ?? '')) { return []; }
+    lastError = r.error ? String(r.error.message) : (r.stderr || '').split('\n').find(l => /Error/.test(l)) ?? 'node falló';
     throw new Error('SQLite no disponible (ni node:sqlite en VS Code ni `node` >=22.5 en el PATH): ' + lastError);
   }
   lastBackend = 'child-node';
-  return parse(JSON.parse(r.stdout || '[]'));
+  const out = JSON.parse(r.stdout || '{}');
+  return { rows: parse(out.rows ?? []), mode: out.mode };
 }
 
 /** session_uri → modified_time de agent-host.db (para fechar el histórico previo a la instalación). */

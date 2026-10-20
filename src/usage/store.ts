@@ -8,7 +8,7 @@ import { readSessionTimes, readTurnUsage } from './sqlite';
 interface FileEntry { mtime: number; size: number; records: UsageRecord[] }
 
 /** Fechas de primera aparición de cada turno (persistidas por la extensión). */
-export interface Stamps { baselined: boolean; firstSeen: Record<string, number> }
+export interface Stamps { baselined: boolean; firstSeen: Record<string, number>; modes?: Record<string, string> }
 
 const statSig = (f: string): { mtime: number; size: number } => {
   let mtime = 0, size = 0;
@@ -34,6 +34,19 @@ export class UsageStore {
   stampsDirty = false;
   lastError = '';
   constructor(private roots: () => string[]) {}
+
+  /**
+   * El modo es de la sesión, no del turno: se fija la primera vez que se ve cada turno para que un
+   * cambio posterior (p. ej. pasar a plan) no reetiquete los turnos anteriores.
+   */
+  private pinModes(records: UsageRecord[]): void {
+    const modes = (this.stamps.modes ??= {});
+    for (const r of records) {
+      const pinned = modes[r.key];
+      if (pinned) { r.mode = pinned; }
+      else if (r.mode !== 'desconocido') { modes[r.key] = r.mode; this.stampsDirty = true; }
+    }
+  }
 
   /** Asigna fecha a registros sin hora: la de primera aparición, o (primer escaneo) la de la sesión. */
   private stamp(records: UsageRecord[], fallbackTs: number): void {
@@ -61,8 +74,9 @@ export class UsageStore {
       if (prev && prev.mtime === sig.mtime && prev.size === sig.size) { continue; }
       try {
         const id = path.basename(path.dirname(f));
-        const rows = readTurnUsage(f);
-        const records = extractTurnUsage(id, rows);
+        const { rows, mode } = readTurnUsage(f);
+        const records = extractTurnUsage(id, rows, mode);
+        this.pinModes(records);
         if (records.some(r => !this.stamps.firstSeen[r.key])) {
           times ??= new Map(roots.flatMap(r => [...readSessionTimes(hostDbOf(r))]));
         }

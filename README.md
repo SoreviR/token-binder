@@ -11,6 +11,7 @@ Inspirada en [PokeTokenBar](https://github.com/chattymin/PokeTokenBar) (solo mac
 ## Qué hace
 
 - **Contador en vivo** en la barra de estado: tokens usados en el periodo y % del cupo. Se actualiza en pocos segundos tras cada respuesta del chat.
+- **Aviso de sobres**: junto al contador aparece `🎁 N` cuando tienes sobres o Pokébolas sin abrir; al pulsarlo se abre el panel.
 - **Tooltip con desglose** de hoy, del mes y por modelo.
 - **Panel lateral** (ícono de PokeToken en la barra de actividad): sobres, carta en entrenamiento, álbum, cuota, gráfico por día y uso por modelo.
 - **Alertas** al cruzar el 50 %, 80 % y 100 % del cupo.
@@ -111,7 +112,7 @@ Un turno de agente que encadena varias llamadas al modelo se cuenta completo (su
 
 - **El cupo es manual.** No hay forma de leer el consumo real de la organización desde el equipo; si la empresa mide distinto (por ejemplo, ponderando por modelo), el % puede diferir.
 - **Solo ve este equipo.** Si trabajas en dos máquinas, cada una cuenta lo suyo.
-- **Sin desglose por modo.** El formato nuevo no registra si el turno fue agent, plan o ask, así que "Por modo" muestra *desconocido*.
+- **El desglose por modo es aproximado.** VS Code guarda el modo (por ejemplo `interactive`) por *sesión*, no por turno. PokeToken etiqueta cada turno con el modo que tenía su sesión la primera vez que lo vio, y no lo cambia después. No he podido comprobar qué valores toma en los modos plan o ask: si ves `desconocido`, es que esa sesión no declara modo.
 - **La fecha de cada turno es aproximada.** Las bases de datos no guardan la hora por turno: PokeToken anota cuándo ve cada turno por primera vez. El histórico previo a instalar la extensión se fecha con la última modificación de su sesión.
 - **Los créditos son una estimación** derivada de un campo interno de VS Code cuya semántica no está documentada. Si usas `quota.unit: credits`, contrástalo con lo que muestre GitHub.
 - **El formato interno de VS Code puede cambiar** entre versiones, ya que no es una API pública.

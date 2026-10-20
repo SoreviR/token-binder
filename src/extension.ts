@@ -27,6 +27,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   bar.command = 'pokeToken.open';
   bar.show();
+  // Sobres sin abrir: el panel casi nunca está visible, así que se avisa desde la barra de estado.
+  const packBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
+  packBar.command = 'pokeToken.open';
 
   const provider = new PokeViewProvider(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m, 'side'));
   const album = new AlbumPanel(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m, 'album'));
@@ -77,6 +80,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
 
       await alerts(start, pct);
       renderBar(bar, unit, usedNow, pct, agg.today, agg.month, agg.byModel, agg.byMode);
+      renderPackBar(packBar, state);
       if (provider.visible) { provider.post(await snapshot(unit, limit, usedNow, pct, agg, state, lifetime, mult, every, events, pace)); }
       if (album.open) { album.post(await albumData(state)); }
     } finally {
@@ -203,7 +207,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   }
 
   ctx.subscriptions.push(
-    bar, log,
+    bar, packBar, log,
     vscode.window.registerWebviewViewProvider(PokeViewProvider.viewType, provider),
     vscode.commands.registerCommand('pokeToken.open', () => vscode.commands.executeCommand('workbench.view.extension.pokeToken')),
     vscode.commands.registerCommand('pokeToken.refresh', () => tick(true)),
@@ -258,6 +262,14 @@ function renderBar(bar: vscode.StatusBarItem, unit: Unit, usedNow: number, pct: 
   const rows = (o: Record<string, any>) => Object.entries(o).sort(([, a], [, b]) => totalOf(b) - totalOf(a)).slice(0, 6).map(([k, v]) => `- ${k}: ${fmt(totalOf(v))}`).join('\n');
   md.appendMarkdown(`**Por modelo**\n${rows(byModel) || '- (sin datos)'}\n\n**Por modo**\n${rows(byMode) || '- (sin datos)'}\n\n[Configurar cupo](command:pokeToken.setQuota) · [Abrir panel](command:pokeToken.open)`);
   bar.tooltip = md;
+}
+
+function renderPackBar(item: vscode.StatusBarItem, s: GameState): void {
+  const n = s.packs + s.premium + s.balls;
+  if (!n) { item.hide(); return; }
+  item.text = `$(gift) ${n}`;
+  item.tooltip = `PokeToken: ${n} ${n === 1 ? 'sobre sin abrir' : 'sobres sin abrir'} (${s.packs} normales · ${s.premium} premium · ${s.balls} Pokébolas). Pulsa para abrir el panel.`;
+  item.show();
 }
 
 export function deactivate(): void { /* disposables en ctx.subscriptions */ }

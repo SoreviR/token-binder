@@ -27,7 +27,7 @@ function modelOf(session: any, req: any): string {
  * `_meta.turnTokenTotals` suma todas las rondas del turno (el nivel superior solo trae la última llamada);
  * su inputTokens incluye los cacheados. No hay hora ni modo por fila: ts=0 y la fecha la asigna el store.
  */
-export function extractTurnUsage(sessionId: string, rows: { turnId: string; usage: any }[]): UsageRecord[] {
+export function extractTurnUsage(sessionId: string, rows: { turnId: string; usage: any }[], mode = 'desconocido'): UsageRecord[] {
   const out: UsageRecord[] = [];
   for (const { turnId, usage: u } of rows) {
     const key = `${sessionId}:${turnId}`;
@@ -38,7 +38,7 @@ export function extractTurnUsage(sessionId: string, rows: { turnId: string; usag
     totals.forEach((t, i) => {
       const inp = num(t?.inputTokens), cached = Math.min(num(t?.cachedTokens), inp), output = num(t?.outputTokens);
       if (!inp && !output) { return; }
-      out.push({ key: `${key}:${t?.model ?? i}`, ts: 0, model: String(t?.model ?? 'unknown'), mode: 'desconocido',
+      out.push({ key: `${key}:${t?.model ?? i}`, ts: 0, model: String(t?.model ?? 'unknown'), mode,
         input: inp - cached, cached, output, credits: i === 0 ? nano / 1e9 : 0 });
     });
   }
