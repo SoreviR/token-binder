@@ -17,7 +17,7 @@ export class AlbumPanel {
 
   show(): void {
     if (this.panel) { this.panel.reveal(this.panel.viewColumn ?? vscode.ViewColumn.Active); return; }
-    const panel = vscode.window.createWebviewPanel('pokeToken.album', 'Álbum PokeToken', vscode.ViewColumn.Active, {
+    const panel = vscode.window.createWebviewPanel('tokenBinder.album', 'Álbum TokenBinder', vscode.ViewColumn.Active, {
       enableScripts: true,
       retainContextWhenHidden: true, // conserva filtro y búsqueda al cambiar de pestaña
       localResourceRoots: [vscode.Uri.joinPath(this.ext, 'media'), this.cacheRoot],

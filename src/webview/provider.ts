@@ -2,8 +2,8 @@ import * as vscode from 'vscode';
 
 export type WebviewMessage = { type: string; [k: string]: unknown };
 
-export class PokeViewProvider implements vscode.WebviewViewProvider {
-  static readonly viewType = 'pokeToken.view';
+export class BinderViewProvider implements vscode.WebviewViewProvider {
+  static readonly viewType = 'tokenBinder.view';
   private view?: vscode.WebviewView;
   private last?: unknown;
 

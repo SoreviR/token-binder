@@ -9,29 +9,32 @@ import {
   PackKind, priceOf, resolveDue, sellDuplicates, sellValue, startTraining, TIER_NAMES, trainingProgress, underPace, VARIANT_LABELS,
 } from './game/engine';
 import { Tcgdex } from './game/tcgdex';
-import { PokeViewProvider, WebviewMessage } from './webview/provider';
+import { BinderViewProvider, WebviewMessage } from './webview/provider';
 import { AlbumPanel } from './webview/albumPanel';
+import { migrateLegacySettings, migrateLegacyState, offerUninstallLegacy } from './migrate';
 import { lastBackend } from './usage/sqlite';
 
-const cfg = () => vscode.workspace.getConfiguration('pokeToken');
+const cfg = () => vscode.workspace.getConfiguration('tokenBinder');
 
 export function activate(ctx: vscode.ExtensionContext): void {
   const roots = () => { const r = cfg().get<string[]>('storageRoots', []); return r.length ? r : defaultRoots(); };
+  const log = vscode.window.createOutputChannel('TokenBinder');
+  // Antes se llamaba PokeToken: se recupera su progreso ANTES de leer el estado (lo hace síncrono).
+  migrateLegacyState(ctx, s => log.appendLine(s));
   const usage = new UsageStore(roots);
-  usage.stamps = ctx.globalState.get('pokeToken.stamps.v1', usage.stamps);
-  const log = vscode.window.createOutputChannel('PokeToken');
+  usage.stamps = ctx.globalState.get('tokenBinder.stamps.v1', usage.stamps);
   const game = new GameStore(ctx.globalState);
   const cacheDir = path.join(ctx.globalStorageUri.fsPath, 'tcg');
   const tcg = new Tcgdex(cacheDir);
 
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  bar.command = 'pokeToken.open';
+  bar.command = 'tokenBinder.open';
   bar.show();
   // Sobres sin abrir: el panel casi nunca está visible, así que se avisa desde la barra de estado.
   const packBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
-  packBar.command = 'pokeToken.open';
+  packBar.command = 'tokenBinder.open';
 
-  const provider = new PokeViewProvider(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m, 'side'));
+  const provider = new BinderViewProvider(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m, 'side'));
   const album = new AlbumPanel(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m, 'album'));
   let state: GameState | undefined;
   let busy = false;
@@ -47,7 +50,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     busy = true;
     try {
       const changed = usage.refresh();
-      if (usage.stampsDirty) { usage.stampsDirty = false; await ctx.globalState.update('pokeToken.stamps.v1', usage.stamps); }
+      if (usage.stampsDirty) { usage.stampsDirty = false; await ctx.globalState.update('tokenBinder.stamps.v1', usage.stamps); }
       if (usage.lastError && usage.lastError !== lastLogged) { lastLogged = usage.lastError; log.appendLine(`[error] ${usage.lastError}`); }
       if (changed) { log.appendLine(`[uso] ${usage.records().length} registros (${lastBackend})`); }
       if (!changed && !force && state) { return; }
@@ -102,12 +105,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (earned) { await game.save(state); await tick(true); }
     } else if (m.type === 'sellAll') {
       const n = Object.values(state.collection).reduce((s, o) => s + Math.max(0, o.count - 1), 0);
-      if (!n) { void vscode.window.showInformationMessage('PokeToken: no tienes cartas repetidas.'); return; }
+      if (!n) { void vscode.window.showInformationMessage('TokenBinder: no tienes cartas repetidas.'); return; }
       const ok = await vscode.window.showWarningMessage(`¿Vender ${n} cartas repetidas? Te quedas con una copia de cada una.`, { modal: true }, 'Vender');
       if (ok === 'Vender') {
         const earned = sellDuplicates(state);
         await game.save(state); await tick(true);
-        void vscode.window.showInformationMessage(`PokeToken: vendiste ${n} repetidas por ${Math.floor(earned)} monedas.`);
+        void vscode.window.showInformationMessage(`TokenBinder: vendiste ${n} repetidas por ${Math.floor(earned)} monedas.`);
       }
     } else if (m.type === 'train' && typeof m.id === 'string') {
       if (startTraining(state, m.id, usage.lifetimeTokens())) { await game.save(state); await tick(true); }
@@ -128,7 +131,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const cards = await tcg.rollPack(kind, state.luck);
       if (!cards.length) {
         provider.send({ type: 'openFailed' });
-        void vscode.window.showWarningMessage('PokeToken: no se pudo abrir el sobre (¿sin conexión o red bloqueada a api.tcgdex.net?). No se gastó el sobre.');
+        void vscode.window.showWarningMessage('TokenBinder: no se pudo abrir el sobre (¿sin conexión o red bloqueada a api.tcgdex.net?). No se gastó el sobre.');
         return;
       }
       consume(state, kind);
@@ -185,7 +188,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     if (!crossed.length) { return; }
     await game.markAlerted(period, [...fired, ...crossed]);
     const top = crossed[crossed.length - 1];
-    const msg = `PokeToken: llevas ${pct.toFixed(0)}% del cupo mensual (umbral ${top}%).`;
+    const msg = `TokenBinder: llevas ${pct.toFixed(0)}% del cupo mensual (umbral ${top}%).`;
     void (top >= 100 ? vscode.window.showErrorMessage(msg) : vscode.window.showWarningMessage(msg));
   }
 
@@ -221,18 +224,18 @@ export function activate(ctx: vscode.ExtensionContext): void {
 
   ctx.subscriptions.push(
     bar, packBar, log,
-    vscode.window.registerWebviewViewProvider(PokeViewProvider.viewType, provider),
-    vscode.commands.registerCommand('pokeToken.open', () => vscode.commands.executeCommand('workbench.view.extension.pokeToken')),
-    vscode.commands.registerCommand('pokeToken.refresh', () => tick(true)),
-    vscode.commands.registerCommand('pokeToken.openAlbum', () => album.show()),
-    vscode.commands.registerCommand('pokeToken.setQuota', async () => {
+    vscode.window.registerWebviewViewProvider(BinderViewProvider.viewType, provider),
+    vscode.commands.registerCommand('tokenBinder.open', () => vscode.commands.executeCommand('workbench.view.extension.tokenBinder')),
+    vscode.commands.registerCommand('tokenBinder.refresh', () => tick(true)),
+    vscode.commands.registerCommand('tokenBinder.openAlbum', () => album.show()),
+    vscode.commands.registerCommand('tokenBinder.setQuota', async () => {
       const c = cfg();
       const unit = await vscode.window.showQuickPick(
         [{ label: 'tokens', description: 'Cupo medido en tokens' }, { label: 'credits', description: 'Cupo medido en créditos de IA de Copilot' }],
-        { title: 'PokeToken: unidad del cupo', placeHolder: `Actual: ${c.get('quota.unit')}` });
+        { title: 'TokenBinder: unidad del cupo', placeHolder: `Actual: ${c.get('quota.unit')}` });
       if (!unit) { return; }
       const raw = await vscode.window.showInputBox({
-        title: 'PokeToken: cupo mensual',
+        title: 'TokenBinder: cupo mensual',
         prompt: `Tu cupo en ${unit.label}. Acepta sufijos K, M, B (ej. 5M = 5.000.000).`,
         value: String(c.get('quota.monthlyLimit')),
         validateInput: v => (parseLimit(v) ? undefined : 'Escribe un número mayor que 0, p. ej. 5000000 o 5M'),
@@ -240,44 +243,44 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (raw === undefined) { return; }
       await c.update('quota.unit', unit.label, vscode.ConfigurationTarget.Global);
       await c.update('quota.monthlyLimit', parseLimit(raw), vscode.ConfigurationTarget.Global);
-      void vscode.window.showInformationMessage(`PokeToken: cupo fijado en ${fmt(parseLimit(raw)!)} ${unit.label}.`);
+      void vscode.window.showInformationMessage(`TokenBinder: cupo fijado en ${fmt(parseLimit(raw)!)} ${unit.label}.`);
     }),
-    vscode.commands.registerCommand('pokeToken.exportProgress', async (): Promise<boolean> => {
+    vscode.commands.registerCommand('tokenBinder.exportProgress', async (): Promise<boolean> => {
       if (!state) { return false; }
-      const file = await vscode.window.showSaveDialog({ title: 'Exportar progreso de PokeToken', filters: { JSON: ['json'] }, defaultUri: vscode.Uri.file(path.join(require('os').homedir(), 'poketoken-progreso.json')) });
+      const file = await vscode.window.showSaveDialog({ title: 'Exportar progreso de TokenBinder', filters: { JSON: ['json'] }, defaultUri: vscode.Uri.file(path.join(require('os').homedir(), 'tokenbinder-progreso.json')) });
       if (!file) { return false; }
-      const payload = { app: 'poke-token', exportedAt: new Date().toISOString(), game: state };
+      const payload = { app: 'token-binder', exportedAt: new Date().toISOString(), game: state };
       await vscode.workspace.fs.writeFile(file, Buffer.from(JSON.stringify(payload, null, 2), 'utf8'));
-      void vscode.window.showInformationMessage(`PokeToken: progreso exportado (${Object.keys(state.collection).length} cartas distintas, ${Math.floor(state.coins)} monedas).`);
+      void vscode.window.showInformationMessage(`TokenBinder: progreso exportado (${Object.keys(state.collection).length} cartas distintas, ${Math.floor(state.coins)} monedas).`);
       return true;
     }),
-    vscode.commands.registerCommand('pokeToken.resetProgress', async () => {
+    vscode.commands.registerCommand('tokenBinder.resetProgress', async () => {
       if (!state) { return; }
       const n = Object.keys(state.collection).length;
       const choice = await vscode.window.showWarningMessage(
-        `¿Reiniciar PokeToken desde cero? Se borran ${n} cartas distintas, ${Math.floor(state.coins)} monedas, las cartas en entrenamiento y las mejoras compradas. Se conservan tus tokens y la configuración del cupo. Recomendado: guardar antes una copia.`,
+        `¿Reiniciar TokenBinder desde cero? Se borran ${n} cartas distintas, ${Math.floor(state.coins)} monedas, las cartas en entrenamiento y las mejoras compradas. Se conservan tus tokens y la configuración del cupo. Recomendado: guardar antes una copia.`,
         { modal: true }, 'Exportar y reiniciar', 'Reiniciar sin copia');
       if (!choice) { return; }
       if (choice === 'Exportar y reiniciar') {
-        const saved = await vscode.commands.executeCommand<boolean>('pokeToken.exportProgress');
+        const saved = await vscode.commands.executeCommand<boolean>('tokenBinder.exportProgress');
         if (!saved) { return; } // canceló el guardado: no se reinicia nada
       }
       state = newState(usage.lifetimeTokens());
       await game.save(state);
       await tick(true);
-      void vscode.window.showInformationMessage('PokeToken: progreso reiniciado. Tienes un sobre de bienvenida.');
+      void vscode.window.showInformationMessage('TokenBinder: progreso reiniciado. Tienes un sobre de bienvenida.');
     }),
-    vscode.commands.registerCommand('pokeToken.importProgress', async () => {
-      const pick = await vscode.window.showOpenDialog({ title: 'Importar progreso de PokeToken', filters: { JSON: ['json'] }, canSelectMany: false });
+    vscode.commands.registerCommand('tokenBinder.importProgress', async () => {
+      const pick = await vscode.window.showOpenDialog({ title: 'Importar progreso de TokenBinder', filters: { JSON: ['json'] }, canSelectMany: false });
       if (!pick?.length) { return; }
       let imported: GameState;
       try {
         const data = JSON.parse(Buffer.from(await vscode.workspace.fs.readFile(pick[0])).toString('utf8'));
         const g = data?.game;
-        if (data?.app !== 'poke-token' || g?.v !== 2 || typeof g.collection !== 'object' || !Array.isArray(g.slots)) { throw new Error('formato'); }
+        if (data?.app !== 'token-binder' || g?.v !== 2 || typeof g.collection !== 'object' || !Array.isArray(g.slots)) { throw new Error('formato'); }
         imported = normalize(g, usage.lifetimeTokens());
       } catch {
-        void vscode.window.showErrorMessage('PokeToken: el archivo no es un progreso válido exportado por PokeToken.');
+        void vscode.window.showErrorMessage('TokenBinder: el archivo no es un progreso válido exportado por TokenBinder.');
         return;
       }
       const ok = await vscode.window.showWarningMessage(
@@ -289,10 +292,10 @@ export function activate(ctx: vscode.ExtensionContext): void {
       state = imported;
       await game.save(state);
       await tick(true);
-      void vscode.window.showInformationMessage('PokeToken: progreso importado.');
+      void vscode.window.showInformationMessage('TokenBinder: progreso importado.');
     }),
-    vscode.commands.registerCommand('pokeToken.openSettings', () => vscode.commands.executeCommand('workbench.action.openSettings', 'pokeToken')),
-    vscode.workspace.onDidChangeConfiguration(e => { if (e.affectsConfiguration('pokeToken')) { void tick(true); } }),
+    vscode.commands.registerCommand('tokenBinder.openSettings', () => vscode.commands.executeCommand('workbench.action.openSettings', 'tokenBinder')),
+    vscode.workspace.onDidChangeConfiguration(e => { if (e.affectsConfiguration('tokenBinder')) { void tick(true); } }),
   );
 
   // Watcher (carpetas fuera del workspace via RelativePattern absoluto) + polling de respaldo.
@@ -311,6 +314,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
   ctx.subscriptions.push({ dispose: () => { clearInterval(poll); clearTimeout(timer); } });
 
   void tick(true);
+  // Ajustes de la versión antigua y aviso para quitarla (no bloquea el arranque).
+  void migrateLegacySettings(s => log.appendLine(s)).then(() => offerUninstallLegacy());
 }
 
 function renderBar(bar: vscode.StatusBarItem, unit: Unit, usedNow: number, pct: number, today: any, month: any, byModel: Record<string, any>): void {
@@ -318,11 +323,11 @@ function renderBar(bar: vscode.StatusBarItem, unit: Unit, usedNow: number, pct: 
   bar.backgroundColor = pct >= 100 ? new vscode.ThemeColor('statusBarItem.errorBackground')
     : pct >= 80 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
   const md = new vscode.MarkdownString(undefined, true);
-  md.isTrusted = { enabledCommands: ['pokeToken.setQuota', 'pokeToken.open'] };
-  md.appendMarkdown(`**PokeToken** — ${pct.toFixed(1)}% del cupo mensual\n\n`);
+  md.isTrusted = { enabledCommands: ['tokenBinder.setQuota', 'tokenBinder.open'] };
+  md.appendMarkdown(`**TokenBinder** — ${pct.toFixed(1)}% del cupo mensual\n\n`);
   md.appendMarkdown(`Hoy: **${fmt(totalOf(today))}** tokens · Mes: **${fmt(totalOf(month))}** tokens\n\n`);
   const rows = (o: Record<string, any>) => Object.entries(o).sort(([, a], [, b]) => totalOf(b) - totalOf(a)).slice(0, 6).map(([k, v]) => `- ${k}: ${fmt(totalOf(v))}`).join('\n');
-  md.appendMarkdown(`**Por modelo**\n${rows(byModel) || '- (sin datos)'}\n\n[Configurar cupo](command:pokeToken.setQuota) · [Abrir panel](command:pokeToken.open)`);
+  md.appendMarkdown(`**Por modelo**\n${rows(byModel) || '- (sin datos)'}\n\n[Configurar cupo](command:tokenBinder.setQuota) · [Abrir panel](command:tokenBinder.open)`);
   bar.tooltip = md;
 }
 
@@ -330,7 +335,7 @@ function renderPackBar(item: vscode.StatusBarItem, s: GameState): void {
   const n = s.packs + s.premium + s.balls;
   if (!n) { item.hide(); return; }
   item.text = `$(gift) ${n}`;
-  item.tooltip = `PokeToken: ${n} ${n === 1 ? 'sobre sin abrir' : 'sobres sin abrir'} (${s.packs} normales · ${s.premium} premium · ${s.balls} Pokébolas). Pulsa para abrir el panel.`;
+  item.tooltip = `TokenBinder: ${n} ${n === 1 ? 'sobre sin abrir' : 'sobres sin abrir'} (${s.packs} normales · ${s.premium} premium · ${s.balls} Pokébolas). Pulsa para abrir el panel.`;
   item.show();
 }
 

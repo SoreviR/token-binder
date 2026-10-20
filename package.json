@@ -1,8 +1,8 @@
 {
-  "name": "poke-token",
-  "displayName": "PokeToken",
+  "name": "token-binder",
+  "displayName": "TokenBinder",
   "description": "Tokens de Copilot Chat convertidos en sobres de cartas Pokémon TCG que evolucionan, con % de cuota mensual.",
-  "version": "0.4.1",
+  "version": "1.0.0",
   "publisher": "sorevir",
   "license": "MIT",
   "engines": {
@@ -19,59 +19,59 @@
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "pokeToken",
-          "title": "PokeToken",
+          "id": "tokenBinder",
+          "title": "TokenBinder",
           "icon": "media/icon.svg"
         }
       ]
     },
     "views": {
-      "pokeToken": [
+      "tokenBinder": [
         {
           "type": "webview",
-          "id": "pokeToken.view",
+          "id": "tokenBinder.view",
           "name": "Compañero"
         }
       ]
     },
     "commands": [
       {
-        "command": "pokeToken.open",
-        "title": "PokeToken: Abrir panel"
+        "command": "tokenBinder.open",
+        "title": "TokenBinder: Abrir panel"
       },
       {
-        "command": "pokeToken.openAlbum",
-        "title": "PokeToken: Abrir álbum"
+        "command": "tokenBinder.openAlbum",
+        "title": "TokenBinder: Abrir álbum"
       },
       {
-        "command": "pokeToken.setQuota",
-        "title": "PokeToken: Configurar cupo mensual"
+        "command": "tokenBinder.setQuota",
+        "title": "TokenBinder: Configurar cupo mensual"
       },
       {
-        "command": "pokeToken.openSettings",
-        "title": "PokeToken: Abrir ajustes"
+        "command": "tokenBinder.openSettings",
+        "title": "TokenBinder: Abrir ajustes"
       },
       {
-        "command": "pokeToken.refresh",
-        "title": "PokeToken: Recalcular uso"
+        "command": "tokenBinder.refresh",
+        "title": "TokenBinder: Recalcular uso"
       },
       {
-        "command": "pokeToken.exportProgress",
-        "title": "PokeToken: Exportar progreso"
+        "command": "tokenBinder.exportProgress",
+        "title": "TokenBinder: Exportar progreso"
       },
       {
-        "command": "pokeToken.importProgress",
-        "title": "PokeToken: Importar progreso"
+        "command": "tokenBinder.importProgress",
+        "title": "TokenBinder: Importar progreso"
       },
       {
-        "command": "pokeToken.resetProgress",
-        "title": "PokeToken: Reiniciar progreso"
+        "command": "tokenBinder.resetProgress",
+        "title": "TokenBinder: Reiniciar progreso"
       }
     ],
     "configuration": {
-      "title": "PokeToken",
+      "title": "TokenBinder",
       "properties": {
-        "pokeToken.quota.unit": {
+        "tokenBinder.quota.unit": {
           "type": "string",
           "enum": [
             "tokens",
@@ -80,20 +80,20 @@
           "default": "tokens",
           "description": "Unidad del cupo mensual."
         },
-        "pokeToken.quota.monthlyLimit": {
+        "tokenBinder.quota.monthlyLimit": {
           "type": "number",
           "default": 5000000,
           "minimum": 1,
           "description": "Cupo mensual asignado (en la unidad elegida)."
         },
-        "pokeToken.quota.resetDay": {
+        "tokenBinder.quota.resetDay": {
           "type": "integer",
           "default": 1,
           "minimum": 1,
           "maximum": 28,
           "description": "Día del mes (UTC) en que se reinicia el cupo."
         },
-        "pokeToken.alerts.thresholds": {
+        "tokenBinder.alerts.thresholds": {
           "type": "array",
           "items": {
             "type": "number"
@@ -105,20 +105,20 @@
           ],
           "description": "Porcentajes que disparan una alerta."
         },
-        "pokeToken.packs.everyTokens": {
+        "tokenBinder.packs.everyTokens": {
           "type": "number",
           "default": 750000,
           "minimum": 50000,
           "description": "Cada cuántos tokens usados ganas un sobre de cartas."
         },
-        "pokeToken.growth.multiplier": {
+        "tokenBinder.growth.multiplier": {
           "type": "number",
           "default": 1,
           "minimum": 0.1,
           "maximum": 2,
           "description": "Multiplica los tokens que necesita cada carta para evolucionar."
         },
-        "pokeToken.storageRoots": {
+        "tokenBinder.storageRoots": {
           "type": "array",
           "items": {
             "type": "string"
@@ -145,10 +145,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/SoreviR/poke-token-vscode.git"
+    "url": "https://github.com/SoreviR/token-binder.git"
   },
-  "homepage": "https://github.com/SoreviR/poke-token-vscode#readme",
+  "homepage": "https://github.com/SoreviR/token-binder#readme",
   "bugs": {
-    "url": "https://github.com/SoreviR/poke-token-vscode/issues"
+    "url": "https://github.com/SoreviR/token-binder/issues"
   }
 }

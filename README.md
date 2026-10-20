@@ -1,4 +1,4 @@
-# PokeToken
+# TokenBinder
 
 Extensión de VS Code para **Windows** que mide los tokens que consumes en **GitHub Copilot Chat** mientras trabajas y los convierte en **sobres de cartas del Pokémon TCG**: abres sobres, coleccionas cartas de distintas rarezas (con efecto holográfico 3D) y las pones a entrenar para que evolucionen con tus tokens. En la barra de estado ves cuánto llevas gastado y qué **porcentaje de tu cupo mensual** representa.
 
@@ -13,9 +13,13 @@ Proyecto personal no oficial, sin relación con GitHub, Microsoft, Nintendo ni T
 - **Contador en vivo** en la barra de estado: tokens usados en el periodo y % del cupo. Se actualiza en pocos segundos tras cada respuesta del chat.
 - **Aviso de sobres**: junto al contador aparece `🎁 N` cuando tienes sobres o Pokébolas sin abrir; al pulsarlo se abre el panel.
 - **Tooltip con desglose** de hoy, del mes y por modelo.
-- **Panel lateral** (ícono de PokeToken en la barra de actividad): sobres, carta en entrenamiento, álbum, cuota, gráfico por día y uso por modelo.
+- **Panel lateral** (ícono de TokenBinder en la barra de actividad): sobres, carta en entrenamiento, álbum, cuota, gráfico por día y uso por modelo.
 - **Alertas** al cruzar el 50 %, 80 % y 100 % del cupo.
 - **Funciona con cualquier modelo** que tengas habilitado en Copilot (se cuenta por modelo) y con los modos de chat que uses.
+
+## Si venías de PokeToken
+
+TokenBinder es el nuevo nombre de **PokeToken** (la misma extensión, ahora centrada en cartas). Al instalar TokenBinder y abrir VS Code por primera vez se **migra solo** tu progreso (álbum, monedas, cartas en entrenamiento), tus ajustes `pokeToken.*` (que pasan a `tokenBinder.*`) y las imágenes ya descargadas, y se te ofrece desinstalar PokeToken para no tener dos extensiones iguales. Si no quieres conservar las cartas antiguas, usa `F1` → **TokenBinder: Reiniciar progreso**.
 
 ## Instalación
 
@@ -26,17 +30,17 @@ Requisitos: Windows, VS Code 1.90 o superior con el comando `code` en el PATH, y
 En PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/SoreviR/poke-token-vscode/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/SoreviR/token-binder/main/install.ps1 | iex
 ```
 
-Descarga el `.vsix` del último [Release](https://github.com/SoreviR/poke-token-vscode/releases/latest) y lo instala. Puedes leer el script antes de ejecutarlo: [`install.ps1`](install.ps1).
+Descarga el `.vsix` del último [Release](https://github.com/SoreviR/token-binder/releases/latest) y lo instala. Puedes leer el script antes de ejecutarlo: [`install.ps1`](install.ps1).
 
 ### Opción 2: a mano
 
-1. Descarga `poke-token-X.Y.Z.vsix` desde [Releases](https://github.com/SoreviR/poke-token-vscode/releases/latest).
+1. Descarga `token-binder-X.Y.Z.vsix` desde [Releases](https://github.com/SoreviR/token-binder/releases/latest).
 2. En VS Code: `Ctrl+Shift+P` → **Extensions: Install from VSIX…** → elige el archivo. O por terminal:
    ```powershell
-   code --install-extension poke-token-X.Y.Z.vsix
+   code --install-extension token-binder-X.Y.Z.vsix
    ```
 
 Después **reinicia VS Code**. Para actualizar, repite cualquiera de las dos opciones.
@@ -45,21 +49,21 @@ Después **reinicia VS Code**. Para actualizar, repite cualquiera de las dos opc
 
 Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porcentaje como *tu uso local ÷ el límite que tú configures*. Pregunta a tu administrador cuál es tu cupo.
 
-**Forma rápida:** pulsa `F1`, escribe **PokeToken: Configurar cupo mensual**, elige la unidad y escribe el número (acepta `5M`, `750k`, `5000000`). También puedes pasar el ratón sobre el contador de la barra de estado y pulsar *Configurar cupo*.
+**Forma rápida:** pulsa `F1`, escribe **TokenBinder: Configurar cupo mensual**, elige la unidad y escribe el número (acepta `5M`, `750k`, `5000000`). También puedes pasar el ratón sobre el contador de la barra de estado y pulsar *Configurar cupo*.
 
-**Forma manual:** `F1` → **PokeToken: Abrir ajustes** (o `Ctrl+,` y busca `pokeToken`). Los ajustes disponibles:
+**Forma manual:** `F1` → **TokenBinder: Abrir ajustes** (o `Ctrl+,` y busca `tokenBinder`). Los ajustes disponibles:
 
 | Ajuste | Por defecto | Descripción |
 |---|---|---|
-| `pokeToken.quota.monthlyLimit` | `5000000` | Tu cupo mensual, en la unidad elegida. **Cámbialo**: el valor por defecto es solo un marcador. |
-| `pokeToken.quota.unit` | `tokens` | `tokens` o `credits` (créditos de IA de Copilot). |
-| `pokeToken.quota.resetDay` | `1` | Día del mes (UTC) en que se reinicia el cupo. |
-| `pokeToken.alerts.thresholds` | `[50, 80, 100]` | Porcentajes que disparan un aviso. |
-| `pokeToken.packs.everyTokens` | `750000` | Cada cuántos tokens usados ganas un sobre. |
-| `pokeToken.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
-| `pokeToken.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
+| `tokenBinder.quota.monthlyLimit` | `5000000` | Tu cupo mensual, en la unidad elegida. **Cámbialo**: el valor por defecto es solo un marcador. |
+| `tokenBinder.quota.unit` | `tokens` | `tokens` o `credits` (créditos de IA de Copilot). |
+| `tokenBinder.quota.resetDay` | `1` | Día del mes (UTC) en que se reinicia el cupo. |
+| `tokenBinder.alerts.thresholds` | `[50, 80, 100]` | Porcentajes que disparan un aviso. |
+| `tokenBinder.packs.everyTokens` | `750000` | Cada cuántos tokens usados ganas un sobre. |
+| `tokenBinder.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
+| `tokenBinder.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
 
-Comandos (`F1`): **PokeToken: Abrir álbum**, **PokeToken: Exportar progreso**, **PokeToken: Importar progreso**, **PokeToken: Reiniciar progreso**, **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajustes**, **PokeToken: Abrir panel** y **PokeToken: Recalcular uso**.
+Comandos (`F1`): **TokenBinder: Abrir álbum**, **TokenBinder: Exportar progreso**, **TokenBinder: Importar progreso**, **TokenBinder: Reiniciar progreso**, **TokenBinder: Configurar cupo mensual**, **TokenBinder: Abrir ajustes**, **TokenBinder: Abrir panel** y **TokenBinder: Recalcular uso**.
 
 ## Cómo se juega
 
@@ -78,7 +82,7 @@ Comandos (`F1`): **PokeToken: Abrir álbum**, **PokeToken: Exportar progreso**, 
 
    **Shadowless:** las cartas del Set Base pueden salir en su variante **Shadowless** (24 %) o **1.ª edición Shadowless** (6 %). Son ejemplares distintos en el álbum, con etiqueta y brillo dorado, y se venden más caras.
 3. **Pon una carta a entrenar** (*Entrenar*, en el sobre o desde el álbum). Mientras usas tokens, su barra avanza y el panel estima cuántos días faltan según tu ritmo de los últimos 7 días. A los ~1.5 M tokens **evoluciona** a la carta siguiente de su línea (por ejemplo Charmander → Charmeleon → Charizard), prefiriendo cartas que cumplan el filtro de arriba y una rareza parecida; las siguientes etapas duran ~4.5 M, ~6 M y ~8 M tokens. Cuando ya no tiene más evoluciones **completa su línea**, libera el hueco y te da **un sobre**. `growth.multiplier` escala estas duraciones. Como en las eras antiguas muchas holográficas son ya la forma final, es normal que algunas cartas se gradúen sin evolucionar.
-4. **Coleccionas** todo en el álbum. En el panel lateral ves un resumen y las 3 últimas cartas; el botón **Abrir álbum** (o `F1` → *PokeToken: Abrir álbum*) lo abre en una pestaña grande del editor, con búsqueda por nombre, set o rareza, filtro por rareza y por era, orden (rareza, recientes, nombre, repetidas) y visor de carta en grande desde donde puedes entrenarla o **vender las copias repetidas**. Todo se puede usar con el teclado (Tab, Enter, Espacio, Esc).
+4. **Coleccionas** todo en el álbum. En el panel lateral ves un resumen y las 3 últimas cartas; el botón **Abrir álbum** (o `F1` → *TokenBinder: Abrir álbum*) lo abre en una pestaña grande del editor, con búsqueda por nombre, set o rareza, filtro por rareza y por era, orden (rareza, recientes, nombre, repetidas) y visor de carta en grande desde donde puedes entrenarla o **vender las copias repetidas**. Todo se puede usar con el teclado (Tab, Enter, Espacio, Esc).
 
 Las cartas muestran una inclinación 3D que sigue al ratón, y las de rareza Holo o superior añaden brillo holográfico (las Ilustración y Secretas tienen efectos propios).
 
@@ -100,9 +104,9 @@ Los precios son fijos en esta versión; si te parecen caros o baratos dímelo y 
 
 ## Copia de seguridad y cambio de equipo
 
-Tu progreso (álbum, monedas, cartas en entrenamiento, compras) vive dentro de VS Code en este equipo. Para guardarlo o llevarlo a otro: `F1` → **PokeToken: Exportar progreso** crea un archivo `.json`, y en el otro equipo `F1` → **PokeToken: Importar progreso**. Importar **reemplaza** el progreso actual (pide confirmación).
+Tu progreso (álbum, monedas, cartas en entrenamiento, compras) vive dentro de VS Code en este equipo. Para guardarlo o llevarlo a otro: `F1` → **TokenBinder: Exportar progreso** crea un archivo `.json`, y en el otro equipo `F1` → **TokenBinder: Importar progreso**. Importar **reemplaza** el progreso actual (pide confirmación).
 
-**Empezar de cero:** `F1` → **PokeToken: Reiniciar progreso**. Borra álbum, monedas, cartas en entrenamiento y mejoras, y te da un sobre de bienvenida; tus tokens y la configuración del cupo no se tocan. Te ofrece guardar antes una copia con *Exportar y reiniciar*. Los tokens que ya hayas usado en el equipo nuevo no dan monedas ni sobres retroactivos.
+**Empezar de cero:** `F1` → **TokenBinder: Reiniciar progreso**. Borra álbum, monedas, cartas en entrenamiento y mejoras, y te da un sobre de bienvenida; tus tokens y la configuración del cupo no se tocan. Te ofrece guardar antes una copia con *Exportar y reiniciar*. Los tokens que ya hayas usado en el equipo nuevo no dan monedas ni sobres retroactivos.
 
 ## Privacidad
 
@@ -110,14 +114,14 @@ Todo es local. La extensión **solo lee** archivos de VS Code en tu equipo y **n
 
 ## Cómo funciona
 
-VS Code guarda cada turno del chat con sus tokens en archivos locales; PokeToken los lee y los suma:
+VS Code guarda cada turno del chat con sus tokens en archivos locales; TokenBinder los lee y los suma:
 
 | Versión de VS Code | Dónde está el uso | Formato |
 |---|---|---|
 | Reciente (probado en 1.142) | `%APPDATA%\Code\agentSessionData\<sesión>\session.db`, tabla `turn_usage` | SQLite |
 | Anterior | `%APPDATA%\Code\User\workspaceStorage\<hash>\chatSessions\*.jsonl` | JSON lines |
 
-También revisa `Code - Insiders` y `VSCodium`. Leer SQLite requiere el módulo `node:sqlite`: PokeToken usa el de VS Code y, si no está disponible, el `node` (22.5 o superior) que tengas en el PATH.
+También revisa `Code - Insiders` y `VSCodium`. Leer SQLite requiere el módulo `node:sqlite`: TokenBinder usa el de VS Code y, si no está disponible, el `node` (22.5 o superior) que tengas en el PATH.
 
 Un turno de agente que encadena varias llamadas al modelo se cuenta completo (suma de todas las rondas). Los tokens servidos desde caché se cuentan en el total, igual que el uso que factura el proveedor.
 
@@ -125,17 +129,17 @@ Un turno de agente que encadena varias llamadas al modelo se cuenta completo (su
 
 - **El cupo es manual.** No hay forma de leer el consumo real de la organización desde el equipo; si la empresa mide distinto (por ejemplo, ponderando por modelo), el % puede diferir.
 - **Solo ve este equipo.** Si trabajas en dos máquinas, cada una cuenta lo suyo.
-- **La fecha de cada turno es aproximada.** Las bases de datos no guardan la hora por turno: PokeToken anota cuándo ve cada turno por primera vez. El histórico previo a instalar la extensión se fecha con la última modificación de su sesión.
+- **La fecha de cada turno es aproximada.** Las bases de datos no guardan la hora por turno: TokenBinder anota cuándo ve cada turno por primera vez. El histórico previo a instalar la extensión se fecha con la última modificación de su sesión.
 - **Los créditos son una estimación** derivada de un campo interno de VS Code cuya semántica no está documentada. Si usas `quota.unit: credits`, contrástalo con lo que muestre GitHub.
 - **El formato interno de VS Code puede cambiar** entre versiones, ya que no es una API pública.
 
 ## Solución de problemas
 
 **El contador se queda en 0**
-1. Abre `Ver > Salida` y elige **PokeToken** en el desplegable: ahí aparece el error exacto.
+1. Abre `Ver > Salida` y elige **TokenBinder** en el desplegable: ahí aparece el error exacto.
 2. Si dice que SQLite no está disponible, instala [Node.js](https://nodejs.org) 22.5 o superior y reinicia VS Code.
-3. Comprueba que existen archivos en `%APPDATA%\Code\agentSessionData\` o en `%APPDATA%\Code\User\workspaceStorage\*\chatSessions\`. Si tu VS Code guarda el chat en otra parte (instalación portable, otra carpeta de datos), indícala en `pokeToken.storageRoots`.
-4. Ejecuta **PokeToken: Recalcular uso**.
+3. Comprueba que existen archivos en `%APPDATA%\Code\agentSessionData\` o en `%APPDATA%\Code\User\workspaceStorage\*\chatSessions\`. Si tu VS Code guarda el chat en otra parte (instalación portable, otra carpeta de datos), indícala en `tokenBinder.storageRoots`.
+4. Ejecuta **TokenBinder: Recalcular uso**.
 
 **No se pueden abrir sobres** (aparece «sin conexión»): comprueba que tu red permite `api.tcgdex.net` y `assets.tcgdex.net`. El sobre no se gasta si falla.
 
@@ -148,12 +152,12 @@ Si el contador sigue sin moverse, abre un *issue* con la versión de VS Code y l
 ## Desarrollo
 
 ```powershell
-git clone https://github.com/SoreviR/poke-token-vscode.git
-cd poke-token-vscode
+git clone https://github.com/SoreviR/token-binder.git
+cd token-binder
 npm install
 npm test            # pruebas del lector, la cuota y el motor del juego
 npm run build       # compila a dist/
-npm run package     # genera poke-token-X.Y.Z.vsix
+npm run package     # genera token-binder-X.Y.Z.vsix
 ```
 
 Pulsa **F5** en VS Code para abrir una ventana de desarrollo con la extensión cargada.

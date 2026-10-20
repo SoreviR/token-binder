@@ -2,8 +2,8 @@ import type * as vscode from 'vscode';
 import { GameState, newState, normalize } from './engine';
 
 // v1 era el juego de sprites/huevos. El estado de cartas es independiente: no se migra nada.
-const KEY = 'pokeToken.game.v2';
-const ALERTS_KEY = 'pokeToken.alerts.v1';
+const KEY = 'tokenBinder.game.v2';
+const ALERTS_KEY = 'tokenBinder.alerts.v1';
 
 export class GameStore {
   constructor(private memento: vscode.Memento) {}

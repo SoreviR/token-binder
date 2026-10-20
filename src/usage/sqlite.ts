@@ -72,3 +72,17 @@ export function readSessionTimes(hostDb: string): Map<string, number> {
   } catch { /* sin fechas: se usa el mtime del archivo */ }
   return out;
 }
+
+/** Valor de una clave de la tabla ItemTable de un state.vscdb de VS Code (donde las extensiones guardan su globalState). */
+export function readItemValue(dbPath: string, key: string): string | undefined {
+  const sql = 'select value from ItemTable where key = ?';
+  const mod = sqliteModule();
+  if (mod) {
+    const db = new mod.DatabaseSync(dbPath, { readOnly: true });
+    try { const r = db.prepare(sql).get(key); return r ? String(r.value) : undefined; } finally { db.close(); }
+  }
+  const js = `const {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(process.argv[1],{readOnly:true});const r=d.prepare('${sql}').get(process.argv[2]);process.stdout.write(JSON.stringify(r?String(r.value):null))`;
+  const r = spawnSync('node', ['--no-warnings', '-e', js, dbPath, key], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true });
+  if (r.error || r.status !== 0) { throw new Error('SQLite no disponible para leer ' + dbPath); }
+  return JSON.parse(r.stdout || 'null') ?? undefined;
+}
