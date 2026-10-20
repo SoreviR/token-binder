@@ -37,11 +37,16 @@ export interface GameState {
   v: 2;
   baseline: number;       // tokens de por vida al empezar: los sobres se cuentan desde aquí
   packsGranted: number;   // sobres ya concedidos por tokens
-  packs: number;          // sobres sin abrir
+  packs: number;          // sobres normales sin abrir
+  premium: number;        // sobres premium sin abrir
+  balls: number;          // Pokébolas (1 carta) sin abrir
   collection: Record<string, Owned>;
   slots: (Training | null)[];
   mastered: number;       // cartas que completaron su línea evolutiva
   bonusPeriod: number;    // periodo de cuota en el que ya se dio el sobre por llegar al 100 %
+  coins: number;          // monedas (con decimales; se muestran redondeadas hacia abajo)
+  lastLifetime: number;   // tokens de por vida en la última cuenta de monedas
+  luck: number;           // nivel de mejora de suerte (0-5)
 }
 
 /* ───────── Sobres ───────── */
@@ -52,14 +57,31 @@ const UNCOMMON_SLOT: Weights = [[1, 80], [2, 20]];
 const HIT_SLOT: Weights = [[2, 55], [3, 25], [4, 12], [5, 6], [6, 2]];
 export const PACK_SLOTS: Weights[] = [COMMON_SLOT, COMMON_SLOT, COMMON_SLOT, UNCOMMON_SLOT, HIT_SLOT];
 
+const PREMIUM_SLOTS: Weights[] = [
+  [[1, 70], [2, 30]], [[1, 70], [2, 30]], [[2, 60], [3, 40]],
+  [[2, 25], [3, 35], [4, 22], [5, 12], [6, 6]], [[2, 25], [3, 35], [4, 22], [5, 12], [6, 6]],
+];
+const BALL_SLOT: Weights = [[0, 50], [1, 25], [2, 15], [3, 6], [4, 3], [5, 0.8], [6, 0.2]];
+
+export type PackKind = 'pack' | 'premium' | 'ball';
+
 export function pickTier(w: Weights, rng: () => number = Math.random): number {
   let r = rng() * w.reduce((s, [, x]) => s + x, 0);
   for (const [tier, x] of w) { if ((r -= x) < 0) { return tier; } }
   return w[w.length - 1][0];
 }
 
-/** Categorías de rareza que pide cada una de las 5 cartas de un sobre. */
-export const rollPackTiers = (rng: () => number = Math.random): number[] => PACK_SLOTS.map(w => pickTier(w, rng));
+/** La mejora de suerte multiplica +20 % por nivel el peso de las categorías Holo o superiores. */
+export const applyLuck = (w: Weights, luck: number): Weights => w.map(([t, x]) => [t, t >= 3 ? x * (1 + 0.2 * luck) : x] as [number, number]);
+
+/** Categorías de rareza que pide cada carta de un sobre de ese tipo. */
+export function rollTiers(kind: PackKind, luck = 0, rng: () => number = Math.random): number[] {
+  const slots = kind === 'pack' ? PACK_SLOTS : kind === 'premium' ? PREMIUM_SLOTS : [BALL_SLOT];
+  return slots.map(w => pickTier(applyLuck(w, luck), rng));
+}
+
+/** Categorías de un sobre normal sin suerte (compatibilidad con los tests). */
+export const rollPackTiers = (rng: () => number = Math.random): number[] => rollTiers('pack', 0, rng);
 
 /* ───────── Entrenamiento ───────── */
 
@@ -86,7 +108,72 @@ export function trainingProgress(t: Training, lifetime: number, mult: number): T
 
 export function newState(lifetime: number): GameState {
   // Un sobre de bienvenida para que haya algo que abrir desde el primer momento.
-  return { v: 2, baseline: lifetime, packsGranted: 0, packs: 1, collection: {}, slots: [null], mastered: 0, bonusPeriod: 0 };
+  return {
+    v: 2, baseline: lifetime, packsGranted: 0, packs: 1, premium: 0, balls: 0, collection: {}, slots: [null], mastered: 0,
+    bonusPeriod: 0, coins: 0, lastLifetime: lifetime, luck: 0,
+  };
+}
+
+/** Completa los campos añadidos en versiones nuevas a un estado guardado antes (sin dar monedas retroactivas). */
+export function normalize(s: GameState, lifetime: number): GameState {
+  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime;
+  return s;
+}
+
+/* ───────── Monedas y tienda ───────── */
+
+export const COIN_EVERY_TOKENS = 10_000;
+export const PACE_BONUS = 1.2;
+export const MAX_SLOTS = 6;
+export const MAX_LUCK = 5;
+
+/** ¿Vas por debajo del ritmo del cupo? (% usado ≤ % del periodo transcurrido.) */
+export function underPace(quotaPct: number, now: number, start: number, end: number): boolean {
+  if (end <= start) { return false; }
+  const elapsed = Math.min(1, Math.max(0, (now - start) / (end - start)));
+  return quotaPct <= elapsed * 100;
+}
+
+/** Suma las monedas de los tokens usados desde la última vez. Devuelve cuántas se ganaron. */
+export function earnCoins(s: GameState, lifetime: number, bonus: boolean): number {
+  const delta = Math.max(0, lifetime - s.lastLifetime);
+  s.lastLifetime = lifetime;
+  const earned = (delta / COIN_EVERY_TOKENS) * (bonus ? PACE_BONUS : 1);
+  s.coins += earned;
+  return earned;
+}
+
+export type Item = 'pack' | 'premium' | 'ball' | 'slot' | 'luck';
+
+const SLOT_PRICES = [400, 900, 1600, 2600, 4000];   // huecos 2 al 6
+const LUCK_PRICES = [300, 600, 1200, 2400, 4800];   // niveles 1 al 5
+const FIXED_PRICES: Record<'pack' | 'premium' | 'ball', number> = { pack: 80, premium: 250, ball: 15 };
+
+/** Precio actual de un artículo, o null si ya se compró el máximo. */
+export function priceOf(s: GameState, item: Item): number | null {
+  if (item === 'slot') { return s.slots.length >= MAX_SLOTS ? null : SLOT_PRICES[s.slots.length - 1]; }
+  if (item === 'luck') { return s.luck >= MAX_LUCK ? null : LUCK_PRICES[s.luck]; }
+  return FIXED_PRICES[item];
+}
+
+export function buy(s: GameState, item: Item): boolean {
+  const price = priceOf(s, item);
+  if (price === null || s.coins < price) { return false; }
+  s.coins -= price;
+  if (item === 'pack') { s.packs++; }
+  else if (item === 'premium') { s.premium++; }
+  else if (item === 'ball') { s.balls++; }
+  else if (item === 'slot') { s.slots.push(null); }
+  else { s.luck++; }
+  return true;
+}
+
+/** Descuenta un sobre/Pokébola del inventario. Devuelve false si no hay. */
+export function consume(s: GameState, kind: PackKind): boolean {
+  const key = kind === 'pack' ? 'packs' : kind === 'premium' ? 'premium' : 'balls';
+  if (s[key] < 1) { return false; }
+  s[key]--;
+  return true;
 }
 
 export function grantPacks(s: GameState, lifetime: number, every: number): number {

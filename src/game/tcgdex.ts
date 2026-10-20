@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Card, FindNext, TIER_RARITIES, rollPackTiers, tierOf } from './engine';
+import { Card, FindNext, PackKind, TIER_RARITIES, rollTiers, tierOf } from './engine';
 
 const BASE = 'https://api.tcgdex.net/v2/en';
 const MAX_DEX = 1025;
@@ -96,8 +96,8 @@ export class Tcgdex {
     return undefined;
   }
 
-  async rollPack(): Promise<Card[]> {
-    const cards = await Promise.all(rollPackTiers(this.rng).map(t => this.rollCard(t)));
+  async rollPack(kind: PackKind = 'pack', luck = 0): Promise<Card[]> {
+    const cards = await Promise.all(rollTiers(kind, luck, this.rng).map(t => this.rollCard(t)));
     return cards.filter((c): c is Card => !!c);
   }
 

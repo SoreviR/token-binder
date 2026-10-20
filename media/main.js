@@ -58,14 +58,21 @@
     const q = d.pct;
     const unit = d.unit === 'credits' ? ' créditos' : ' tokens';
 
+    const openBtn = (kind, n, label) => el('button', { class: 'btn' + (kind === 'pack' ? '' : ' ghost'), ...(n ? {} : { disabled: '' }), text: label + ' (' + n + ')', onclick: () => send('openPack', { kind }) });
     const packBox = box('Sobres',
       el('div', { class: 'packrow' },
         el('div', { class: 'pack' }, el('div', { class: 'ball' }), el('b', { text: 'BOOSTER' })),
         el('div', { class: 'packinfo' },
-          el('div', { text: d.packs + (d.packs === 1 ? ' sobre disponible' : ' sobres disponibles') }),
           bar(d.nextPack.pct),
-          el('div', { class: 'sub', text: fmt(d.nextPack.into) + ' / ' + fmt(d.nextPack.span) + ' tokens al próximo sobre' }),
-          el('button', { class: 'btn', ...(d.packs ? {} : { disabled: '' }), text: 'Abrir sobre', onclick: () => send('openPack') }))));
+          el('div', { class: 'sub', text: fmt(d.nextPack.into) + ' / ' + fmt(d.nextPack.span) + ' tokens al próximo sobre gratis' }),
+          el('div', { class: 'btns' }, openBtn('pack', d.packs, 'Sobre'), openBtn('premium', d.premium, 'Premium'), openBtn('ball', d.balls, 'Pokébola')))));
+
+    const shopBox = box('Tienda',
+      el('div', { class: 'row' }, el('b', { text: '🪙 ' + d.coins + ' monedas' }),
+        el('span', { class: d.pace ? 'pace on' : 'pace', title: 'Ganas +20 % de monedas mientras tu uso del cupo vaya por debajo del ritmo del mes', text: d.pace ? '+20 % por ir bajo el ritmo' : 'sin bonus de ritmo' })),
+      ...d.shop.map(i => el('div', { class: 'shopitem' },
+        el('div', { class: 'si' }, el('div', { text: i.name }), el('div', { class: 'sub', text: i.desc })),
+        el('button', { class: 'btn', ...(i.price !== null && d.coins >= i.price ? {} : { disabled: '' }), text: i.price === null ? 'Máximo' : '🪙 ' + i.price, onclick: () => send('buy', { item: i.id }) }))));
 
     const slots = d.slots.map(s => s ? slotView(s) : el('div', { class: 'empty-slot', text: d.albumUnique ? 'Hueco libre: abre una carta del álbum y pulsa «Entrenar».' : 'Abre tu primer sobre para conseguir cartas.' }));
 
@@ -80,7 +87,8 @@
       box('Cuota mensual', row(fmt(d.used) + unit, q.toFixed(1) + '% de ' + fmt(d.limit)),
         bar(q, q >= 100 ? 'err' : q >= 80 ? 'warn' : ''), row('Hoy', fmt(d.today.total)), row('Mes', fmt(d.month.total))),
       packBox,
-      box('Entrenando', ...slots),
+      box('Entrenando (' + d.slots.filter(Boolean).length + '/' + d.slots.length + ')', ...slots),
+      shopBox,
       albumView(),
       box('Por día (mes)', chart),
       box('Por modelo', ...list(d.byModel)),
@@ -136,9 +144,9 @@
   function closeOverlay() { viewing = null; overlay.replaceChildren(); }
 
   /* ───── apertura de sobre ───── */
-  function showOpening() {
+  function showOpening(kind) {
     overlay.replaceChildren(
-      el('div', { class: 'hint', text: 'Abriendo sobre…' }),
+      el('div', { class: 'hint', text: kind === 'ball' ? 'Lanzando Pokébola…' : 'Abriendo sobre…' }),
       el('div', { class: 'pack big shake' }, el('div', { class: 'ball' }), el('b', { text: 'BOOSTER' })));
   }
 
@@ -190,7 +198,7 @@
       S = m.data;
       render();
       if (viewing && !S.album.find(c => c.id === viewing)) closeOverlay();
-    } else if (m.type === 'opening') showOpening();
+    } else if (m.type === 'opening') showOpening(m.kind);
     else if (m.type === 'reveal') showReveal(m.cards);
     else if (m.type === 'openFailed') { closeOverlay(); toast('No se pudo abrir el sobre (sin conexión)'); }
     else if (m.type === 'high' && viewing === m.id) {

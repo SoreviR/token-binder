@@ -76,7 +76,19 @@ Comandos (`F1`): **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajus
 
 Las cartas muestran una inclinación 3D que sigue al ratón, y las de rareza Holo o superior añaden brillo holográfico (las Ilustración y Secretas tienen efectos propios).
 
-> Próximamente: monedas por tokens, tienda de sobres y Pokébolas, y más huecos de entrenamiento para tener varias cartas creciendo a la vez.
+## Monedas y tienda
+
+Además de los sobres gratis, ganas **1 moneda cada 10 K tokens** usados. Hay un **bonus del +20 %** mientras tu uso del cupo vaya por debajo del ritmo del mes (por ejemplo, llevar un 40 % del cupo a mitad de mes). No se dan monedas por tokens usados antes de instalar la versión 0.3.
+
+| Artículo | Precio | Qué da |
+|---|---|---|
+| Sobre | 80 | 5 cartas |
+| Sobre premium | 250 | 5 cartas sin comunes y con mejores probabilidades de Holo o superior |
+| Pokébola | 15 | 1 carta |
+| Hueco de entrenamiento | 400 · 900 · 1 600 · 2 600 · 4 000 | Una carta más creciendo a la vez (hasta 6 huecos) |
+| Mejora de suerte | 300 · 600 · 1 200 · 2 400 · 4 800 | +20 % por nivel al peso de las rarezas Holo o superiores (5 niveles) |
+
+Los precios son fijos en esta versión; si te parecen caros o baratos dímelo y se ajustan.
 
 ## Privacidad
 

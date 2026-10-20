@@ -11,6 +11,12 @@ export function periodStart(now: number, resetDay: number): number {
   return Date.UTC(y, m, resetDay);
 }
 
+/** Inicio (ms, UTC) del periodo de cuota siguiente. */
+export function periodEnd(now: number, resetDay: number): number {
+  const s = new Date(periodStart(now, resetDay));
+  return Date.UTC(s.getUTCFullYear(), s.getUTCMonth() + 1, resetDay);
+}
+
 export function used(b: Bucket, unit: Unit): number { return unit === 'credits' ? b.credits : totalOf(b); }
 export const percent = (u: number, limit: number) => (limit > 0 ? (u / limit) * 100 : 0);
 

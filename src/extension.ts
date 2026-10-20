@@ -2,9 +2,12 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { UsageStore, totalOf } from './usage/store';
 import { defaultRoots } from './usage/paths';
-import { fmt, parseLimit, percent, periodStart, used, Unit } from './quota';
+import { fmt, parseLimit, percent, periodEnd, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
-import { addCards, Card, GameState, grantPacks, nextPackProgress, resolveDue, startTraining, TIER_NAMES, trainingProgress } from './game/engine';
+import {
+  addCards, buy, Card, consume, earnCoins, GameState, grantPacks, Item, MAX_LUCK, MAX_SLOTS, nextPackProgress, PackKind, priceOf,
+  resolveDue, startTraining, TIER_NAMES, trainingProgress, underPace,
+} from './game/engine';
 import { Tcgdex } from './game/tcgdex';
 import { PokeViewProvider, WebviewMessage } from './webview/provider';
 import { lastBackend } from './usage/sqlite';
@@ -58,6 +61,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const every = cfg().get<number>('packs.everyTokens', 750_000);
       const granted = grantPacks(state, lifetime, every);
       if (granted) { events.push(`packs:${granted}`); }
+      const resetDay = cfg().get<number>('quota.resetDay', 1);
+      const pace = underPace(pct, now, start, periodEnd(now, resetDay));
+      earnCoins(state, lifetime, pace);
       if (pct >= 100 && state.bonusPeriod !== start) { state.bonusPeriod = start; state.packs++; events.push('bonusPack'); }
       // Evolución/graduación: necesita red; si falla se reintenta como mucho cada 30 s.
       const due = state.slots.some(t => t && trainingProgress(t, lifetime, mult).due);
@@ -69,7 +75,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
 
       await alerts(start, pct);
       renderBar(bar, unit, usedNow, pct, agg.today, agg.month, agg.byModel, agg.byMode);
-      if (provider.visible) { provider.post(await snapshot(unit, limit, usedNow, pct, agg, state, lifetime, mult, every, events)); }
+      if (provider.visible) { provider.post(await snapshot(unit, limit, usedNow, pct, agg, state, lifetime, mult, every, events, pace)); }
     } finally {
       busy = false;
       if (rerun) { rerun = false; void tick(true); }
@@ -79,8 +85,10 @@ export function activate(ctx: vscode.ExtensionContext): void {
   /** Mensajes del panel: abrir sobre, entrenar una carta, pedir la imagen grande. */
   async function onMessage(m: WebviewMessage): Promise<void> {
     if (!state) { return; }
-    if (m.type === 'openPack') { await openPack(); }
-    else if (m.type === 'train' && typeof m.id === 'string') {
+    if (m.type === 'openPack') { await openPack(m.kind === 'premium' || m.kind === 'ball' ? m.kind : 'pack'); }
+    else if (m.type === 'buy' && typeof m.item === 'string') {
+      if (buy(state, m.item as Item)) { await game.save(state); await tick(true); }
+    } else if (m.type === 'train' && typeof m.id === 'string') {
       if (startTraining(state, m.id, usage.lifetimeTokens())) { await game.save(state); await tick(true); }
     } else if (m.type === 'high' && typeof m.id === 'string') {
       const card = state.collection[m.id]?.card;
@@ -90,18 +98,19 @@ export function activate(ctx: vscode.ExtensionContext): void {
     }
   }
 
-  async function openPack(): Promise<void> {
-    if (!state || opening || state.packs < 1) { return; }
+  async function openPack(kind: PackKind): Promise<void> {
+    const stock = state && (kind === 'pack' ? state.packs : kind === 'premium' ? state.premium : state.balls);
+    if (!state || opening || !stock) { return; }
     opening = true;
     try {
-      provider.send({ type: 'opening' });
-      const cards = await tcg.rollPack();
+      provider.send({ type: 'opening', kind });
+      const cards = await tcg.rollPack(kind, state.luck);
       if (!cards.length) {
         provider.send({ type: 'openFailed' });
         void vscode.window.showWarningMessage('PokeToken: no se pudo abrir el sobre (¿sin conexión o red bloqueada a api.tcgdex.net?). No se gastó el sobre.');
         return;
       }
-      state.packs--;
+      consume(state, kind);
       addCards(state, cards);
       await game.save(state);
       const views = await Promise.all(cards.map(c => cardView(c, 'high', true)));
@@ -144,7 +153,15 @@ export function activate(ctx: vscode.ExtensionContext): void {
     void (top >= 100 ? vscode.window.showErrorMessage(msg) : vscode.window.showWarningMessage(msg));
   }
 
-  async function snapshot(unit: Unit, limit: number, usedNow: number, pct: number, agg: ReturnType<UsageStore['aggregate']>, s: GameState, lifetime: number, mult: number, every: number, events: string[]) {
+  async function snapshot(unit: Unit, limit: number, usedNow: number, pct: number, agg: ReturnType<UsageStore['aggregate']>, s: GameState, lifetime: number, mult: number, every: number, events: string[], pace: boolean) {
+    const shopItems: { id: Item; name: string; desc: string }[] = [
+      { id: 'pack', name: 'Sobre', desc: '5 cartas' },
+      { id: 'premium', name: 'Sobre premium', desc: '5 cartas, mejores rarezas' },
+      { id: 'ball', name: 'Pokébola', desc: '1 carta' },
+      { id: 'slot', name: 'Hueco de entrenamiento', desc: `${s.slots.length}/${MAX_SLOTS} · una carta más creciendo` },
+      { id: 'luck', name: 'Mejora de suerte', desc: `nivel ${s.luck}/${MAX_LUCK} · +20 % a rarezas Holo o superiores por nivel` },
+    ];
+    const shop = shopItems.map(i => ({ ...i, price: priceOf(s, i.id) }));
     const b = (x: { input: number; cached: number; output: number; credits: number }) => ({ ...x, total: totalOf(x) });
     const slots = await Promise.all(s.slots.map(async t => {
       if (!t) { return null; }
@@ -160,7 +177,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
       byModel: Object.entries(agg.byModel).map(([k, v]) => ({ name: k, ...b(v) })).sort((a, c) => c.total - a.total),
       byMode: Object.entries(agg.byMode).map(([k, v]) => ({ name: k, ...b(v) })).sort((a, c) => c.total - a.total),
       daily: agg.daily,
-      packs: s.packs, nextPack: nextPackProgress(s, lifetime, every),
+      packs: s.packs, premium: s.premium, balls: s.balls, nextPack: nextPackProgress(s, lifetime, every),
+      coins: Math.floor(s.coins), pace, shop,
       slots, album, albumUnique: owned.length, albumTotal: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       trainingIds: s.slots.flatMap(t => (t ? [t.card.id] : [])),
     };

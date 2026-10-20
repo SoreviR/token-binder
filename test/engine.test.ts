@@ -97,3 +97,83 @@ test('resolveDue: si la red falla no cambia nada (se reintenta luego)', async ()
   assert.equal(s.slots[0]?.card.name, 'Pikachu');
   assert.equal(s.mastered, 0);
 });
+
+/* ───── Fase 2: monedas, tienda y suerte ───── */
+import { applyLuck, buy, consume, earnCoins, MAX_SLOTS, normalize, priceOf, rollTiers, underPace } from '../src/game/engine';
+import { periodEnd, periodStart } from '../src/quota';
+
+test('monedas: 1 cada 10 K tokens, +20 % con el bonus de ritmo, sin retroactivo', () => {
+  const s = newState(500_000);
+  assert.equal(earnCoins(s, 500_000, false), 0);
+  assert.equal(earnCoins(s, 600_000, false), 10);
+  assert.equal(earnCoins(s, 700_000, true), 12);
+  assert.equal(s.coins, 22);
+  assert.equal(earnCoins(s, 650_000, false), 0); // los tokens nunca bajan: no resta ni duplica
+});
+
+test('underPace compara el % de cupo con el % del periodo transcurrido', () => {
+  const start = Date.UTC(2026, 9, 1), end = Date.UTC(2026, 10, 1); // octubre
+  const mid = Date.UTC(2026, 9, 16, 12);                           // ≈ 50 % del mes
+  assert.equal(underPace(40, mid, start, end), true);
+  assert.equal(underPace(60, mid, start, end), false);
+  assert.equal(underPace(0, start, start, end), true);
+  assert.equal(underPace(1, start, start, end), false);
+});
+
+test('periodEnd es el inicio del periodo siguiente', () => {
+  const now = Date.UTC(2026, 9, 20);
+  assert.equal(periodStart(now, 1), Date.UTC(2026, 9, 1));
+  assert.equal(periodEnd(now, 1), Date.UTC(2026, 10, 1));
+  assert.equal(periodEnd(now, 25), Date.UTC(2026, 9, 25)); // 20-oct con reinicio el 25: periodo 25-sep → 25-oct
+});
+
+test('tienda: compra solo con monedas suficientes y descuenta el precio', () => {
+  const s = newState(0);
+  s.coins = 100;
+  assert.equal(buy(s, 'premium'), false);  // cuesta 250
+  assert.equal(buy(s, 'pack'), true);      // 80
+  assert.equal(s.packs, 2);
+  assert.equal(s.coins, 20);
+  assert.equal(buy(s, 'ball'), true);      // 15
+  assert.equal(s.balls, 1);
+});
+
+test('huecos: el precio sube y se detiene en el máximo', () => {
+  const s = newState(0);
+  s.coins = 1e9;
+  assert.equal(priceOf(s, 'slot'), 400);
+  while (s.slots.length < MAX_SLOTS) { assert.equal(buy(s, 'slot'), true); }
+  assert.equal(s.slots.length, MAX_SLOTS);
+  assert.equal(priceOf(s, 'slot'), null);
+  assert.equal(buy(s, 'slot'), false);
+});
+
+test('suerte: sube el peso de Holo o superior y tiene máximo de 5 niveles', () => {
+  const w: [number, number][] = [[0, 50], [3, 10], [6, 10]];
+  assert.deepEqual(applyLuck(w, 5), [[0, 50], [3, 20], [6, 20]]);
+  const s = newState(0);
+  s.coins = 1e9;
+  for (let i = 0; i < 5; i++) { assert.equal(buy(s, 'luck'), true); }
+  assert.equal(s.luck, 5);
+  assert.equal(buy(s, 'luck'), false);
+});
+
+test('tipos de sobre: premium = 5 cartas mejores, Pokébola = 1 carta', () => {
+  assert.equal(rollTiers('ball', 0, () => 0).length, 1);
+  assert.equal(rollTiers('premium', 0, () => 0).length, 5);
+  assert.ok(Math.min(...rollTiers('premium', 0, () => 0)) >= 1); // sin comunes
+});
+
+test('consume descuenta del inventario correcto y no baja de cero', () => {
+  const s = newState(0);
+  assert.equal(consume(s, 'pack'), true);
+  assert.equal(consume(s, 'pack'), false);
+  assert.equal(consume(s, 'ball'), false);
+});
+
+test('normalize: un estado de la Fase 1 gana los campos nuevos sin monedas retroactivas', () => {
+  const old: any = { v: 2, baseline: 0, packsGranted: 2, packs: 3, collection: {}, slots: [null], mastered: 0, bonusPeriod: 0 };
+  const s = normalize(old, 9_000_000);
+  assert.deepEqual([s.coins, s.premium, s.balls, s.luck, s.lastLifetime], [0, 0, 0, 0, 9_000_000]);
+  assert.equal(s.packs, 3);
+});

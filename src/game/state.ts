@@ -1,5 +1,5 @@
 import type * as vscode from 'vscode';
-import { GameState, newState } from './engine';
+import { GameState, newState, normalize } from './engine';
 
 // v1 era el juego de sprites/huevos. El estado de cartas es independiente: no se migra nada.
 const KEY = 'pokeToken.game.v2';
@@ -11,7 +11,7 @@ export class GameStore {
   /** Primera ejecución: los sobres se cuentan desde los tokens de por vida actuales. */
   load(lifetimeNow: number): GameState {
     const saved = this.memento.get<GameState>(KEY);
-    return saved?.v === 2 ? saved : newState(lifetimeNow);
+    return saved?.v === 2 ? normalize(saved, lifetimeNow) : newState(lifetimeNow);
   }
   save(s: GameState): Thenable<void> { return this.memento.update(KEY, s); }
 

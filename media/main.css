@@ -31,6 +31,12 @@ button.btn.ghost { background: transparent; color: var(--vscode-foreground); bor
 .pack.big { width: 110px; height: 154px; font-size: 13px; }
 .pack.big .ball { width: 44px; height: 44px; margin-bottom: 26px; }
 .packinfo { flex: 1; min-width: 0; }
+.btns { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.shopitem { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px solid color-mix(in srgb, var(--vscode-foreground) 12%, transparent); font-size: 12px; }
+.shopitem .si { min-width: 0; }
+.shopitem .btn { flex: none; min-width: 64px; }
+.pace { font-size: 10px; opacity: .6; }
+.pace.on { opacity: 1; color: var(--t1); font-weight: 600; }
 
 /* carta 3D con efecto holográfico */
 .card3d { --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 50%; position: relative; width: var(--w, 150px); aspect-ratio: 63 / 88; perspective: 650px; margin: 0 auto; }
