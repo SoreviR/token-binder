@@ -1,0 +1,124 @@
+{
+  "name": "poke-token",
+  "displayName": "PokeToken",
+  "description": "Tokens de Copilot Chat convertidos en un Pokémon que crece, con % de cuota mensual.",
+  "version": "0.1.1",
+  "publisher": "sorevir",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "pokeToken",
+          "title": "PokeToken",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "pokeToken": [
+        {
+          "type": "webview",
+          "id": "pokeToken.view",
+          "name": "Compañero"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "pokeToken.open",
+        "title": "PokeToken: Abrir panel"
+      },
+      {
+        "command": "pokeToken.refresh",
+        "title": "PokeToken: Recalcular uso"
+      }
+    ],
+    "configuration": {
+      "title": "PokeToken",
+      "properties": {
+        "pokeToken.quota.unit": {
+          "type": "string",
+          "enum": [
+            "tokens",
+            "credits"
+          ],
+          "default": "tokens",
+          "description": "Unidad del cupo mensual."
+        },
+        "pokeToken.quota.monthlyLimit": {
+          "type": "number",
+          "default": 5000000,
+          "minimum": 1,
+          "description": "Cupo mensual asignado (en la unidad elegida)."
+        },
+        "pokeToken.quota.resetDay": {
+          "type": "integer",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 28,
+          "description": "Día del mes (UTC) en que se reinicia el cupo."
+        },
+        "pokeToken.alerts.thresholds": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          },
+          "default": [
+            50,
+            80,
+            100
+          ],
+          "description": "Porcentajes que disparan una alerta."
+        },
+        "pokeToken.growth.multiplier": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.1,
+          "maximum": 2,
+          "description": "Multiplica los tokens necesarios por etapa."
+        },
+        "pokeToken.storageRoots": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Carpetas 'User' de VS Code a leer (por defecto la carpeta User de Code y Code - Insiders en AppData/Roaming)."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node esbuild.mjs",
+    "watch": "node esbuild.mjs --watch",
+    "test": "node --import tsx --test test/*.test.ts",
+    "package": "npm run build && vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.0.0",
+    "esbuild": "^0.25.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SoreviR/poke-token-vscode.git"
+  },
+  "homepage": "https://github.com/SoreviR/poke-token-vscode#readme",
+  "bugs": {
+    "url": "https://github.com/SoreviR/poke-token-vscode/issues"
+  }
+}

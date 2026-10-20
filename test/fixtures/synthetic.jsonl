@@ -1,0 +1,9 @@
+{"kind":0,"v":{"version":3,"creationDate":1787153482547,"sessionId":"sess-1","requests":[],"inputState":{"mode":{"id":"agent","kind":"agent"},"selectedModel":{"identifier":"copilot/gpt-5"}}}}
+{"kind":2,"k":["requests"],"v":[{"requestId":"r1","timestamp":1787153490000,"modelId":"copilot/gpt-5","message":{"text":"hola"}}]}
+{"kind":1,"k":["requests",0,"modelTotals"],"v":{"copilot/gpt-5":{"inputTokens":12000,"cachedTokens":8000,"outputTokens":900}}}
+{"kind":1,"k":["requests",0,"copilotCredits"],"v":0.42}
+{"kind":2,"k":["requests"],"v":[{"requestId":"r2","timestamp":1787153500000,"result":{"metadata":{"promptTokens":3000,"outputTokens":200}}}]}
+{"kind":2,"k":["requests"],"v":[{"requestId":"r3","timestamp":1787153510000}]}
+{"kind":1,"k":["inputState","mode"],"v":{"id":"ask","kind":"ask"}}
+{"kind":3,"k":["requests",2]}
+{"kind":0,"v":{"broken

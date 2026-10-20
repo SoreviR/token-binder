@@ -1,0 +1,25 @@
+body { font-family: var(--vscode-font-family); color: var(--vscode-foreground); padding: 8px 12px; }
+.card { border: 1px solid var(--vscode-widget-border, #444); border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+.pet { text-align: center; position: relative; min-height: 120px; }
+.pet img { image-rendering: pixelated; width: 96px; height: 96px; object-fit: contain; animation: bob 2.4s ease-in-out infinite; }
+.pet.still img { animation: none; }
+.pet .name { font-weight: 600; margin-top: 4px; }
+.pet .sub { opacity: .7; font-size: 11px; }
+.bubble { position: absolute; top: 0; left: 50%; transform: translateX(-50%); background: var(--vscode-editorWidget-background); border: 1px solid var(--vscode-widget-border, #555); border-radius: 8px; padding: 3px 8px; font-size: 11px; max-width: 90%; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.bubble.show { opacity: 1; }
+.flash { animation: flash .9s ease-out; }
+.barwrap { position: relative; height: 8px; margin-top: 6px; background: color-mix(in srgb, var(--vscode-foreground) 15%, transparent); border-radius: 4px; overflow: hidden; }
+.barwrap > i { display: block; height: 100%; background: var(--vscode-progressBar-background); transition: width .6s; }
+.barwrap.warn > i { background: var(--vscode-editorWarning-foreground); }
+.barwrap.err > i { background: var(--vscode-editorError-foreground); }
+.row { display: flex; justify-content: space-between; font-size: 12px; margin: 3px 0; }
+h4 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; opacity: .7; }
+.chart { display: flex; align-items: flex-end; gap: 2px; height: 56px; }
+.chart div { flex: 1; background: var(--vscode-charts-blue, #3794ff); min-height: 2px; border-radius: 2px 2px 0 0; }
+.dex { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.dex div { text-align: center; font-size: 9px; }
+.dex img { width: 40px; height: 40px; image-rendering: pixelated; object-fit: contain; }
+.shiny { color: gold; }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes flash { 0% { filter: brightness(6); } 100% { filter: none; } }
+@media (prefers-reduced-motion: reduce) { .pet img { animation: none; } }
