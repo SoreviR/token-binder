@@ -1,110 +1,147 @@
-// Motor del compañero: huevo → eclosión → evoluciones → graduación a la Pokédex.
-// Puro y sin dependencias de VS Code para poder testearlo.
+// Motor del juego de cartas: sobres → cartas con rareza → entrenamiento por tokens → evolución/graduación.
+// Puro y sin dependencias de VS Code ni de red (la red entra por funciones inyectadas) para poder testearlo.
 
-export interface Species { id: number; name: string }
-export type Line = Species[];
+export const TIER_NAMES = ['Común', 'Poco común', 'Rara', 'Holo', 'Ultra', 'Ilustración', 'Secreta'] as const;
 
-/** Líneas evolutivas Gen 1-5 incluidas offline (id de PokéAPI). */
-export const LINES: Line[] = [
-  [[1, 'Bulbasaur'], [2, 'Ivysaur'], [3, 'Venusaur']], [[4, 'Charmander'], [5, 'Charmeleon'], [6, 'Charizard']],
-  [[7, 'Squirtle'], [8, 'Wartortle'], [9, 'Blastoise']], [[25, 'Pikachu'], [26, 'Raichu']],
-  [[63, 'Abra'], [64, 'Kadabra'], [65, 'Alakazam']], [[66, 'Machop'], [67, 'Machoke'], [68, 'Machamp']],
-  [[74, 'Geodude'], [75, 'Graveler'], [76, 'Golem']], [[92, 'Gastly'], [93, 'Haunter'], [94, 'Gengar']],
-  [[129, 'Magikarp'], [130, 'Gyarados']], [[133, 'Eevee']], [[143, 'Snorlax']],
-  [[147, 'Dratini'], [148, 'Dragonair'], [149, 'Dragonite']], [[152, 'Chikorita'], [153, 'Bayleef'], [154, 'Meganium']],
-  [[155, 'Cyndaquil'], [156, 'Quilava'], [157, 'Typhlosion']], [[158, 'Totodile'], [159, 'Croconaw'], [160, 'Feraligatr']],
-  [[246, 'Larvitar'], [247, 'Pupitar'], [248, 'Tyranitar']], [[252, 'Treecko'], [253, 'Grovyle'], [254, 'Sceptile']],
-  [[255, 'Torchic'], [256, 'Combusken'], [257, 'Blaziken']], [[258, 'Mudkip'], [259, 'Marshtomp'], [260, 'Swampert']],
-  [[280, 'Ralts'], [281, 'Kirlia'], [282, 'Gardevoir']], [[387, 'Turtwig'], [388, 'Grotle'], [389, 'Torterra']],
-  [[390, 'Chimchar'], [391, 'Monferno'], [392, 'Infernape']], [[393, 'Piplup'], [394, 'Prinplup'], [395, 'Empoleon']],
-  [[443, 'Gible'], [444, 'Gabite'], [445, 'Garchomp']], [[447, 'Riolu'], [448, 'Lucario']],
-  [[495, 'Snivy'], [496, 'Servine'], [497, 'Serperior']], [[498, 'Tepig'], [499, 'Pignite'], [500, 'Emboar']],
-  [[501, 'Oshawott'], [502, 'Dewott'], [503, 'Samurott']],
-].map(l => l.map(([id, name]) => ({ id: id as number, name: name as string })));
+/** Rarezas de TCGdex agrupadas por categoría (0 = más común … 6 = más rara). */
+export const TIER_RARITIES: string[][] = [
+  ['Common', 'One Diamond'],
+  ['Uncommon', 'Two Diamond'],
+  ['Rare', 'Three Diamond', 'Promo'],
+  ['Rare Holo', 'Holo Rare', 'Four Diamond', 'Double rare', 'Rare Holo LV.X', 'Rare PRIME', 'LEGEND', 'Classic Collection', 'Black White Rare', 'Amazing Rare'],
+  ['Holo Rare V', 'Holo Rare VMAX', 'Holo Rare VSTAR', 'Ultra Rare', 'Radiant Rare', 'ACE SPEC Rare', 'Shiny rare', 'Shiny rare V', 'Shiny rare VMAX',
+    'One Star', 'One Shiny', 'Two Shiny', 'Pikachu Rare', 'Mega Attack Rare', 'RGB Rare', 'Futuristic Rare'],
+  ['Illustration rare', 'Special illustration rare', 'Two Star'],
+  ['Secret Rare', 'Hyper rare', 'Crown', 'Mega Hyper Rare', 'Shiny Ultra Rare', 'Three Star'],
+];
 
-export const NATURES = ['Hardy', 'Brave', 'Adamant', 'Naughty', 'Bold', 'Docile', 'Relaxed', 'Impish', 'Lax', 'Timid', 'Hasty', 'Serious', 'Jolly', 'Naive', 'Modest', 'Mild', 'Quiet', 'Bashful', 'Rash', 'Calm', 'Gentle', 'Sassy', 'Careful', 'Quirky'];
+const TIER_BY_RARITY = new Map(TIER_RARITIES.flatMap((names, tier) => names.map(n => [n.toLowerCase(), tier] as const)));
+export const tierOf = (rarity?: string): number => TIER_BY_RARITY.get((rarity ?? '').toLowerCase()) ?? 2;
 
-export interface Pokemon {
-  lineIdx: number;
-  shiny: boolean;
-  nature: string;
-  born: number;        // tokens de por vida al nacer el huevo (+ bonificaciones)
+export interface Card {
+  id: string;
+  name: string;
+  rarity: string;
+  tier: number;
+  stage?: string;       // Basic | Stage1 | Stage2 | VMAX …
+  evolveFrom?: string;
+  dexId?: number;
+  hp?: number;
+  types?: string[];
+  set?: string;
+  image: string;        // URL base de assets.tcgdex.net (se le añade /low.webp o /high.webp)
 }
-export interface DexEntry { id: number; name: string; shiny: boolean; nature: string; at: number }
-export interface GameState { current: Pokemon; dex: DexEntry[]; candyPeriod: number; hatchedCount: number }
-
-const HATCH = 150_000;
-const EVO = [1_500_000, 6_000_000];
-const GRADUATE_AFTER = 8_000_000;
-
-/** Umbrales acumulados: [eclosión, evo1, evo2…, graduación] ya multiplicados. */
-export function thresholds(lineLen: number, mult: number): number[] {
-  const t = [HATCH];
-  for (let i = 0; i < lineLen - 1; i++) { t.push(EVO[i]); }
-  t.push(t[t.length - 1] + GRADUATE_AFTER);
-  return t.map(v => Math.round(v * mult));
-}
-
-export function spawn(born: number, rng: () => number = Math.random, shinyOdds = 1 / 512): Pokemon {
-  return {
-    lineIdx: Math.floor(rng() * LINES.length),
-    shiny: rng() < shinyOdds,
-    nature: NATURES[Math.floor(rng() * NATURES.length)],
-    born,
-  };
+export interface Owned { card: Card; count: number; firstAt: number }
+export interface Training { card: Card; born: number; evolved: number }
+export interface GameState {
+  v: 2;
+  baseline: number;       // tokens de por vida al empezar: los sobres se cuentan desde aquí
+  packsGranted: number;   // sobres ya concedidos por tokens
+  packs: number;          // sobres sin abrir
+  collection: Record<string, Owned>;
+  slots: (Training | null)[];
+  mastered: number;       // cartas que completaron su línea evolutiva
+  bonusPeriod: number;    // periodo de cuota en el que ya se dio el sobre por llegar al 100 %
 }
 
-export interface Progress {
-  stage: number;          // 0 = huevo, 1.. = índice de la especie + 1
-  species?: Species;
-  into: number;           // tokens consumidos dentro de la etapa actual
-  span: number;           // tokens que dura la etapa actual
-  pct: number;            // 0-100
-  graduated: boolean;
+/* ───────── Sobres ───────── */
+
+type Weights = [tier: number, weight: number][];
+const COMMON_SLOT: Weights = [[0, 85], [1, 15]];
+const UNCOMMON_SLOT: Weights = [[1, 80], [2, 20]];
+const HIT_SLOT: Weights = [[2, 55], [3, 25], [4, 12], [5, 6], [6, 2]];
+export const PACK_SLOTS: Weights[] = [COMMON_SLOT, COMMON_SLOT, COMMON_SLOT, UNCOMMON_SLOT, HIT_SLOT];
+
+export function pickTier(w: Weights, rng: () => number = Math.random): number {
+  let r = rng() * w.reduce((s, [, x]) => s + x, 0);
+  for (const [tier, x] of w) { if ((r -= x) < 0) { return tier; } }
+  return w[w.length - 1][0];
 }
 
-export function progressOf(p: Pokemon, lifetime: number, mult: number): Progress {
-  const line = LINES[p.lineIdx];
-  const th = thresholds(line.length, mult);
-  const acc = Math.max(0, lifetime - p.born);
-  if (acc >= th[th.length - 1]) {
-    return { stage: line.length, species: line[line.length - 1], into: 1, span: 1, pct: 100, graduated: true };
+/** Categorías de rareza que pide cada una de las 5 cartas de un sobre. */
+export const rollPackTiers = (rng: () => number = Math.random): number[] => PACK_SLOTS.map(w => pickTier(w, rng));
+
+/* ───────── Entrenamiento ───────── */
+
+/** Tokens que dura cada etapa antes de evolucionar (se aplica growth.multiplier). */
+const STAGE_TOKENS = [1_500_000, 4_500_000, 6_000_000, 8_000_000];
+
+/** Tokens acumulados (desde que empezó a entrenar) en los que termina la etapa k. */
+export function stageEnd(k: number, mult: number): number {
+  let sum = 0;
+  for (let i = 0; i <= k; i++) { sum += STAGE_TOKENS[Math.min(i, STAGE_TOKENS.length - 1)]; }
+  return Math.round(sum * mult);
+}
+
+export interface TrainingProgress { into: number; span: number; pct: number; due: boolean }
+
+export function trainingProgress(t: Training, lifetime: number, mult: number): TrainingProgress {
+  const acc = Math.max(0, lifetime - t.born);
+  const start = t.evolved === 0 ? 0 : stageEnd(t.evolved - 1, mult);
+  const end = stageEnd(t.evolved, mult);
+  return { into: Math.min(acc - start, end - start), span: end - start, pct: Math.min(100, ((acc - start) / (end - start)) * 100), due: acc >= end };
+}
+
+/* ───────── Estado ───────── */
+
+export function newState(lifetime: number): GameState {
+  // Un sobre de bienvenida para que haya algo que abrir desde el primer momento.
+  return { v: 2, baseline: lifetime, packsGranted: 0, packs: 1, collection: {}, slots: [null], mastered: 0, bonusPeriod: 0 };
+}
+
+export function grantPacks(s: GameState, lifetime: number, every: number): number {
+  const n = Math.floor(Math.max(0, lifetime - s.baseline) / every) - s.packsGranted;
+  if (n > 0) { s.packs += n; s.packsGranted += n; return n; }
+  return 0;
+}
+
+export function nextPackProgress(s: GameState, lifetime: number, every: number): { into: number; span: number; pct: number } {
+  const into = Math.max(0, lifetime - s.baseline) - s.packsGranted * every;
+  return { into: Math.max(0, into), span: every, pct: Math.max(0, Math.min(100, (into / every) * 100)) };
+}
+
+export function addCards(s: GameState, cards: Card[], now = Date.now()): void {
+  for (const c of cards) {
+    const o = s.collection[c.id];
+    if (o) { o.count++; } else { s.collection[c.id] = { card: c, count: 1, firstAt: now }; }
   }
-  let stage = 0;
-  while (stage < th.length - 1 && acc >= th[stage]) { stage++; }
-  const start = stage === 0 ? 0 : th[stage - 1];
-  const span = th[stage] - start;
-  const into = acc - start;
-  return { stage, species: stage === 0 ? undefined : line[stage - 1], into, span, pct: Math.min(100, (into / span) * 100), graduated: false };
 }
 
-export interface AdvanceResult { state: GameState; events: string[] }
+/** Pone una carta de la colección a entrenar en un hueco libre. Devuelve false si no se puede. */
+export function startTraining(s: GameState, cardId: string, lifetime: number): boolean {
+  const owned = s.collection[cardId];
+  const slot = s.slots.findIndex(x => x === null);
+  if (!owned || slot < 0) { return false; }
+  if (s.slots.some(t => t?.card.id === cardId)) { return false; }
+  s.slots[slot] = { card: owned.card, born: lifetime, evolved: 0 };
+  return true;
+}
 
-/** Aplica graduaciones pendientes y la Rare Candy del periodo. Devuelve eventos para la UI. */
-export function advance(prev: GameState, lifetime: number, mult: number, periodKey: number, quotaPct: number, rng: () => number = Math.random): AdvanceResult {
-  const state: GameState = { ...prev, current: { ...prev.current }, dex: [...prev.dex] };
+export type FindNext = (card: Card) => Promise<{ ok: true; card: Card | null } | { ok: false }>;
+
+/**
+ * Resuelve las etapas cumplidas: evoluciona a la carta siguiente o, si la línea terminó, gradúa la carta
+ * (+1 sobre). Si la búsqueda falla por red (ok:false) no se toca nada y se reintenta más tarde.
+ */
+export async function resolveDue(s: GameState, lifetime: number, mult: number, findNext: FindNext, now = Date.now()): Promise<string[]> {
   const events: string[] = [];
-  if (quotaPct >= 100 && state.candyPeriod !== periodKey) {
-    state.candyPeriod = periodKey;
-    state.current.born -= Math.round(2_000_000 * mult);
-    events.push('candy');
+  for (let i = 0; i < s.slots.length; i++) {
+    for (let guard = 0; guard < 10; guard++) {
+      const t = s.slots[i];
+      if (!t || !trainingProgress(t, lifetime, mult).due) { break; }
+      const r = await findNext(t.card);
+      if (!r.ok) { break; }
+      if (r.card) {
+        addCards(s, [r.card], now);
+        s.slots[i] = { card: r.card, born: t.born, evolved: t.evolved + 1 };
+        events.push(`evolve:${r.card.name}`);
+      } else {
+        s.slots[i] = null;
+        s.mastered++;
+        s.packs++;
+        events.push(`graduate:${t.card.name}`);
+      }
+    }
   }
-  const startStage = progressOf(state.current, lifetime, mult).stage;
-  for (let guard = 0; guard < 50; guard++) {
-    const pr = progressOf(state.current, lifetime, mult);
-    if (!pr.graduated) { break; }
-    const line = LINES[state.current.lineIdx];
-    const sp = line[line.length - 1];
-    state.dex.push({ id: sp.id, name: sp.name, shiny: state.current.shiny, nature: state.current.nature, at: Date.now() });
-    events.push(`graduate:${sp.name}`);
-    const consumed = thresholds(line.length, mult).slice(-1)[0];
-    state.current = spawn(state.current.born + consumed, rng);
-  }
-  const endStage = progressOf(state.current, lifetime, mult).stage;
-  if (state.current.born === prev.current.born && endStage > startStage) {
-    events.push(startStage === 0 ? 'hatch' : 'evolve');
-  } else if (state.current.born !== prev.current.born && !events.some(e => e === 'candy') && endStage > 0) {
-    events.push('hatch');
-  }
-  return { state, events };
+  return events;
 }

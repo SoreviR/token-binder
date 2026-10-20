@@ -1,6 +1,6 @@
 # PokeToken
 
-Extensión de VS Code para **Windows** que mide los tokens que consumes en **GitHub Copilot Chat** mientras trabajas y los convierte en un compañero Pokémon que crece: el huevo eclosiona, evoluciona y se gradúa a tu Pokédex. En la barra de estado ves cuánto llevas gastado y qué **porcentaje de tu cupo mensual** representa.
+Extensión de VS Code para **Windows** que mide los tokens que consumes en **GitHub Copilot Chat** mientras trabajas y los convierte en **sobres de cartas del Pokémon TCG**: abres sobres, coleccionas cartas de distintas rarezas (con efecto holográfico 3D) y las pones a entrenar para que evolucionen con tus tokens. En la barra de estado ves cuánto llevas gastado y qué **porcentaje de tu cupo mensual** representa.
 
 Inspirada en [PokeTokenBar](https://github.com/chattymin/PokeTokenBar) (solo macOS). Proyecto personal no oficial, sin relación con GitHub, Microsoft, Nintendo ni The Pokémon Company.
 
@@ -12,7 +12,7 @@ Inspirada en [PokeTokenBar](https://github.com/chattymin/PokeTokenBar) (solo mac
 
 - **Contador en vivo** en la barra de estado: tokens usados en el periodo y % del cupo. Se actualiza en pocos segundos tras cada respuesta del chat.
 - **Tooltip con desglose** de hoy, del mes y por modelo.
-- **Panel lateral** (ícono de PokeToken en la barra de actividad): mascota animada, progreso a la siguiente etapa, cuota, gráfico por día, uso por modelo y Pokédex.
+- **Panel lateral** (ícono de PokeToken en la barra de actividad): sobres, carta en entrenamiento, álbum, cuota, gráfico por día y uso por modelo.
 - **Alertas** al cruzar el 50 %, 80 % y 100 % del cupo.
 - **Funciona con cualquier modelo** que tengas habilitado en Copilot (se cuenta por modelo) y con los modos de chat que uses.
 
@@ -54,21 +54,33 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | `pokeToken.quota.unit` | `tokens` | `tokens` o `credits` (créditos de IA de Copilot). |
 | `pokeToken.quota.resetDay` | `1` | Día del mes (UTC) en que se reinicia el cupo. |
 | `pokeToken.alerts.thresholds` | `[50, 80, 100]` | Porcentajes que disparan un aviso. |
-| `pokeToken.growth.multiplier` | `1` | Escala los tokens que necesita el Pokémon para crecer (0.1–2). |
+| `pokeToken.packs.everyTokens` | `750000` | Cada cuántos tokens usados ganas un sobre. |
+| `pokeToken.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
 | `pokeToken.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
 
 Comandos (`F1`): **PokeToken: Configurar cupo mensual**, **PokeToken: Abrir ajustes**, **PokeToken: Abrir panel** y **PokeToken: Recalcular uso**.
 
-## El Pokémon
+## Cómo se juega
 
-- El huevo eclosiona con ~150 K tokens, evoluciona a ~1.5 M y ~6 M, y se gradúa ~8 M después de su última evolución. Todos los umbrales se escalan con `growth.multiplier`.
-- Hay un 1/512 de probabilidad de que sea **shiny**, y cada uno tiene una naturaleza.
-- Llegar al **100 % del cupo** en un periodo da una Rare Candy (adelanta el crecimiento, una vez por periodo).
-- Los sprites se descargan una sola vez de [PokéAPI/sprites](https://github.com/PokeAPI/sprites) y se guardan en disco; sin internet verás un huevo dibujado.
+1. **Ganas sobres con tus tokens.** Empiezas con uno de bienvenida y recibes otro cada 750 K tokens usados (`packs.everyTokens`). Si llegas al **100 % del cupo** en un periodo, ganas un sobre extra de regalo.
+2. **Abres el sobre** (botón *Abrir sobre*): salen 5 cartas reales del Pokémon TCG. Cada una tiene una rareza, que se sortea así:
+
+   | Cartas | Probabilidades |
+   |---|---|
+   | 3 primeras | Común 85 % · Poco común 15 % |
+   | 4.ª | Poco común 80 % · Rara 20 % |
+   | 5.ª | Rara 55 % · Holo 25 % · Ultra 12 % · Ilustración 6 % · Secreta 2 % |
+
+3. **Pon una carta a entrenar** (*Entrenar*, en el sobre o desde el álbum). Mientras usas tokens, su barra avanza: a los ~1.5 M tokens **evoluciona** a la carta siguiente de su línea (por ejemplo Charmander → Charmeleon → Charizard), intentando mantener la misma rareza; las siguientes etapas duran ~4.5 M, ~6 M y ~8 M tokens. Cuando ya no tiene más evoluciones **completa su línea**, libera el hueco y te da **un sobre**. `growth.multiplier` escala estas duraciones.
+4. **Coleccionas** todo en el álbum, con filtro por rareza y contador de repetidas. Pulsa una carta para verla en grande.
+
+Las cartas muestran una inclinación 3D que sigue al ratón, y las de rareza Holo o superior añaden brillo holográfico (las Ilustración y Secretas tienen efectos propios).
+
+> Próximamente: monedas por tokens, tienda de sobres y Pokébolas, y más huecos de entrenamiento para tener varias cartas creciendo a la vez.
 
 ## Privacidad
 
-Todo es local. La extensión **solo lee** archivos de VS Code en tu equipo y **no envía nada** a ningún servidor. La única petición de red es la descarga de sprites a `raw.githubusercontent.com`. Nunca lee el contenido de tus preguntas ni respuestas: solo los contadores de tokens.
+Todo es local. La extensión **solo lee** archivos de VS Code en tu equipo y **no envía nada** a ningún servidor. Nunca lee el contenido de tus preguntas ni respuestas: solo los contadores de tokens. Las únicas peticiones de red son **descargas** de datos e imágenes de cartas desde `api.tcgdex.net` y `assets.tcgdex.net` (no se envía ningún dato tuyo); todo lo descargado queda en disco y no se vuelve a pedir. Si tu red corporativa bloquea esos dominios no podrás abrir sobres, pero el contador de tokens y la cuota seguirán funcionando.
 
 ## Cómo funciona
 
@@ -100,6 +112,8 @@ Un turno de agente que encadena varias llamadas al modelo se cuenta completo (su
 3. Comprueba que existen archivos en `%APPDATA%\Code\agentSessionData\` o en `%APPDATA%\Code\User\workspaceStorage\*\chatSessions\`. Si tu VS Code guarda el chat en otra parte (instalación portable, otra carpeta de datos), indícala en `pokeToken.storageRoots`.
 4. Ejecuta **PokeToken: Recalcular uso**.
 
+**No se pueden abrir sobres** (aparece «sin conexión»): comprueba que tu red permite `api.tcgdex.net` y `assets.tcgdex.net`. El sobre no se gasta si falla.
+
 **No sale el ícono en la barra de actividad**: reinicia VS Code por completo (no basta recargar la ventana).
 
 **`code` no se reconoce**: en VS Code, `Ctrl+Shift+P` → *Shell Command: Install 'code' command in PATH*.
@@ -119,7 +133,7 @@ npm run package     # genera poke-token-X.Y.Z.vsix
 
 Pulsa **F5** en VS Code para abrir una ventana de desarrollo con la extensión cargada.
 
-Estructura: `src/usage/` (lectura de sesiones: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (cuota), `src/game/` (motor del Pokémon y sprites), `src/webview/` y `media/` (panel lateral).
+Estructura: `src/usage/` (lectura de sesiones: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (cuota), `src/game/` (motor de sobres/entrenamiento y cliente de TCGdex), `src/webview/` y `media/` (panel lateral).
 
 ### Publicar una versión
 
@@ -130,4 +144,4 @@ GitHub Actions ejecuta las pruebas, empaqueta el `.vsix` y lo adjunta al Release
 
 ## Créditos y licencia
 
-Código bajo licencia [MIT](LICENSE). Pokémon y sus nombres e imágenes son marcas de Nintendo, Game Freak y The Pokémon Company; este es un proyecto de aficionados, sin fines comerciales, y no incluye ningún sprite en el repositorio (se descargan de PokéAPI en tiempo de ejecución). Idea original: [PokeTokenBar](https://github.com/chattymin/PokeTokenBar).
+Código bajo licencia [MIT](LICENSE). Pokémon, el Pokémon TCG y los nombres e imágenes de las cartas son propiedad de Nintendo, Creatures, Game Freak y The Pokémon Company; este es un proyecto de aficionados, sin fines comerciales, y **no incluye ninguna imagen de cartas en el repositorio**: se descargan en tiempo de ejecución de [TCGdex](https://tcgdex.dev), una base de datos comunitaria y gratuita. Idea original: [PokeTokenBar](https://github.com/chattymin/PokeTokenBar).

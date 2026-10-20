@@ -4,9 +4,9 @@ import { UsageStore, totalOf } from './usage/store';
 import { defaultRoots } from './usage/paths';
 import { fmt, parseLimit, percent, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
-import { advance, progressOf, LINES, GameState } from './game/engine';
-import { getSprite } from './game/sprites';
-import { PokeViewProvider } from './webview/provider';
+import { addCards, Card, GameState, grantPacks, nextPackProgress, resolveDue, startTraining, TIER_NAMES, trainingProgress } from './game/engine';
+import { Tcgdex } from './game/tcgdex';
+import { PokeViewProvider, WebviewMessage } from './webview/provider';
 import { lastBackend } from './usage/sqlite';
 
 const cfg = () => vscode.workspace.getConfiguration('pokeToken');
@@ -17,19 +17,25 @@ export function activate(ctx: vscode.ExtensionContext): void {
   usage.stamps = ctx.globalState.get('pokeToken.stamps.v1', usage.stamps);
   const log = vscode.window.createOutputChannel('PokeToken');
   const game = new GameStore(ctx.globalState);
-  const spriteDir = path.join(ctx.globalStorageUri.fsPath, 'sprites');
+  const cacheDir = path.join(ctx.globalStorageUri.fsPath, 'tcg');
+  const tcg = new Tcgdex(cacheDir);
 
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   bar.command = 'pokeToken.open';
   bar.show();
 
-  const provider = new PokeViewProvider(ctx.extensionUri, () => void tick(true));
+  const provider = new PokeViewProvider(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m));
   let state: GameState | undefined;
   let busy = false;
+  let opening = false;
   let lastLogged = '';
+  let lastEvolveTry = 0;
+  let prefetching = false;
+  const failedThumbs = new Set<string>(); // no reintentar en bucle si no hay red; se limpia al recargar
 
+  let rerun = false;
   async function tick(force = false): Promise<void> {
-    if (busy) { return; }
+    if (busy) { rerun = rerun || force; return; } // no perder un refresco pedido mientras trabajamos
     busy = true;
     try {
       const changed = usage.refresh();
@@ -48,14 +54,83 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const lifetime = usage.lifetimeTokens();
 
       state ??= game.load(lifetime);
-      const res = advance(state, lifetime, mult, start, pct);
-      state = res.state;
+      const events: string[] = [];
+      const every = cfg().get<number>('packs.everyTokens', 750_000);
+      const granted = grantPacks(state, lifetime, every);
+      if (granted) { events.push(`packs:${granted}`); }
+      if (pct >= 100 && state.bonusPeriod !== start) { state.bonusPeriod = start; state.packs++; events.push('bonusPack'); }
+      // Evolución/graduación: necesita red; si falla se reintenta como mucho cada 30 s.
+      const due = state.slots.some(t => t && trainingProgress(t, lifetime, mult).due);
+      if (due && now - lastEvolveTry > 30_000) {
+        lastEvolveTry = now;
+        try { events.push(...await resolveDue(state, lifetime, mult, tcg.findNext)); } catch (e) { log.appendLine(`[error] evolución: ${e}`); }
+      }
       await game.save(state);
 
       await alerts(start, pct);
       renderBar(bar, unit, usedNow, pct, agg.today, agg.month, agg.byModel, agg.byMode);
-      provider.post(await snapshot(unit, limit, usedNow, pct, agg, state, lifetime, mult, res.events));
-    } finally { busy = false; }
+      if (provider.visible) { provider.post(await snapshot(unit, limit, usedNow, pct, agg, state, lifetime, mult, every, events)); }
+    } finally {
+      busy = false;
+      if (rerun) { rerun = false; void tick(true); }
+    }
+  }
+
+  /** Mensajes del panel: abrir sobre, entrenar una carta, pedir la imagen grande. */
+  async function onMessage(m: WebviewMessage): Promise<void> {
+    if (!state) { return; }
+    if (m.type === 'openPack') { await openPack(); }
+    else if (m.type === 'train' && typeof m.id === 'string') {
+      if (startTraining(state, m.id, usage.lifetimeTokens())) { await game.save(state); await tick(true); }
+    } else if (m.type === 'high' && typeof m.id === 'string') {
+      const card = state.collection[m.id]?.card;
+      const file = card && await tcg.image(card, 'high');
+      const src = file && provider.uri(file);
+      if (src) { provider.send({ type: 'high', id: m.id, src }); }
+    }
+  }
+
+  async function openPack(): Promise<void> {
+    if (!state || opening || state.packs < 1) { return; }
+    opening = true;
+    try {
+      provider.send({ type: 'opening' });
+      const cards = await tcg.rollPack();
+      if (!cards.length) {
+        provider.send({ type: 'openFailed' });
+        void vscode.window.showWarningMessage('PokeToken: no se pudo abrir el sobre (¿sin conexión o red bloqueada a api.tcgdex.net?). No se gastó el sobre.');
+        return;
+      }
+      state.packs--;
+      addCards(state, cards);
+      await game.save(state);
+      const views = await Promise.all(cards.map(c => cardView(c, 'high', true)));
+      provider.send({ type: 'reveal', cards: views.map((v, i) => ({ ...v, isNew: state!.collection[cards[i].id].count === 1 })) });
+      await tick(true);
+    } finally { opening = false; }
+  }
+
+  async function cardView(c: Card, q: 'low' | 'high', fetchIfMissing: boolean) {
+    const file = tcg.cachedImage(c, q) ?? (fetchIfMissing ? await tcg.image(c, q) : undefined);
+    return {
+      id: c.id, name: c.name, rarity: c.rarity, tier: c.tier, tierName: TIER_NAMES[c.tier], stage: c.stage, hp: c.hp,
+      types: c.types, set: c.set, src: file ? provider.uri(file) : undefined,
+    };
+  }
+
+  /** Descarga en segundo plano las miniaturas que faltan y vuelve a pintar el panel al terminar. */
+  function prefetchThumbs(cards: Card[]): void {
+    const missing = cards.filter(c => !tcg.cachedImage(c, 'low') && !failedThumbs.has(c.id));
+    if (!missing.length || prefetching) { return; }
+    prefetching = true;
+    void (async () => {
+      try {
+        for (let i = 0; i < missing.length; i += 4) {
+          await Promise.all(missing.slice(i, i + 4).map(async c => { if (!await tcg.image(c, 'low')) { failedThumbs.add(c.id); } }));
+        }
+      } finally { prefetching = false; }
+      void tick(true);
+    })();
   }
 
   async function alerts(period: number, pct: number): Promise<void> {
@@ -69,24 +144,25 @@ export function activate(ctx: vscode.ExtensionContext): void {
     void (top >= 100 ? vscode.window.showErrorMessage(msg) : vscode.window.showWarningMessage(msg));
   }
 
-  async function snapshot(unit: Unit, limit: number, usedNow: number, pct: number, agg: ReturnType<UsageStore['aggregate']>, s: GameState, lifetime: number, mult: number, events: string[]) {
-    const pr = progressOf(s.current, lifetime, mult);
-    const line = LINES[s.current.lineIdx];
-    const sprite = pr.species ? await getSprite(spriteDir, pr.species.id, s.current.shiny) : undefined;
-    const dexIds = [...new Map(s.dex.slice(-48).reverse().map(d => [`${d.id}${d.shiny}`, d])).values()];
-    const dex = await Promise.all(dexIds.map(async d => ({ ...d, sprite: await getSprite(spriteDir, d.id, d.shiny) })));
+  async function snapshot(unit: Unit, limit: number, usedNow: number, pct: number, agg: ReturnType<UsageStore['aggregate']>, s: GameState, lifetime: number, mult: number, every: number, events: string[]) {
     const b = (x: { input: number; cached: number; output: number; credits: number }) => ({ ...x, total: totalOf(x) });
+    const slots = await Promise.all(s.slots.map(async t => {
+      if (!t) { return null; }
+      const p = trainingProgress(t, lifetime, mult);
+      return { card: await cardView(t.card, 'high', true), pct: p.pct, into: p.into, span: p.span, evolved: t.evolved };
+    }));
+    const owned = Object.values(s.collection).sort((a, c) => c.card.tier - a.card.tier || c.firstAt - a.firstAt);
+    prefetchThumbs(owned.slice(0, 120).map(o => o.card));
+    const album = await Promise.all(owned.slice(0, 120).map(async o => ({ ...await cardView(o.card, 'low', false), count: o.count })));
     return {
       unit, limit, used: usedNow, pct, events,
       today: b(agg.today), month: b(agg.month),
       byModel: Object.entries(agg.byModel).map(([k, v]) => ({ name: k, ...b(v) })).sort((a, c) => c.total - a.total),
       byMode: Object.entries(agg.byMode).map(([k, v]) => ({ name: k, ...b(v) })).sort((a, c) => c.total - a.total),
       daily: agg.daily,
-      pokemon: {
-        egg: pr.stage === 0, name: pr.species?.name ?? 'Huevo', line: line.map(l => l.name), stage: pr.stage,
-        shiny: s.current.shiny, nature: s.current.nature, pct: pr.pct, into: pr.into, span: pr.span, sprite,
-      },
-      dex, dexCount: s.dex.length,
+      packs: s.packs, nextPack: nextPackProgress(s, lifetime, every),
+      slots, album, albumUnique: owned.length, albumTotal: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      trainingIds: s.slots.flatMap(t => (t ? [t.card.id] : [])),
     };
   }
 

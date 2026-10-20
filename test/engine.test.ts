@@ -1,37 +1,99 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { advance, progressOf, spawn, thresholds, LINES, GameState } from '../src/game/engine';
+import {
+  addCards, Card, FindNext, grantPacks, newState, nextPackProgress, pickTier, resolveDue, rollPackTiers,
+  stageEnd, startTraining, tierOf, trainingProgress, TIER_RARITIES,
+} from '../src/game/engine';
 
-const fixedRng = (lineIdx: number) => { let i = 0; return () => (i++ === 0 ? lineIdx / LINES.length + 0.001 : 0.9); };
-const mk = (lineIdx: number, born = 0): GameState => ({ current: { ...spawn(born, fixedRng(lineIdx)), born }, dex: [], candyPeriod: 0, hatchedCount: 0 });
+const card = (id: string, name: string, rarity = 'Rare'): Card => ({ id, name, rarity, tier: tierOf(rarity), image: `https://x/${id}` });
 
-test('huevo → eclosión → evolución por umbrales', () => {
-  const s = mk(0); // Bulbasaur (3 etapas)
-  assert.equal(progressOf(s.current, 0, 1).stage, 0);
-  assert.equal(progressOf(s.current, 150_000, 1).stage, 1);
-  assert.equal(progressOf(s.current, 1_500_000, 1).stage, 2);
-  assert.equal(progressOf(s.current, 6_000_000, 1).stage, 3);
+test('tierOf agrupa rarezas conocidas y trata las desconocidas como Rara', () => {
+  assert.equal(tierOf('Common'), 0);
+  assert.equal(tierOf('uncommon'), 1);
+  assert.equal(tierOf('Holo Rare VMAX'), 4);
+  assert.equal(tierOf('Special illustration rare'), 5);
+  assert.equal(tierOf('Hyper rare'), 6);
+  assert.equal(tierOf('Algo Nuevo'), 2);
+  assert.equal(tierOf(undefined), 2);
 });
 
-test('graduación: entra a la Pokédex y nace un huevo nuevo con el sobrante', () => {
-  const s = mk(0);
-  const end = thresholds(3, 1).at(-1)!;
-  const { state, events } = advance(s, end + 10, 1, 1, 0, () => 0.5);
-  assert.equal(state.dex.length, 1);
-  assert.equal(state.dex[0].name, 'Venusaur');
-  assert.equal(state.current.born, end);
-  assert.ok(events.some(e => e.startsWith('graduate:')));
+test('todas las rarezas de TCGdex están clasificadas (sin duplicados entre categorías)', () => {
+  const all = TIER_RARITIES.flat().map(r => r.toLowerCase());
+  assert.equal(new Set(all).size, all.length);
 });
 
-test('multiplicador escala los umbrales', () => {
-  assert.deepEqual(thresholds(1, 2), [300_000, 300_000 + 16_000_000]);
+test('pickTier respeta los pesos', () => {
+  const w: [number, number][] = [[0, 90], [5, 10]];
+  assert.equal(pickTier(w, () => 0.0), 0);
+  assert.equal(pickTier(w, () => 0.89), 0);
+  assert.equal(pickTier(w, () => 0.95), 5);
 });
 
-test('Rare Candy se otorga una sola vez por periodo', () => {
-  const s = mk(0);
-  const a = advance(s, 0, 1, 7, 100);
-  assert.ok(a.events.includes('candy'));
-  const b = advance(a.state, 0, 1, 7, 100);
-  assert.ok(!b.events.includes('candy'));
-  assert.equal(a.state.current.born, -2_000_000);
+test('un sobre tiene 5 cartas: 3 comunes, 1 poco común y 1 con posibilidad de rara', () => {
+  const t = rollPackTiers(() => 0);
+  assert.deepEqual(t, [0, 0, 0, 1, 2]);
+  assert.equal(rollPackTiers(() => 0.999).at(-1), 6);
+});
+
+test('sobres por tokens: se conceden desde la línea base y no se repiten', () => {
+  const s = newState(1_000_000);
+  assert.equal(s.packs, 1);
+  assert.equal(grantPacks(s, 1_000_000 + 749_999, 750_000), 0);
+  assert.equal(grantPacks(s, 1_000_000 + 1_500_000, 750_000), 2);
+  assert.equal(s.packs, 3);
+  assert.equal(grantPacks(s, 1_000_000 + 1_500_000, 750_000), 0);
+  assert.equal(Math.round(nextPackProgress(s, 1_000_000 + 1_875_000, 750_000).pct), 50);
+});
+
+test('entrenar: usa un hueco libre y no permite la misma carta dos veces', () => {
+  const s = newState(0);
+  addCards(s, [card('a', 'Charmander')]);
+  assert.equal(startTraining(s, 'zzz', 0), false); // no está en la colección
+  assert.equal(startTraining(s, 'a', 10), true);
+  assert.equal(s.slots[0]?.born, 10);
+  assert.equal(startTraining(s, 'a', 10), false); // hueco ocupado
+});
+
+test('etapas: la primera dura 1,5 M y el multiplicador la escala', () => {
+  assert.equal(stageEnd(0, 1), 1_500_000);
+  assert.equal(stageEnd(1, 1), 6_000_000);
+  assert.equal(stageEnd(0, 2), 3_000_000);
+  const s = newState(0);
+  addCards(s, [card('a', 'Charmander')]);
+  startTraining(s, 'a', 0);
+  const p = trainingProgress(s.slots[0]!, 750_000, 1);
+  assert.equal(Math.round(p.pct), 50);
+  assert.equal(p.due, false);
+  assert.equal(trainingProgress(s.slots[0]!, 1_500_000, 1).due, true);
+});
+
+test('resolveDue: evoluciona, y al terminar la línea gradúa y da un sobre', async () => {
+  const s = newState(0);
+  s.packs = 0;
+  addCards(s, [card('a', 'Charmander')]);
+  startTraining(s, 'a', 0);
+  const chain: Record<string, Card | null> = { Charmander: card('b', 'Charmeleon'), Charmeleon: card('c', 'Charizard'), Charizard: null };
+  const next: FindNext = async c => ({ ok: true, card: chain[c.name] ?? null });
+
+  const ev1 = await resolveDue(s, 1_500_000, 1, next);
+  assert.deepEqual(ev1, ['evolve:Charmeleon']);
+  assert.equal(s.slots[0]?.card.name, 'Charmeleon');
+  assert.ok(s.collection['b']);
+
+  // Etapa 2 termina en 6 M, la 3 en 12 M: con 12 M se resuelven ambas de golpe.
+  const ev2 = await resolveDue(s, 12_000_000, 1, next);
+  assert.deepEqual(ev2, ['evolve:Charizard', 'graduate:Charizard']);
+  assert.equal(s.slots[0], null);
+  assert.equal(s.mastered, 1);
+  assert.equal(s.packs, 1);
+});
+
+test('resolveDue: si la red falla no cambia nada (se reintenta luego)', async () => {
+  const s = newState(0);
+  addCards(s, [card('a', 'Pikachu')]);
+  startTraining(s, 'a', 0);
+  const ev = await resolveDue(s, 99_000_000, 1, async () => ({ ok: false }));
+  assert.deepEqual(ev, []);
+  assert.equal(s.slots[0]?.card.name, 'Pikachu');
+  assert.equal(s.mastered, 0);
 });

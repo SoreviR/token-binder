@@ -1,16 +1,17 @@
 import type * as vscode from 'vscode';
-import { GameState, spawn } from './engine';
+import { GameState, newState } from './engine';
 
-const KEY = 'pokeToken.game.v1';
+// v1 era el juego de sprites/huevos. El estado de cartas es independiente: no se migra nada.
+const KEY = 'pokeToken.game.v2';
 const ALERTS_KEY = 'pokeToken.alerts.v1';
 
 export class GameStore {
   constructor(private memento: vscode.Memento) {}
 
-  /** Primera ejecución: el huevo nace con los tokens de por vida actuales, así empieza de cero. */
+  /** Primera ejecución: los sobres se cuentan desde los tokens de por vida actuales. */
   load(lifetimeNow: number): GameState {
     const saved = this.memento.get<GameState>(KEY);
-    return saved ?? { current: spawn(lifetimeNow), dex: [], candyPeriod: 0, hatchedCount: 0 };
+    return saved?.v === 2 ? saved : newState(lifetimeNow);
   }
   save(s: GameState): Thenable<void> { return this.memento.update(KEY, s); }
 

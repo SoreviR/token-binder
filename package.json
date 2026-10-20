@@ -1,8 +1,8 @@
 {
   "name": "poke-token",
   "displayName": "PokeToken",
-  "description": "Tokens de Copilot Chat convertidos en un Pokémon que crece, con % de cuota mensual.",
-  "version": "0.1.2",
+  "description": "Tokens de Copilot Chat convertidos en sobres de cartas Pokémon TCG que evolucionan, con % de cuota mensual.",
+  "version": "0.2.0",
   "publisher": "sorevir",
   "license": "MIT",
   "engines": {
@@ -89,12 +89,18 @@
           ],
           "description": "Porcentajes que disparan una alerta."
         },
+        "pokeToken.packs.everyTokens": {
+          "type": "number",
+          "default": 750000,
+          "minimum": 50000,
+          "description": "Cada cuántos tokens usados ganas un sobre de cartas."
+        },
         "pokeToken.growth.multiplier": {
           "type": "number",
           "default": 1,
           "minimum": 0.1,
           "maximum": 2,
-          "description": "Multiplica los tokens necesarios por etapa."
+          "description": "Multiplica los tokens que necesita cada carta para evolucionar."
         },
         "pokeToken.storageRoots": {
           "type": "array",
