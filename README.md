@@ -2,7 +2,7 @@
 
 Extensión de VS Code para **Windows** que mide los tokens que consumes en **GitHub Copilot Chat** mientras trabajas y los convierte en **sobres de cartas del Pokémon TCG**: abres sobres, coleccionas cartas de distintas rarezas (con efecto holográfico 3D) y las pones a entrenar para que evolucionen con tus tokens. En la barra de estado ves cuánto llevas gastado y qué **porcentaje de tu cupo mensual** representa.
 
-Inspirada en [PokeTokenBar](https://github.com/chattymin/PokeTokenBar) (solo macOS). Proyecto personal no oficial, sin relación con GitHub, Microsoft, Nintendo ni The Pokémon Company.
+Proyecto personal no oficial, sin relación con GitHub, Microsoft, Nintendo ni The Pokémon Company.
 
 ```
 🔥 1.24M · 42%        ← barra de estado (amarilla desde 80 %, roja al 100 %)
@@ -169,4 +169,4 @@ GitHub Actions ejecuta las pruebas, empaqueta el `.vsix` y lo adjunta al Release
 
 ## Créditos y licencia
 
-Código bajo licencia [MIT](LICENSE). Pokémon, el Pokémon TCG y los nombres e imágenes de las cartas son propiedad de Nintendo, Creatures, Game Freak y The Pokémon Company; este es un proyecto de aficionados, sin fines comerciales, y **no incluye ninguna imagen de cartas en el repositorio**: se descargan en tiempo de ejecución de [TCGdex](https://tcgdex.dev), una base de datos comunitaria y gratuita. Idea original: [PokeTokenBar](https://github.com/chattymin/PokeTokenBar).
+Código bajo licencia [MIT](LICENSE). Pokémon, el Pokémon TCG y los nombres e imágenes de las cartas son propiedad de Nintendo, Creatures, Game Freak y The Pokémon Company; este es un proyecto de aficionados, sin fines comerciales, y **no incluye ninguna imagen de cartas en el repositorio**: se descargan en tiempo de ejecución de [TCGdex](https://tcgdex.dev), una base de datos comunitaria y gratuita.
