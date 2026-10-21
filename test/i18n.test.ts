@@ -66,7 +66,11 @@ test('webview: every static PT.t / t key used in media/*.js exists, and so do th
     ...ERAS.map(e => 'era.' + e.id),
     ...['shadowless', 'first'].flatMap(v => ['variant.' + v, 'variant.tag.' + v]),
     ...['common', 'popular', 'valuable', 'sought', 'chase', 'grail'].map(c => 'collector.' + c),
-    ...['tier', 'recent', 'name', 'count'].map(s => 'sort.' + s),
+    ...['tier', 'recent', 'name', 'count', 'level', 'condition'].map(s => 'sort.' + s),
+    ...['graded', 'mint', 'worn', 'soaked', 'protected'].map(f => 'filter.' + f),
+    ...['evolve', 'train', 'transform', 'protect', 'held', 'repair'].flatMap(k => ['items.group.' + k, 'items.hint.' + k]),
+    ...[1, 2, 3, 4].map(w => 'condition.short.' + w),
+    ...['centering', 'corners', 'edges', 'surface'].map(n => 'slab.' + n),
     ...ITEM_IDS.flatMap(id => ['item.' + id + '.name', 'item.' + id + '.desc']),
     ...['mega', 'vmax', 'vstar', 'tera'].map(k => 'transform.kind.' + k),
     ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(g => 'grade.' + g),
@@ -97,4 +101,12 @@ test('package.json: the language setting exists with auto/en/es', () => {
   const props = JSON.parse(read('package.json')).contributes.configuration.properties;
   assert.deepEqual(props['tokenBinder.language'].enum, ['auto', 'en', 'es']);
   assert.equal(props['tokenBinder.language'].default, 'auto');
+});
+
+test('the album items tab lists every item exactly once', () => {
+  const src = read('media/album.js');
+  const block = src.slice(src.indexOf('const ITEM_GROUPS'), src.indexOf('];', src.indexOf('const ITEM_GROUPS')));
+  const held = ['sturdy-plate', 'choice-band', 'quick-claw', 'lucky-charm'];
+  const listed = [...block.matchAll(/'([a-z-]+)'/g)].map(m => m[1]).filter(id => (ITEM_IDS as string[]).includes(id));
+  assert.deepEqual([...listed, ...held].sort(), [...ITEM_IDS].sort());
 });

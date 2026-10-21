@@ -100,10 +100,37 @@ window.PT = (function () {
     return el('div', { class: 'marks' }, chips);
   }
 
-  /** A graded card sits in a slab: a frame with the grade and its name. */
+  /** Small stable number from a text (the same card always gets the same certificate and subgrades). */
+  function hashOf(text) {
+    let h = 2166136261;
+    for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return h >>> 0;
+  }
+
+  /** The four subgrades printed on the label: they stay close to the overall grade (a 10 is perfect on every one). */
+  function subgrades(c) {
+    const h = hashOf(c.id + ':' + c.grade);
+    const shift = [0, 1, -1, 0].map((d, i) => ((h >>> (i * 3)) % 3) - 1 + d);
+    return c.grade >= 10 ? [10, 10, 10, 10] : shift.map(d => Math.max(1, Math.min(10, c.grade + (c.grade === 1 ? Math.abs(d) : d))));
+  }
+
+  /** A graded card sits in a slab: a thick clear case with a label (name, set, subgrades, certificate and the grade). */
   function slabEl(cardNode, c) {
+    const cert = String(hashOf(c.id) % 90000000 + 10000000);
+    const num = c.id.slice(c.id.lastIndexOf('-') + 1);
+    const subs = subgrades(c);
+    const names = ['centering', 'corners', 'edges', 'surface'];
     return el('div', { class: 'slab g' + c.grade },
-      el('div', { class: 'slabhead', text: t('slab.label', c.grade, t('grade.' + c.grade)) }), cardNode);
+      el('div', { class: 'slabcase' },
+        el('div', { class: 'slablabel' },
+          el('div', { class: 'sl-brand' }, el('b', { text: t('slab.brand') }), el('span', { text: t('slab.brandFull') })),
+          el('div', { class: 'sl-info' },
+            el('div', { class: 'sl-name', text: c.name.toUpperCase() }),
+            el('div', { class: 'sl-set', text: [c.set, '#' + num].filter(Boolean).join(' · ') }),
+            el('div', { class: 'sl-cert', text: t('slab.cert') + ' ' + cert })),
+          el('div', { class: 'sl-subs' }, subs.map((v, i) => el('div', { title: t('slab.' + names[i]) }, el('span', { text: v }), el('i', { text: t('slab.' + names[i]).slice(0, 3).toUpperCase() })))),
+          el('div', { class: 'sl-grade' }, el('b', { text: c.grade }), el('span', { text: t('grade.' + c.grade) }))),
+        el('div', { class: 'slabwin' }, cardNode)));
   }
 
   /** Approximate market value and collectibility label. */

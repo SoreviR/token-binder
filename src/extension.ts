@@ -136,7 +136,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   async function onMessage(m: WebviewMessage, from: 'side' | 'album'): Promise<void> {
     if (!state) { return; }
     const target = from === 'album' ? album : provider;
-    if (m.type === 'openAlbum') { album.show(); }
+    if (m.type === 'openAlbum') { album.show(m.tab === 'items' ? 'items' : undefined); }
     else if (m.type === 'openPack') { await openPack(m.kind === 'premium' || m.kind === 'ball' ? m.kind : 'pack'); }
     else if (m.type === 'buy' && typeof m.item === 'string') {
       if (buy(state, m.item as Item)) { await game.save(state); await tick(true); }
@@ -399,7 +399,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       ...await cardView(o.card, 'low', false, p => album.uri(p)), count: o.count, firstAt: o.firstAt,
     })));
     return {
-      lang: lang(), items: s.items, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      lang: lang(), items: s.items, boxes: s.boxes, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade) * conditionMultiplier(o.wear, o.grade, o.soaked), 0)),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };

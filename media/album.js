@@ -10,6 +10,8 @@
   let era = '';            // chosen era id ('' = all)
   let query = '';
   let sort = 'tier';
+  let cond = '';           // chosen condition filter ('' = any)
+  let gear = '';           // chosen held-item filter ('' = any, 'any', 'none' or an item id)
   let viewing = null;
 
   const SORTS = {
@@ -17,7 +19,28 @@
     recent: (a, b) => b.firstAt - a.firstAt,
     name: (a, b) => a.name.localeCompare(b.name),
     count: (a, b) => b.count - a.count || b.tier - a.tier,
+    level: (a, b) => b.stats.level - a.stats.level || b.xp - a.xp || b.tier - a.tier,
+    condition: (a, b) => conditionScore(b) - conditionScore(a) || b.tier - a.tier,
   };
+  /** Higher is better: graded cards first (by grade), then ungraded from mint to heavily played, soaked cards last. */
+  const conditionScore = c => c.soaked ? -1 : c.grade ? 100 + c.grade : 10 - (c.wear || 0);
+  const COND_FILTERS = {
+    graded: c => !!c.grade,
+    mint: c => !c.grade && !c.soaked && !c.wear,
+    worn: c => !c.grade && !c.soaked && c.wear > 0,
+    soaked: c => c.soaked,
+    protected: c => !c.grade && (c.care.sleeve || c.care.toploader),
+  };
+  const HELD = ['sturdy-plate', 'choice-band', 'quick-claw', 'lucky-charm'];
+  // The inventory tab groups the items by what they are for.
+  const ITEM_GROUPS = [
+    ['evolve', ['fire-stone', 'water-stone', 'thunder-stone', 'leaf-stone', 'ice-stone', 'sun-stone', 'moon-stone', 'shiny-stone', 'dawn-stone', 'kings-rock']],
+    ['train', ['rare-candy', 'lucky-egg']],
+    ['transform', ['mega-stone', 'dynamax-band', 'star-core', 'tera-orb']],
+    ['protect', ['sleeve', 'toploader']],
+    ['held', HELD],
+    ['repair', ['hair-dryer']],
+  ];
 
   // Toolbar: created once so typing does not lose focus. `labelToolbar` re-applies the texts when the language changes.
   const title = el('h2');
@@ -26,28 +49,34 @@
   const search = el('input', { class: 'search', type: 'search', oninput: e => { query = e.target.value.trim().toLowerCase(); renderGrid(); } });
   const eraSel = el('select', { class: 'sorter', onchange: e => { era = e.target.value; renderGrid(); } });
   const sorter = el('select', { class: 'sorter', onchange: e => { sort = e.target.value; renderGrid(); } });
+  const condSel = el('select', { class: 'sorter', onchange: e => { cond = e.target.value; renderGrid(); } });
+  const gearSel = el('select', { class: 'sorter', onchange: e => { gear = e.target.value; renderGrid(); } });
   const chips = el('div', { class: 'chips' });
   const grid = el('div', { class: 'agrid' });
-  // Two tabs: the album and the battle screen (media/battle.js).
+  // Three tabs: the album, the items and the battle screen (media/battle.js).
   let tab = 'album';
   const albumView = el('div', {});
+  const itemsView = el('div', { style: 'display:none' });
   const battleView = el('div', { style: 'display:none' });
   const tabAlbum = el('button', { class: 'tab on', onclick: () => showTab('album') });
+  const tabItems = el('button', { class: 'tab', onclick: () => showTab('items') });
   const tabBattle = el('button', { class: 'tab', onclick: () => showTab('battle') });
   function showTab(name) {
     tab = name;
     albumView.style.display = name === 'album' ? '' : 'none';
+    itemsView.style.display = name === 'items' ? '' : 'none';
     battleView.style.display = name === 'battle' ? '' : 'none';
-    tabAlbum.classList.toggle('on', name === 'album'); tabBattle.classList.toggle('on', name === 'battle');
-    if (name === 'battle') closeViewer();
+    tabAlbum.classList.toggle('on', name === 'album'); tabItems.classList.toggle('on', name === 'items'); tabBattle.classList.toggle('on', name === 'battle');
+    if (name !== 'album') closeViewer();
   }
-  albumView.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), sellAll), el('div', { class: 'toolbar' }, search, eraSel, sorter), chips, grid);
-  app.append(el('div', { class: 'tabs', role: 'tablist' }, tabAlbum, tabBattle), albumView, battleView);
+  albumView.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), sellAll), el('div', { class: 'toolbar' }, search, eraSel, condSel, gearSel, sorter), chips, grid);
+  app.append(el('div', { class: 'tabs', role: 'tablist' }, tabAlbum, tabItems, tabBattle), albumView, itemsView, battleView);
   window.PTBattle.init({ root: battleView, stage: document.getElementById('stage'), send });
 
   function labelToolbar() {
     title.textContent = t('album.title');
     tabAlbum.textContent = t('tab.album');
+    tabItems.textContent = t('tab.items');
     tabBattle.textContent = t('tab.battle');
     sellAll.textContent = t('album.sellAll');
     sellAll.title = t('album.sellAllTip');
@@ -57,6 +86,13 @@
     sorter.setAttribute('aria-label', t('album.sortAria'));
     sorter.replaceChildren(...Object.keys(SORTS).map(k => el('option', { value: k, text: t('sort.' + k) })));
     sorter.value = sort;
+    condSel.setAttribute('aria-label', t('album.condAria'));
+    condSel.replaceChildren(el('option', { value: '', text: t('filter.allCond') }), ...Object.keys(COND_FILTERS).map(k => el('option', { value: k, text: t('filter.' + k) })));
+    condSel.value = cond;
+    gearSel.setAttribute('aria-label', t('album.gearAria'));
+    gearSel.replaceChildren(el('option', { value: '', text: t('filter.allGear') }), el('option', { value: 'any', text: t('filter.anyGear') }), el('option', { value: 'none', text: t('filter.noGear') }),
+      ...HELD.map(id => el('option', { value: id, text: itemIcon(id) + ' ' + itemName(id) })));
+    gearSel.value = gear;
   }
 
   function renderEras() {
@@ -78,6 +114,8 @@
     if (!D) return;
     const cards = D.album
       .filter(c => (tier === null || c.tier === tier) && (!era || c.era === era)
+        && (!cond || COND_FILTERS[cond](c))
+        && (!gear || (gear === 'any' ? !!c.held : gear === 'none' ? !c.held : c.held === gear))
         && (!query || (c.name + ' ' + (c.set || '') + ' ' + c.rarity + ' ' + variantName(c)).toLowerCase().includes(query)))
       .sort(SORTS[sort]);
     if (!cards.length) {
@@ -90,6 +128,8 @@
       c.variant ? el('span', { class: 'vt', text: t('variant.tag.' + c.variant) }) : null,
       D.trainingIds.includes(c.id) ? el('span', { class: 'tr', text: t('album.training') }) : null,
       c.grade ? el('span', { class: 'gr g' + c.grade, text: 'TBGS ' + c.grade }) : null,
+      !c.grade && !c.soaked && c.wear > 0 ? el('span', { class: 'cond w' + c.wear, title: t('condition.' + c.wear), text: t('condition.short.' + c.wear) }) : null,
+      c.held ? el('span', { class: 'heldtag', title: itemName(c.held), text: itemIcon(c.held) }) : null,
       c.soaked ? el('span', { class: 'wet-tag', title: t('care.tipSoaked'), text: '💧' }) : null,
       !c.grade && (c.care.sleeve || c.care.toploader) ? el('span', { class: 'care', title: t('care.tipSleeve'), text: (c.care.sleeve ? '🛡️' : '') + (c.care.toploader ? '📦' : '') }) : null,
       c.id === D.fighterId ? el('span', { class: 'fgt', title: t('battle.isFighter'), text: '⚔' }) : null,
@@ -106,7 +146,33 @@
     renderEras();
     renderChips();
     renderGrid();
+    renderItems();
     if (viewing) { if (D.album.find(c => c.id === viewing)) openViewer(viewing, true); else closeViewer(); }
+  }
+
+  /* ───── items tab: the mystery boxes and the inventory as cards ───── */
+  function renderItems() {
+    const have = id => (D.items && D.items[id]) || 0;
+    const groups = ITEM_GROUPS.map(([kind, ids]) => [kind, ids.filter(id => have(id) > 0)]).filter(([, ids]) => ids.length);
+    itemsView.replaceChildren(
+      el('div', { class: 'boxbar' },
+        el('div', { class: 'bb-icon', text: '🎁' }),
+        el('div', { class: 'bb-text' }, el('b', { text: t('items.boxes', D.boxes || 0) }), el('div', { class: 'sub', text: t('items.boxHint') })),
+        el('button', { class: 'btn', ...(D.boxes ? {} : { disabled: '' }), text: t('box.open', D.boxes || 0), onclick: () => send('openBox') })),
+      ...(groups.length ? [] : [el('div', { class: 'sub', text: t('items.emptyAlbum') })]),
+      ...groups.map(([kind, ids]) => el('div', {},
+        el('div', { class: 'igroup' }, t('items.group.' + kind), el('small', { text: t('items.hint.' + kind) })),
+        el('div', { class: 'igrid' }, ids.map(id => el('div', { class: 'icard' },
+          el('div', { class: 'ic-top' }, el('div', { class: 'ic-icon', text: itemIcon(id) }), el('div', { class: 'ic-name', text: itemName(id) }), el('span', { class: 'ic-n', text: '×' + have(id) })),
+          el('div', { class: 'ic-desc', text: itemDesc(id) })))))));
+  }
+
+  function showBox(id) {
+    overlay.replaceChildren(
+      el('div', { class: 'hint', text: t('box.found') }),
+      el('div', { class: 'itemfound' }, el('div', { class: 'big', text: itemIcon(id) }), el('b', { text: itemName(id) }), el('div', { class: 'sub', text: itemDesc(id) })),
+      el('button', { class: 'btn', text: t('box.ok'), onclick: closeViewer }));
+    overlay.querySelector('.btn')?.focus();
   }
 
   /* ───── single card viewer ───── */
@@ -158,7 +224,6 @@
     if (!buttons.length) return null;
     return el('div', { class: 'itemrow' }, el('div', { class: 'sub center', text: t('viewer.items') }), el('div', { class: 'row', style: 'gap:6px;justify-content:center;flex-wrap:wrap' }, buttons));
   }
-  const HELD = ['sturdy-plate', 'choice-band', 'quick-claw', 'lucky-charm'];
   /** The battle item this card holds, and the ones in the inventory that can be equipped (they replace the current one). */
   function heldRow(c) {
     const have = id => (D.items && D.items[id]) || 0;
@@ -201,6 +266,8 @@
   window.addEventListener('message', ev => {
     const m = ev.data || {};
     if (m.type === 'album') { D = m.data; render(); }
+    else if (m.type === 'boxOpened') { showBox(m.item); }
+    else if (m.type === 'showTab') { showTab(m.tab); }
     else if (m.type === 'battleResult') { showTab('battle'); window.PTBattle.play(m.data); }
     else if (m.type === 'high' && viewing === m.id) {
       const img = overlay.querySelector('.card3d img');

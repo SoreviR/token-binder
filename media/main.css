@@ -150,13 +150,34 @@ body.album #overlay { justify-content: center; cursor: pointer; }
 .itemrow { margin-top: 8px; }
 @keyframes pop { from { transform: scale(.3) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
 
-/* grading slab and grade badge */
-.slab { display: inline-block; padding: 6px 8px 8px; border-radius: 10px; border: 3px solid #b8c4cc; background: linear-gradient(160deg, rgba(255,255,255,.22), rgba(255,255,255,.06)); box-shadow: 0 0 10px rgba(180,200,215,.35); }
-.slab .slabhead { font-size: 11px; font-weight: 800; letter-spacing: .4px; text-align: center; padding: 2px 6px 6px; color: var(--vscode-foreground); }
-.slab.g10 { border-color: #ffd54a; box-shadow: 0 0 18px rgba(255,213,74,.75); }
-.slab.g10 .slabhead { color: #ffd54a; }
-.slab.g9 { border-color: #e0e6ea; box-shadow: 0 0 12px rgba(224,230,234,.55); }
-.slab.g4, .slab.g3, .slab.g2, .slab.g1 { border-color: #8a6a55; box-shadow: none; }
+/* grading slab and grade badge: a thick clear case with a label on top, like a real graded card */
+.slab { display: inline-block; padding: 7px; border-radius: 14px; background: linear-gradient(145deg, rgba(255,255,255,.55), rgba(190,205,215,.25) 40%, rgba(255,255,255,.4)); border: 1px solid rgba(255,255,255,.7); box-shadow: 0 6px 18px rgba(0,0,0,.45), inset 0 0 0 2px rgba(120,135,148,.55), inset 0 0 14px rgba(255,255,255,.35); position: relative; }
+.slab::after { content: ''; position: absolute; inset: 0; border-radius: 14px; pointer-events: none; background: linear-gradient(115deg, rgba(255,255,255,.28) 0%, rgba(255,255,255,0) 28%, rgba(255,255,255,0) 70%, rgba(255,255,255,.14) 100%); }
+.slabcase { border-radius: 9px; padding: 6px; background: linear-gradient(180deg, #d8e0e6, #aebbc5); box-shadow: inset 0 0 0 1px rgba(60,75,88,.5); }
+.slablabel { display: grid; grid-template-columns: 1fr auto; grid-template-areas: "brand grade" "info grade" "subs grade"; gap: 2px 8px; align-items: center; padding: 5px 7px; border-radius: 4px; background: linear-gradient(180deg, #fff, #eef1f3); color: #15202b; border: 1px solid #8795a1; margin-bottom: 6px; font-family: 'Segoe UI', Arial, sans-serif; }
+.sl-brand { grid-area: brand; display: flex; align-items: baseline; gap: 6px; border-bottom: 1px solid #c3ccd3; padding-bottom: 2px; }
+.sl-brand b { font-size: 13px; letter-spacing: 1.5px; font-weight: 900; }
+.sl-brand span { font-size: 7px; letter-spacing: .3px; text-transform: uppercase; color: #5a6874; }
+.sl-info { grid-area: info; min-width: 0; line-height: 1.25; }
+.sl-name { font-size: 11px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sl-set { font-size: 9px; color: #3b4854; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sl-cert { font-size: 8px; font-family: Consolas, monospace; color: #5a6874; letter-spacing: .5px; }
+.sl-subs { grid-area: subs; display: flex; gap: 3px; margin-top: 1px; }
+.sl-subs > div { display: flex; flex-direction: column; align-items: center; min-width: 26px; padding: 0 3px; border: 1px solid #9aa7b2; border-radius: 3px; background: #f6f8f9; }
+.sl-subs span { font-size: 11px; font-weight: 800; line-height: 1.15; }
+.sl-subs i { font-style: normal; font-size: 6px; letter-spacing: .4px; color: #5a6874; }
+.sl-grade { grid-area: grade; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 54px; align-self: stretch; padding: 3px 6px; border-radius: 4px; background: #111; color: #fff; border: 2px solid #111; box-shadow: inset 0 0 0 1px #555; }
+.sl-grade b { font-size: 28px; line-height: 1; font-weight: 900; }
+.sl-grade span { font-size: 8px; letter-spacing: .6px; text-transform: uppercase; text-align: center; margin-top: 2px; }
+.slabwin { display: flex; justify-content: center; padding: 8px; border-radius: 4px; background: linear-gradient(160deg, #1b232b, #0e1318); box-shadow: inset 0 0 8px #000; }
+.slab.g10 .slablabel { background: linear-gradient(180deg, #1a1a1a, #050505); color: #f3d98b; border-color: #c9a227; }
+.slab.g10 .sl-brand { border-color: #5c4a14; }
+.slab.g10 .sl-brand span, .slab.g10 .sl-set, .slab.g10 .sl-cert, .slab.g10 .sl-subs i { color: #bfa24a; }
+.slab.g10 .sl-subs > div { background: #111; border-color: #6b5718; }
+.slab.g10 .sl-grade { background: linear-gradient(160deg, #ffe58a, #c9941a); color: #2b1d00; border-color: #ffe58a; box-shadow: 0 0 10px rgba(255,213,74,.6); }
+.slab.g10 { box-shadow: 0 6px 18px rgba(0,0,0,.45), 0 0 18px rgba(255,213,74,.55), inset 0 0 0 2px rgba(201,162,39,.7); }
+.slab.g9 .sl-grade { background: linear-gradient(160deg, #3a4048, #14181d); border-color: #cfd6dc; }
+.slab.g4 .sl-grade, .slab.g3 .sl-grade, .slab.g2 .sl-grade, .slab.g1 .sl-grade { background: #4a362a; border-color: #4a362a; }
 .agrid .thumb .gr { position: absolute; right: 2px; top: 17px; font-size: 8px; font-weight: 800; padding: 0 4px; border-radius: 3px; color: #1a2530; background: linear-gradient(135deg, #f4f7f9, #b8c4cc); }
 .agrid .thumb .gr.g10 { background: linear-gradient(135deg, #fff3b0, #e0a800); color: #3a2a00; }
 
@@ -252,3 +273,23 @@ body.album #overlay { justify-content: center; cursor: pointer; }
 .mark.held-mark { border-color: rgba(255,170,90,.8); background: rgba(255,170,90,.14); text-transform: none; }
 .reward.xp { color: #8ec5ff; }
 .warnline { color: #e0c05a; }
+
+/* album thumbnails: condition and held item without opening the card */
+.agrid .thumb .cond { position: absolute; right: 2px; top: 17px; font-size: 8px; font-weight: 800; padding: 0 4px; border-radius: 3px; color: #fff; background: rgba(0,0,0,.75); }
+.agrid .thumb .cond.w1 { color: #b8e6a0; } .agrid .thumb .cond.w2 { color: #ffe08a; } .agrid .thumb .cond.w3 { color: #ffb066; } .agrid .thumb .cond.w4 { color: #ff8080; }
+.agrid .thumb .heldtag { position: absolute; right: 2px; top: 31px; font-size: 11px; line-height: 1; padding: 1px 2px; border-radius: 3px; background: rgba(0,0,0,.7); }
+
+/* items tab */
+.boxbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px 12px; margin: 8px 0 14px; border-radius: 8px; border: 1px solid var(--vscode-widget-border, #555); background: var(--vscode-editorWidget-background, rgba(128,128,128,.08)); }
+.boxbar .bb-icon { font-size: 28px; }
+.boxbar .bb-text { flex: 1; min-width: 180px; }
+.igroup { margin: 16px 0 6px; font-size: 13px; font-weight: 700; }
+.igroup small { font-weight: 400; opacity: .7; margin-left: 8px; }
+.igrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; }
+.icard { position: relative; display: flex; flex-direction: column; gap: 4px; padding: 12px; border-radius: 10px; border: 1px solid var(--vscode-widget-border, #555); background: var(--vscode-editorWidget-background, rgba(128,128,128,.08)); }
+.icard .ic-top { display: flex; align-items: center; gap: 10px; }
+.icard .ic-icon { font-size: 30px; line-height: 1; width: 44px; height: 44px; display: grid; place-items: center; border-radius: 10px; background: rgba(128,128,128,.16); }
+.icard .ic-name { font-weight: 700; font-size: 13px; }
+.icard .ic-n { margin-left: auto; font-size: 12px; font-weight: 800; padding: 1px 9px; border-radius: 10px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
+.icard .ic-desc { font-size: 12px; line-height: 1.4; opacity: .9; }
+.icard .ic-hint { font-size: 10px; opacity: .6; margin-top: auto; }

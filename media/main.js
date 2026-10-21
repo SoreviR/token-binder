@@ -86,16 +86,14 @@
       el('button', { class: 'btn ghost', text: t('slot.branchNatural'), onclick: () => send('chooseEvolution', { id: s.id, choice: 'natural' }) }));
   }
 
-  /** Item inventory and the mystery box. */
+  /** The mystery box; the items themselves live in the album's Items tab. */
   function itemsBox() {
     const d = S;
-    const owned = Object.entries(d.items || {}).filter(([, n]) => n > 0);
+    const count = Object.values(d.items || {}).reduce((n, v) => n + (v > 0 ? v : 0), 0);
     return box(t('items.title'),
-      owned.length
-        ? owned.map(([id, n]) => el('div', { class: 'shopitem', title: itemDesc(id) },
-          el('div', { class: 'si' }, el('div', { text: itemIcon(id) + ' ' + itemName(id) + ' ×' + n }), el('div', { class: 'sub', text: itemDesc(id) }))))
-        : el('div', { class: 'sub', text: t('items.empty') }),
-      el('button', { class: 'btn', style: 'width:100%;margin-top:8px', ...(d.boxes ? {} : { disabled: '' }), text: t('box.open', d.boxes), onclick: () => send('openBox') }));
+      el('div', { class: 'sub', text: count ? t('items.summary', count) : t('items.empty') }),
+      el('button', { class: 'btn', style: 'width:100%;margin-top:8px', ...(d.boxes ? {} : { disabled: '' }), text: t('box.open', d.boxes), onclick: () => send('openBox') }),
+      el('button', { class: 'btn ghost', style: 'width:100%;margin-top:6px', text: t('items.seeAlbum'), onclick: () => send('openAlbum', { tab: 'items' }) }));
   }
 
   function showBox(id) {

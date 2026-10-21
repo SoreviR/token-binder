@@ -5,6 +5,7 @@ import type { WebviewMessage } from './provider';
 export class AlbumPanel {
   private panel?: vscode.WebviewPanel;
   private last?: unknown;
+  private pendingTab?: string;
 
   constructor(
     private ext: vscode.Uri,
@@ -15,8 +16,14 @@ export class AlbumPanel {
 
   get open(): boolean { return !!this.panel; }
 
-  show(): void {
-    if (this.panel) { this.panel.reveal(this.panel.viewColumn ?? vscode.ViewColumn.Active); return; }
+  /** Opens (or reveals) the album, on a given tab if asked: it is applied once the page is ready. */
+  show(tab?: string): void {
+    if (this.panel) {
+      this.panel.reveal(this.panel.viewColumn ?? vscode.ViewColumn.Active);
+      if (tab) { this.send({ type: 'showTab', tab }); }
+      return;
+    }
+    this.pendingTab = tab;
     const panel = vscode.window.createWebviewPanel('tokenBinder.album', 'Álbum TokenBinder', vscode.ViewColumn.Active, {
       enableScripts: true,
       retainContextWhenHidden: true, // keeps the filter and search when switching tabs
@@ -26,8 +33,10 @@ export class AlbumPanel {
     panel.webview.html = this.html(panel.webview);
     panel.onDidDispose(() => { if (this.panel === panel) { this.panel = undefined; this.last = undefined; } });
     panel.webview.onDidReceiveMessage((m: WebviewMessage) => {
-      if (m?.type === 'ready') { this.last ? this.post(this.last) : this.onReady(); }
-      else if (m?.type) { this.onMessage(m); }
+      if (m?.type === 'ready') {
+        this.last ? this.post(this.last) : this.onReady();
+        if (this.pendingTab) { this.send({ type: 'showTab', tab: this.pendingTab }); this.pendingTab = undefined; }
+      } else if (m?.type) { this.onMessage(m); }
     });
   }
 
