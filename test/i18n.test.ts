@@ -56,7 +56,7 @@ test('webview dictionaries: es and en have exactly the same keys', () => {
 
 test('webview: every static PT.t / t key used in media/*.js exists, and so do the dynamic id families (including every item)', () => {
   const d = webviewDicts();
-  for (const f of ['main.js', 'album.js', 'common.js']) {
+  for (const f of ['main.js', 'album.js', 'common.js', 'league.js']) {
     for (const m of read('media/' + f).matchAll(/\bt\('([a-zA-Z0-9.]+)'\s*[,)]/g)) {
       assert.ok(m[1] in d.en, `${f} uses unknown key "${m[1]}"`);
     }
@@ -71,6 +71,7 @@ test('webview: every static PT.t / t key used in media/*.js exists, and so do th
     ...['evolve', 'train', 'transform', 'protect', 'held', 'repair'].flatMap(k => ['items.group.' + k, 'items.hint.' + k]),
     ...[1, 2, 3, 4].map(w => 'condition.short.' + w),
     ...['centering', 'corners', 'edges', 'surface'].map(n => 'slab.' + n),
+    ...['generic', 'github-cancelled', 'github-rejected', 'offline', 'no-server', 'not-configured', 'server-error', 'update-required', 'unauthorized', 'not-connected', 'unknown-player', 'invalid-name', 'too-many-owned', 'too-many-joined', 'invalid-code', 'unknown-code', 'league-full', 'not-member', 'rival-not-member', 'invalid-rival', 'no-fighter', 'rival-no-fighter', 'daily-limit', 'rival-limit', 'card-unavailable', 'try-again', 'invalid-card', 'invalid-xp', 'invalid-grade', 'invalid-item', 'invalid-quota'].map(c => 'league.err.' + c),
     ...ITEM_IDS.flatMap(id => ['item.' + id + '.name', 'item.' + id + '.desc']),
     ...['mega', 'vmax', 'vstar', 'tera'].map(k => 'transform.kind.' + k),
     ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(g => 'grade.' + g),

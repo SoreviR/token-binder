@@ -293,3 +293,8 @@ body.album #overlay { justify-content: center; cursor: pointer; }
 .icard .ic-n { margin-left: auto; font-size: 12px; font-weight: 800; padding: 1px 9px; border-radius: 10px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
 .icard .ic-desc { font-size: 12px; line-height: 1.4; opacity: .9; }
 .icard .ic-hint { font-size: 10px; opacity: .6; margin-top: auto; }
+
+/* league tab */
+.rankn { flex: none; width: 30px; font-weight: 700; opacity: .7; text-align: center; }
+.leader.earned { background: rgba(26,111,212,.08); border-radius: 6px; }
+.errbox { border-color: var(--vscode-editorError-foreground, #c0392b); }

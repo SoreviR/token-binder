@@ -79,6 +79,11 @@
         "command": "tokenBinder.resetProgress",
         "title": "%command.resetProgress%",
         "category": "TokenBinder"
+      },
+      {
+        "command": "tokenBinder.deleteOnlineData",
+        "title": "%command.deleteOnlineData%",
+        "category": "TokenBinder"
       }
     ],
     "configuration": {
@@ -108,6 +113,16 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "%config.mishaps.enabled%"
+        },
+        "tokenBinder.online.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.online.enabled%"
+        },
+        "tokenBinder.online.server": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%config.online.server%"
         },
         "tokenBinder.quota.unit": {
           "type": "string",

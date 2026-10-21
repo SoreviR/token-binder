@@ -104,6 +104,18 @@ export const en = {
   'mishap.rain': 'TokenBinder: you went over the quota and got caught in the rain: {0} cards are soaked (a Charmandryer saves them). {1} stayed dry in their sleeve or slab.',
   'mishap.rainSaved': 'TokenBinder: you went over the quota and got caught in the rain, but your sleeves and slabs kept all {0} cards dry!',
   'mishap.open': 'Open album',
+  // online leagues
+  'league.consent': 'TokenBinder online leagues\n\nIf you continue, this is sent to the league server: your GitHub id and login, the card you take to battle (its level, grade and held item), roughly how much of your monthly quota you have used, and your duel results. Your token usage, your chats, your code and the rest of your collection never leave your computer.\n\nYou can delete everything the server holds about you at any time from the League tab.',
+  'league.consentButton': 'Sign in with GitHub and continue',
+  'league.leaveConfirm': 'Leave the league "{0}"? Your place in its ranking is lost.',
+  'league.leave': 'Leave league',
+  'league.deleteConfirm': 'Delete everything the league server holds about you (your account, leagues you are in, your fighter and your duels)? Your collection on this computer is not touched.',
+  'league.delete': 'Delete my online data',
+  'league.incomingWon': 'TokenBinder: {0} challenged you in "{1}" and your card won!',
+  'league.incomingLost': 'TokenBinder: {0} challenged you in "{1}" and beat you.',
+  'league.incomingMany': 'TokenBinder: you were challenged {0} times while you were away ({1} lost).',
+  'league.watch': 'Watch replay',
+  'league.deleted': 'TokenBinder: your online data was deleted.',
 
   // items
   'branch.item': 'TokenBinder: you do not have the item for that evolution.',

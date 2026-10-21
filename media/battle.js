@@ -182,6 +182,7 @@ window.PTBattle = (function () {
     if (o.firstWin) lines.push(el('div', { class: 'reward', text: t('battle.badgeEarned', r.leader.name) }));
     if (o.xp) lines.push(el('div', { class: 'reward xp', text: t('battle.xp', o.xp.toLocaleString()) + (o.levelUp ? ' · ' + t('battle.levelUp', r.me.name, o.levelUp) : '') }));
     if (o.recovered) lines.push(el('div', { class: 'reward', text: t('battle.recovered', o.recovered) }));
+    if (r.duel) lines.push(el('div', { class: 'reward', text: t('battle.elo', o.eloChange > 0 ? '+' + o.eloChange : String(o.eloChange), r.duel.league) }));
     if (o.capped) lines.push(el('div', { class: 'sub', text: t('battle.capped') }));
     if (r.worn) lines.push(el('div', { class: 'worn', text: t('battle.worn', r.me.name, t('condition.' + r.worn)) }));
     return [
@@ -191,7 +192,7 @@ window.PTBattle = (function () {
       el('div', { class: 'sub center', style: 'margin-top:6px', text: t(r.won ? 'battle.whyWon' : 'battle.whyLost') }),
       el('ul', { class: 'why' }, ...why),
       el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px' },
-        el('button', { class: 'btn', text: t('battle.rematch'), onclick: () => { closeArena(); send('startBattle', { leader: r.leader.id }); } }),
+        r.duel ? null : el('button', { class: 'btn', text: t('battle.rematch'), onclick: () => { closeArena(); send('startBattle', { leader: r.leader.id }); } }),
         el('button', { class: 'btn ghost', text: t('battle.close'), onclick: closeArena })),
     ];
   }

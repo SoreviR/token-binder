@@ -21,7 +21,9 @@ import { lang, resolveLang, setLang, t } from './i18n';
 import { Updater } from './update/updater';
 import { backupIfUpgraded, exportPayload, parseImport } from './game/backup';
 import { registerDevTools } from './devhook';
-import { Fighter, effectiveness, estimateWin, factorGaps, simulate } from './game/battle';
+import { BATTLE_VERSION, Fighter, effectiveness, estimateWin, factorGaps, simulate } from './game/battle';
+import { LeagueClient } from './online/client';
+import { LeagueController } from './online/controller';
 import { LEADERS, LEADER_BY_ID, REMATCH_DAILY_CAP, battleOf, dayKey, leaderFighter, leaderUnlocked, playerFighter, recordBattle, setFighter } from './game/leaders';
 import { MishapResult, ROCKET, dryCard, overageMishap, recordRocketBattle } from './game/mishaps';
 import { PROTECTORS, Protector, applyWear, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading, wearChance } from './game/grading';
@@ -62,6 +64,46 @@ export function activate(ctx: vscode.ExtensionContext): void {
 
   const provider = new BinderViewProvider(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m, 'side'));
   const album = new AlbumPanel(ctx.extensionUri, vscode.Uri.file(cacheDir), () => void tick(true), m => void onMessage(m, 'album'));
+  // Online leagues (opt-in): the session lives in VS Code's secret storage, never in settings or the saved progress.
+  const leagueClient = new LeagueClient({
+    serverUrl: () => cfg().get<string>('online.server', ''),
+    secrets: ctx.secrets,
+    githubToken: async create => {
+      try { return (await vscode.authentication.getSession('github', ['read:user'], create ? { createIfNone: true } : { silent: true }))?.accessToken; }
+      catch { return undefined; }
+    },
+    fetch, battleVersion: BATTLE_VERSION,
+  });
+  const leagueThumbs = new Set<string>();
+  const league = new LeagueController({
+    client: leagueClient,
+    getState: () => state,
+    save: async () => { if (state) { await game.save(state); } },
+    refresh: () => tick(true),
+    quotaPct: () => lastQuotaPct,
+    enabled: () => cfg().get<boolean>('online.enabled', false),
+    setEnabled: on => Promise.resolve(cfg().update('online.enabled', on, vscode.ConfigurationTarget.Global)),
+    confirmConsent: async () => (await vscode.window.showInformationMessage(t('league.consent'), { modal: true }, t('league.consentButton'))) === t('league.consentButton'),
+    confirm: async (message, button) => (await vscode.window.showWarningMessage(message, { modal: true }, button)) === button,
+    notify: async (message, ...actions) => vscode.window.showInformationMessage(message, ...actions),
+    post: d => album.send(d as WebviewMessage),
+    sendBattle: d => album.send({ type: 'battleResult', data: d }),
+    thumb: c => {
+      // What the server says about a card is data, not a command: only cards from TCGdex's own image host are ever downloaded.
+      if (!c.image || !c.image.startsWith('https://assets.tcgdex.net/') || !/^[\w.-]{1,40}$/.test(c.id)) { return undefined; }
+      const card = { id: c.id, image: c.image } as Card;
+      const file = tcg.cachedImage(card, 'low');
+      if (file) { return album.uri(file); }
+      if (!leagueThumbs.has(c.id)) { leagueThumbs.add(c.id); void tcg.image(card, 'low').then(f => { if (f) { league.push(); } }); }
+      return undefined;
+    },
+    openExternal: url => { void vscode.env.openExternal(vscode.Uri.parse(url)); },
+    copy: text => { void vscode.env.clipboard.writeText(text); },
+    serverUrl: () => cfg().get<string>('online.server', ''),
+    memory: { get: (k, f) => ctx.globalState.get(k, f), set: (k, v) => ctx.globalState.update(k, v) },
+    now: () => Date.now(),
+    t: (key, ...args) => t(key as 'league.watch', ...args),
+  });
   let state: GameState | undefined;
   let busy = false;
   let opening = false;
@@ -174,6 +216,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (unequipHeld(state, m.id)) { await game.save(state); await tick(true); }
     } else if (m.type === 'setFighter' && typeof m.id === 'string') {
       if (setFighter(state, m.id)) { await game.save(state); await tick(true); }
+    } else if (from === 'album' && typeof m.type === 'string' && m.type.startsWith('league')) {
+      await league.handle(m as { type: string });
     } else if (m.type === 'startBattle' && typeof m.leader === 'string') {
       await startBattle(m.leader);
     } else if (m.type === 'protect' && typeof m.id === 'string' && PROTECTORS.includes(m.item as Protector)) {
@@ -478,6 +522,10 @@ export function activate(ctx: vscode.ExtensionContext): void {
     };
   }
 
+  // Duels other players started while the album was closed: looked for at start-up and every 10 minutes (only if signed in).
+  const leaguePoll = setInterval(() => void league.poll(), 10 * 60_000);
+  setTimeout(() => void league.poll(), 20_000);
+
   ctx.subscriptions.push(
     bar, packBar, log,
     vscode.window.registerWebviewViewProvider(BinderViewProvider.viewType, provider),
@@ -485,6 +533,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('tokenBinder.refresh', () => tick(true)),
     vscode.commands.registerCommand('tokenBinder.checkForUpdates', () => updater.check(true)),
     vscode.commands.registerCommand('tokenBinder.openAlbum', () => album.show()),
+    vscode.commands.registerCommand('tokenBinder.deleteOnlineData', async () => { if (await league.deleteData()) { void vscode.window.showInformationMessage(t('league.deleted')); } }),
+    { dispose: () => clearInterval(leaguePoll) },
     vscode.commands.registerCommand('tokenBinder.setQuota', async () => {
       const c = cfg();
       const unit = await vscode.window.showQuickPick(

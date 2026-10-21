@@ -61,23 +61,29 @@
   const tabAlbum = el('button', { class: 'tab on', onclick: () => showTab('album') });
   const tabItems = el('button', { class: 'tab', onclick: () => showTab('items') });
   const tabBattle = el('button', { class: 'tab', onclick: () => showTab('battle') });
+  const tabLeague = el('button', { class: 'tab', onclick: () => showTab('league') });
+  const leagueView = el('div', { style: 'display:none' });
   function showTab(name) {
     tab = name;
     albumView.style.display = name === 'album' ? '' : 'none';
     itemsView.style.display = name === 'items' ? '' : 'none';
     battleView.style.display = name === 'battle' ? '' : 'none';
-    tabAlbum.classList.toggle('on', name === 'album'); tabItems.classList.toggle('on', name === 'items'); tabBattle.classList.toggle('on', name === 'battle');
+    leagueView.style.display = name === 'league' ? '' : 'none';
+    tabAlbum.classList.toggle('on', name === 'album'); tabItems.classList.toggle('on', name === 'items'); tabBattle.classList.toggle('on', name === 'battle'); tabLeague.classList.toggle('on', name === 'league');
+    if (name === 'league') send('leagueOpen');
     if (name !== 'album') closeViewer();
   }
   albumView.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), sellAll), el('div', { class: 'toolbar' }, search, eraSel, condSel, gearSel, sorter), chips, grid);
-  app.append(el('div', { class: 'tabs', role: 'tablist' }, tabAlbum, tabItems, tabBattle), albumView, itemsView, battleView);
+  app.append(el('div', { class: 'tabs', role: 'tablist' }, tabAlbum, tabItems, tabBattle, tabLeague), albumView, itemsView, battleView, leagueView);
   window.PTBattle.init({ root: battleView, stage: document.getElementById('stage'), send });
+  window.PTLeague.init({ root: leagueView, send });
 
   function labelToolbar() {
     title.textContent = t('album.title');
     tabAlbum.textContent = t('tab.album');
     tabItems.textContent = t('tab.items');
     tabBattle.textContent = t('tab.battle');
+    tabLeague.textContent = t('tab.league');
     sellAll.textContent = t('album.sellAll');
     sellAll.title = t('album.sellAllTip');
     search.placeholder = t('album.searchPlaceholder');
@@ -268,6 +274,7 @@
     if (m.type === 'album') { D = m.data; render(); }
     else if (m.type === 'boxOpened') { showBox(m.item); }
     else if (m.type === 'showTab') { showTab(m.tab); }
+    else if (m.type === 'league') { window.PTLeague.setData(m.data); }
     else if (m.type === 'battleResult') { showTab('battle'); window.PTBattle.play(m.data); }
     else if (m.type === 'high' && viewing === m.id) {
       const img = overlay.querySelector('.card3d img');
