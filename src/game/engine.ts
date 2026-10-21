@@ -102,6 +102,7 @@ export interface Owned {
   mastered?: boolean;   // already completed its evolutionary line
   care?: { sleeve?: boolean; toploader?: boolean };   // protection applied (improves the odds when grading)
   grade?: number;       // 1-10, from the grading service (never goes down)
+  wear?: number;        // 0-4 wear from battles (0 = Mint); a graded card sits in its slab and does not wear
   tries?: number;       // how many times it has been graded (re-submissions cost more)
   grading?: { since: number; cost: number };         // out for grading: lifetime tokens when it left, fee paid
 }

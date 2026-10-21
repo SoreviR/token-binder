@@ -77,9 +77,9 @@ export const en = {
   'shop.box.desc': '1 random item: evolution stones, candy, rare transformation items',
 
   'shop.sleeve.name': 'Sleeve',
-  'shop.sleeve.desc': 'Protects a card and improves its odds when graded',
+  'shop.sleeve.desc': 'Less wear in battles and better grading odds (no stats)',
   'shop.toploader.name': 'Toploader',
-  'shop.toploader.desc': 'Rigid protection: a bigger boost to its grading odds',
+  'shop.toploader.desc': 'With a sleeve: no wear and the best grading boost (no stats)',
 
   // battles
   'battle.noFighter': 'TokenBinder: choose the card you take to battle first (open it in the album and press "Take to battle").',

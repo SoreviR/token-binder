@@ -1,6 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, TRANSFORM_ITEM, slabEl, fmt } = window.PT;
+  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, TRANSFORM_ITEM, slabEl, marksEl, fmt } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
   const send = (type, extra) => vscode.postMessage(Object.assign({ type }, extra));
@@ -90,6 +90,7 @@
       c.variant ? el('span', { class: 'vt', text: t('variant.tag.' + c.variant) }) : null,
       D.trainingIds.includes(c.id) ? el('span', { class: 'tr', text: t('album.training') }) : null,
       c.grade ? el('span', { class: 'gr g' + c.grade, text: 'TBGS ' + c.grade }) : null,
+      !c.grade && (c.care.sleeve || c.care.toploader) ? el('span', { class: 'care', title: t('care.tipSleeve'), text: (c.care.sleeve ? '🛡️' : '') + (c.care.toploader ? '📦' : '') }) : null,
       c.id === D.fighterId ? el('span', { class: 'fgt', title: t('battle.isFighter'), text: '⚔' }) : null,
       c.stats.level > 1 || c.mastered ? el('span', { class: 'lvl', text: (c.mastered ? '★ ' : '') + t('stats.level', c.stats.level) }) : null),
       () => openViewer(c.id), c.name + ', ' + c.rarity + (c.variant ? ', ' + variantName(c) : ''))));
@@ -124,6 +125,7 @@
         framed,
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:10px' }, el('b', { text: c.name }), badge(c.tier)),
         el('div', { class: 'sub center', text: info(c) }),
+        marksEl(c),
         statsEl(c),
         marketEl(c),
         itemButtons(c, training),
@@ -158,7 +160,6 @@
   function careRow(c, training) {
     const have = id => (D.items && D.items[id]) || 0;
     const care = c.care || {};
-    const status = [care.sleeve && t('care.sleeve'), care.toploader && t('care.toploader')].filter(Boolean).join(' + ') || t('care.none');
     const buttons = [];
     if (!care.sleeve && have('sleeve')) buttons.push(el('button', { class: 'btn ghost', text: itemIcon('sleeve') + ' ' + t('viewer.protectSleeve', have('sleeve')), onclick: () => send('protect', { item: 'sleeve', id: c.id }) }));
     if (!care.toploader && have('toploader')) buttons.push(el('button', { class: 'btn ghost', text: itemIcon('toploader') + ' ' + t('viewer.protectToploader', have('toploader')), onclick: () => send('protect', { item: 'toploader', id: c.id }) }));
@@ -170,7 +171,8 @@
     } else {
       buttons.push(el('button', { class: 'btn', ...(D.coins >= c.gradeCost ? {} : { disabled: '' }), text: t(c.grade ? 'viewer.regrade' : 'viewer.grade', c.gradeCost), onclick: () => send('grade', { id: c.id }) }));
     }
-    return el('div', { class: 'itemrow' }, el('div', { class: 'sub center', text: t('viewer.care') + ': ' + status }), note,
+    const risk = c.grade ? null : el('div', { class: 'sub center', text: c.wearRisk > 0 ? t('viewer.wearRisk', Math.round(c.wearRisk * 100)) : (c.wear >= 4 ? t('viewer.noWear') : t('battle.noWearRisk')) });
+    return el('div', { class: 'itemrow' }, risk, note,
       buttons.length ? el('div', { class: 'row', style: 'gap:6px;justify-content:center;flex-wrap:wrap;margin-top:4px' }, buttons) : null);
   }
   function closeViewer() { viewing = null; overlay.replaceChildren(); }

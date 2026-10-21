@@ -1,7 +1,7 @@
 // The "Battle" tab of the album: your fighter, the gym ladder, the animated 1v1 arena and the result explained.
 // The extension host simulates the fight and sends the whole log; this file only plays it back.
 window.PTBattle = (function () {
-  const { el, t, cardEl } = window.PT;
+  const { el, t, cardEl, marksEl } = window.PT;
   const FACTORS = ['level', 'demand', 'rarity', 'stage', 'grade', 'tokens'];
   const TYPE_ICON = { Fire: '🔥', Water: '💧', Grass: '🍃', Lightning: '⚡', Psychic: '🔮', Fighting: '🥊', Darkness: '🌑', Metal: '⚙️', Dragon: '🐉', Fairy: '✨', Colorless: '⚪' };
   const typeIcons = types => (types || []).map(x => TYPE_ICON[x] || '').join(' ');
@@ -39,9 +39,11 @@ window.PTBattle = (function () {
     const f = d.fighter;
     return box(t('battle.yourFighter'),
       el('div', { class: 'fighterbox' },
-        cardEl({ name: f.name, tier: f.tier, src: f.src, variant: f.variant }, 130),
+        cardEl({ name: f.name, tier: f.tier, src: f.src, variant: f.variant, care: f.care, grade: f.grade }, 130),
         el('div', { class: 'fdetail' },
           el('div', { class: 'row', style: 'justify-content:flex-start;gap:8px' }, el('b', { text: f.name }), el('span', { class: 'sub', text: t('stats.level', f.level) + ' ' + typeIcons(f.types) })),
+          marksEl(f),
+          f.grade ? null : el('div', { class: 'sub', text: f.wearRisk > 0 ? t('battle.wearRisk', Math.round(f.wearRisk * 100)) : t('battle.noWearRisk') }),
           el('div', { class: 'sub', text: t('stats.hp') + ' ' + f.hp + ' · ' + t('stats.atk') + ' ' + Math.round(f.atk) }),
           breakdown(f),
           el('div', { class: 'sub', text: t('battle.changeHint') }))));
@@ -85,7 +87,7 @@ window.PTBattle = (function () {
   function side(f, cls) {
     const hpText = el('span', { class: 'hptext', text: f.hp + ' / ' + f.hp });
     const hp = bar(1, 'big');
-    const card = cardEl({ name: f.name, tier: f.tier, src: f.src, variant: f.variant }, 170);
+    const card = cardEl({ name: f.name, tier: f.tier, src: f.src, variant: f.variant, care: f.care, grade: f.grade }, 170);
     const wrap = el('div', { class: 'arena-side ' + cls }, el('div', { class: 'arena-card' }, card),
       el('div', { class: 'row' }, el('b', { text: f.name }), el('span', { class: 'sub', text: t('stats.level', f.level) + ' ' + typeIcons(f.types) })), hp, hpText);
     return { wrap, hp: hp.querySelector('i'), hpText, max: f.hp, card: wrap.querySelector('.arena-card') };
@@ -163,6 +165,7 @@ window.PTBattle = (function () {
     if (o.coins) lines.push(el('div', { class: 'reward', text: t('battle.reward', o.coins) }));
     if (o.firstWin) lines.push(el('div', { class: 'reward', text: t('battle.badgeEarned', r.leader.name) }));
     if (o.capped) lines.push(el('div', { class: 'sub', text: t('battle.capped') }));
+    if (r.worn) lines.push(el('div', { class: 'worn', text: t('battle.worn', r.me.name, t('condition.' + r.worn)) }));
     return [
       el('div', { class: 'banner ' + (r.won ? 'win' : 'lose'), text: r.won ? t('battle.victory') : t('battle.defeat') }),
       el('div', { class: 'sub center', text: t('battle.rounds', r.rounds) + ' · ' + t('battle.oddsWere', odds) }),

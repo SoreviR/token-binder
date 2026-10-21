@@ -23,7 +23,7 @@ import { backupIfUpgraded, exportPayload, parseImport } from './game/backup';
 import { registerDevTools } from './devhook';
 import { Fighter, effectiveness, estimateWin, factorGaps, simulate } from './game/battle';
 import { LEADERS, LEADER_BY_ID, REMATCH_DAILY_CAP, battleOf, dayKey, leaderFighter, leaderUnlocked, playerFighter, recordBattle, setFighter } from './game/leaders';
-import { PROTECTORS, Protector, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading } from './game/grading';
+import { PROTECTORS, Protector, applyWear, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading, wearChance } from './game/grading';
 
 const cfg = () => vscode.workspace.getConfiguration('tokenBinder');
 
@@ -196,6 +196,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   async function fighterView(f: Fighter, card: Card) {
     const view = await cardView(card, 'high', true, p => album.uri(p));
     return {
+      care: view.care, wear: view.wear, wearRisk: view.wearRisk, grade: view.grade,
       name: f.name, key: f.key, level: f.level, hp: f.hp, atk: f.atk, def: f.def, spd: f.spd, types: f.types, strength: f.strength, moves: f.moves.map(m => m.name),
       src: view.src, tier: card.tier, variant: card.variant, rarity: card.rarity,
     };
@@ -261,13 +262,14 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const result = simulate(me.fighter, foe, (Math.random() * 4294967296) >>> 0);
     const won = result.winner === 'a';
     const outcome = recordBattle(state, def, me.fighter.name, won, result.rounds);
+    const worn = applyWear(state, state.fighter!, Math.random);   // the card that fought may lose condition
     await game.save(state);
     album.send({
       type: 'battleResult',
       data: {
         leader: { id: def.id, name: def.name, level: def.level },
-        me: await fighterView(me.fighter, own), foe: await fighterView(foe, card),
-        odds, won, rounds: result.rounds, reason: result.reason, log: result.log, outcome,
+        me: await fighterView(me.fighter, state.collection[state.fighter!].card), foe: await fighterView(foe, card),
+        odds, won, rounds: result.rounds, reason: result.reason, log: result.log, outcome, worn,
         gaps: factorGaps(me.fighter, foe).slice(0, 3),
         typeEdge: effectiveness(me.fighter, foe).eff === 'weak' ? 'me' : effectiveness(foe, me.fighter).eff === 'weak' ? 'foe' : undefined,
       },
@@ -336,14 +338,14 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const lv = levelProgress(xp);
     const rawValue = marketValue(c);
     return {
-      grade: owned?.grade, care: owned?.care ?? {}, gradeMult: gradeMultiplier(owned?.grade), gradeCost: gradeCost(c.tier, owned?.tries ?? 0),
+      grade: owned?.grade, care: owned?.care ?? {}, wear: owned?.grade ? 0 : owned?.wear ?? 0, wearRisk: owned ? wearChance(owned) : 0, gradeMult: gradeMultiplier(owned?.grade), gradeCost: gradeCost(c.tier, owned?.tries ?? 0),
       grading: owned?.grading ? gradingProgress(owned.grading, usage.lifetimeTokens()) : undefined,
       ...(c.cv === CARD_DATA_VERSION ? {} : { basic: true }),   // no attacks or price yet: estimated stats
       stats: statsOf(c, xp), lvPct: lv ? lv.pct : 100, xp, mastered: !!owned?.mastered,
       transforms: owned?.mastered
         ? (['mega', 'vmax', 'vstar', 'tera'] as Transform[]).filter(k => canTransform(c, { mastered: true, level: levelOf(xp) }, k))
         : [],
-      market: rawValue === undefined ? undefined : Math.round(rawValue * gradeMultiplier(owned?.grade) * 100) / 100, eur: c.price?.eur, usd: c.price?.usd, priceAt: c.priceAt, collector: collectorLabel(c),
+      market: rawValue === undefined ? undefined : Math.round(rawValue * gradeMultiplier(owned?.grade) * conditionMultiplier(owned?.wear, owned?.grade) * 100) / 100, eur: c.price?.eur, usd: c.price?.usd, priceAt: c.priceAt, collector: collectorLabel(c),
       id: keyOf(c), name: c.name, rarity: c.rarity, tier: c.tier, stage: c.stage, hp: c.hp,
       types: c.types, set: c.set, era: c.era,   // era/variant/tier/collector are ids: the webview translates them
       variant: c.variant, sell: sellValue(c),
@@ -362,7 +364,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     })));
     return {
       lang: lang(), items: s.items, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
-      value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade), 0)),
+      value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade) * conditionMultiplier(o.wear, o.grade), 0)),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };
   }

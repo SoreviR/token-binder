@@ -20,12 +20,37 @@ const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n
 
 /**
  * The grade a submission comes back with. Quality is the average of three dice (so extremes are rare); a sleeve and a
- * toploader shift it up. Without protection a 10 is about 0.5%; with both about 8%.
+ * toploader shift it up and every point of wear takes 0.05 away. Without protection and in mint condition a 10 is about
+ * 0.5%; with both protectors about 8%.
  */
-export function rollGrade(care: { sleeve?: boolean; toploader?: boolean } | undefined, rng: () => number = Math.random): number {
-  const q = (rng() + rng() + rng()) / 3 + (care?.sleeve ? 0.08 : 0) + (care?.toploader ? 0.12 : 0);
+export function rollGrade(care: { sleeve?: boolean; toploader?: boolean } | undefined, rng: () => number = Math.random, wear = 0): number {
+  const q = (rng() + rng() + rng()) / 3 + (care?.sleeve ? 0.08 : 0) + (care?.toploader ? 0.12 : 0) - 0.05 * clamp(wear, 0, MAX_WEAR);
   return clamp(Math.round(2 + 8 * q), 1, 10);
 }
+
+/* ───────── Wear ───────── */
+
+export const MAX_WEAR = 4;
+/** Condition names, in order of wear: 0 Mint, 1 Near Mint, 2 Lightly Played, 3 Moderately Played, 4 Heavily Played (i18n `condition.N`). */
+
+/** Chance that a card wears one step after a battle: none 10%, sleeve 2%, toploader 4%, both 0%. A graded card (in its slab) never wears. */
+export function wearChance(o: { care?: { sleeve?: boolean; toploader?: boolean }; grade?: number; wear?: number }): number {
+  if (o.grade || (o.wear ?? 0) >= MAX_WEAR) { return 0; }
+  const sleeve = !!o.care?.sleeve, top = !!o.care?.toploader;
+  return sleeve && top ? 0 : sleeve ? 0.02 : top ? 0.04 : 0.1;
+}
+
+/** Rolls the wear of the card that fought. Returns the new wear when it got worse, otherwise undefined. */
+export function applyWear(s: GameState, key: string, rng: () => number = Math.random): number | undefined {
+  const o = s.collection[key];
+  if (!o) { return undefined; }
+  if (rng() >= wearChance(o)) { return undefined; }
+  o.wear = Math.min(MAX_WEAR, (o.wear ?? 0) + 1);
+  return o.wear;
+}
+
+/** Market value of an ungraded card by condition: -6% per step of wear. A graded card is valued by its grade instead. */
+export const conditionMultiplier = (wear: number | undefined, grade?: number): number => (grade ? 1 : 1 - 0.06 * clamp(wear ?? 0, 0, MAX_WEAR));
 
 /** Puts a sleeve or a toploader on a card (one of each per card). The item is only spent when it is applied. */
 export function protect(s: GameState, key: string, kind: Protector): boolean {
@@ -65,7 +90,7 @@ export function resolveGrading(s: GameState, lifetime: number, rng: () => number
   const events: string[] = [];
   for (const o of Object.values(s.collection)) {
     if (!o.grading || lifetime - o.grading.since < GRADE_TOKENS) { continue; }
-    const rolled = rollGrade(o.care, rng);
+    const rolled = rollGrade(o.care, rng, o.wear);
     const better = rolled > (o.grade ?? 0);
     o.grade = Math.max(o.grade ?? 0, rolled);
     o.tries = (o.tries ?? 0) + 1;

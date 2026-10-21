@@ -2,6 +2,11 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.9.0 - 2026-10-21
+
+- **Protection is now visible:** a sleeve is drawn over the card, a toploader as a rigid frame, and chips under the card name (with hover explanations) show what protects it and its condition. Album thumbnails get small 🛡️ / 📦 icons. Sleeves and toploaders never changed the stats; the item descriptions now say so.
+- **Wear:** the card you take to battle can lose condition after a fight (10% with no protection, 2% with a sleeve, 4% with a toploader, 0% with both). A worn card looks worn, is worth 6% less per step and has worse grading odds; the battle screen shows the risk and tells you when a card got worn. A graded card in its slab never wears.
+
 ## 1.8.0 - 2026-10-21
 
 - **Battles (1 vs 1):** take one card to battle and face the eight Kanto gym leaders. Fights are automatic (about 7 rounds), use the real attacks of the cards, and are explained afterwards ("why you won / lost"). Beating a leader gives a badge and coins and unlocks the next one; your record and recent fights are saved. A new **Battle** tab in the album.

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Card, addCards, buy, countOf, grantItem, newState, startTraining, tierOf } from '../src/game/engine';
 import {
-  GRADE_TOKENS, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, rollGrade, sendToGrading,
+  GRADE_TOKENS, MAX_WEAR, applyWear, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, rollGrade, sendToGrading, wearChance,
 } from '../src/game/grading';
 
 const card = (id: string, name: string, rarity = 'Rare'): Card => ({ id, name, rarity, tier: tierOf(rarity), image: `https://x/${id}` });
@@ -127,4 +127,81 @@ test('card names with colons survive in the graded event', () => {
   sendToGrading(s, 'a', 0);
   const [ev] = resolveGrading(s, GRADE_TOKENS, () => 0.5);
   assert.ok(ev.endsWith(':Weird: Name'));
+});
+
+/* ───── wear ───── */
+
+test('wear chance per fight: none 10%, sleeve 2%, toploader 4%, both 0%, and a graded card (slab) never wears', () => {
+  assert.equal(wearChance({}), 0.1);
+  assert.equal(wearChance({ care: { sleeve: true } }), 0.02);
+  assert.equal(wearChance({ care: { toploader: true } }), 0.04);
+  assert.equal(wearChance({ care: { sleeve: true, toploader: true } }), 0);
+  assert.equal(wearChance({ grade: 8 }), 0);
+  assert.equal(wearChance({ wear: MAX_WEAR }), 0);               // nothing left to lose
+});
+
+test('applyWear moves the card one step down only when the roll says so, never past the last step', () => {
+  const s = newState(0);
+  addCards(s, [card('a', 'Charizard')]);
+  assert.equal(applyWear(s, 'a', () => 0.5), undefined);          // above 10%: safe
+  assert.equal(s.collection['a'].wear, undefined);
+  assert.equal(applyWear(s, 'a', () => 0.05), 1);
+  assert.equal(applyWear(s, 'a', () => 0.0), 2);
+  for (let i = 0; i < 10; i++) { applyWear(s, 'a', () => 0); }
+  assert.equal(s.collection['a'].wear, MAX_WEAR);
+  assert.equal(applyWear(s, 'nope', () => 0), undefined);
+  protect(s, 'a', 'sleeve');                                      // no item: nothing changes
+  grantItem(s, 'sleeve'); grantItem(s, 'toploader');
+  const t = newState(0);
+  addCards(t, [card('b', 'Pikachu')]);
+  grantItem(t, 'sleeve'); grantItem(t, 'toploader');
+  protect(t, 'b', 'sleeve'); protect(t, 'b', 'toploader');
+  for (let i = 0; i < 50; i++) { assert.equal(applyWear(t, 'b', () => 0), undefined); }   // fully protected
+  assert.equal(t.collection['b'].wear, undefined);
+});
+
+test('wear measured over many fights matches the stated chances', () => {
+  const trial = (care: { sleeve?: boolean; toploader?: boolean }) => {
+    const rng = mulberry32(2024);
+    let worn = 0;
+    for (let i = 0; i < 20_000; i++) {
+      const s = newState(0);
+      addCards(s, [card('a', 'X')]);
+      s.collection['a'].care = care;
+      if (applyWear(s, 'a', rng)) { worn++; }
+    }
+    return worn / 20_000;
+  };
+  assert.ok(Math.abs(trial({}) - 0.1) < 0.01);
+  assert.ok(Math.abs(trial({ sleeve: true }) - 0.02) < 0.006);
+  assert.equal(trial({ sleeve: true, toploader: true }), 0);
+});
+
+test('wear costs 0.05 of grading quality per step and 6% of the market value, and a slab ignores the condition', () => {
+  const none = (wear: number) => { const rng = mulberry32(5); let sum = 0; for (let i = 0; i < 20_000; i++) { sum += rollGrade(undefined, rng, wear); } return sum / 20_000; };
+  assert.ok(none(0) > none(2) && none(2) > none(4));
+  assert.ok(Math.abs((none(0) - none(4)) - 8 * 0.05 * 4) < 0.15, `expected a drop near 1.6 grade points, got ${none(0) - none(4)}`);
+  assert.equal(conditionMultiplier(undefined), 1);
+  assert.equal(conditionMultiplier(0), 1);
+  assert.ok(Math.abs(conditionMultiplier(2) - 0.88) < 1e-9);
+  assert.ok(Math.abs(conditionMultiplier(4) - 0.76) < 1e-9);
+  assert.equal(conditionMultiplier(4, 9), 1);
+  assert.equal(conditionMultiplier(99), conditionMultiplier(4));
+});
+
+test('a worn card comes back from grading with a worse grade on average than a mint one', () => {
+  const avg = (wear: number) => {
+    const rng = mulberry32(77);
+    let sum = 0;
+    for (let i = 0; i < 4000; i++) {
+      const s = newState(0);
+      addCards(s, [card('a', 'X')]);
+      s.collection['a'].wear = wear;
+      s.collection['a'].grading = { since: 0, cost: 1 };
+      resolveGrading(s, GRADE_TOKENS, rng);
+      sum += s.collection['a'].grade!;
+    }
+    return sum / 4000;
+  };
+  assert.ok(avg(0) - avg(4) > 1.2, `${avg(0)} vs ${avg(4)}`);
 });

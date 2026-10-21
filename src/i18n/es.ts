@@ -78,9 +78,9 @@ export const es: Record<Key, string> = {
   'shop.box.desc': '1 objeto al azar: piedras evolutivas, caramelos, objetos de transformación raros',
 
   'shop.sleeve.name': 'Funda',
-  'shop.sleeve.desc': 'Protege una carta y mejora sus opciones al gradearla',
+  'shop.sleeve.desc': 'Menos desgaste en combates y mejores opciones al gradear (sin stats)',
   'shop.toploader.name': 'Toploader',
-  'shop.toploader.desc': 'Protección rígida: mejora aún más sus opciones al gradearla',
+  'shop.toploader.desc': 'Con funda: sin desgaste y el mayor empujón al gradear (sin stats)',
 
   // battles
   'battle.noFighter': 'TokenBinder: elige primero la carta que llevas a combatir (ábrela en el álbum y pulsa «Llevar a combatir»).',

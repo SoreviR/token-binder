@@ -31,7 +31,10 @@ window.PT = (function () {
   function cardEl(c, width) {
     const face = c.src ? el('img', { src: c.src, alt: c.name, draggable: 'false' }) : el('div', { class: 'missing', text: c.name });
     const root = el('div', { class: 'card3d t' + c.tier + (c.variant ? ' v-' + c.variant : ''), style: '--w:' + (width || 150) + 'px' },
-      el('div', { class: 'inner' }, face, el('div', { class: 'foil' }), el('div', { class: 'glare' }), c.variant ? el('div', { class: 'vtag', text: t('variant.tag.' + c.variant) }) : null));
+      el('div', { class: 'inner' }, face, el('div', { class: 'foil' }), el('div', { class: 'glare' }),
+        !c.grade && c.wear > 0 ? el('div', { class: 'wear w' + c.wear }) : null,
+        c.care && c.care.sleeve && !c.grade ? el('div', { class: 'sleeve' }) : null, c.care && c.care.toploader && !c.grade ? el('div', { class: 'toploader' }) : null,
+        c.variant ? el('div', { class: 'vtag', text: t('variant.tag.' + c.variant) }) : null));
     root.addEventListener('pointermove', e => {
       const r = root.getBoundingClientRect();
       const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
@@ -83,6 +86,17 @@ window.PT = (function () {
       c.basic ? el('div', { class: 'sub', text: t('stats.basic') }) : null);
   }
 
+  /** Chips that say what protects a card and in what condition it is (hover for what each one does). */
+  function marksEl(c) {
+    const care = c.care || {};
+    const chips = [];
+    if (care.sleeve && !c.grade) chips.push(el('span', { class: 'mark sleeve-mark', title: t('care.tipSleeve'), text: '🛡️ ' + t('care.sleeve') }));
+    if (care.toploader && !c.grade) chips.push(el('span', { class: 'mark top-mark', title: t('care.tipToploader'), text: '📦 ' + t('care.toploader') }));
+    if (c.grade) chips.push(el('span', { class: 'mark slab-mark', title: t('care.tipSlab'), text: '🔒 ' + t('care.slab') }));
+    else chips.push(el('span', { class: 'mark cond w' + (c.wear || 0), title: t('care.tipCondition'), text: t('condition.' + (c.wear || 0)) }));
+    return el('div', { class: 'marks' }, chips);
+  }
+
   /** A graded card sits in a slab: a frame with the grade and its name. */
   function slabEl(cardNode, c) {
     return el('div', { class: 'slab g' + c.grade },
@@ -112,5 +126,5 @@ window.PT = (function () {
   // Which item turns a card into which transformed form (the same table the host uses).
   const TRANSFORM_ITEM = { mega: 'mega-stone', vmax: 'dynamax-band', vstar: 'star-core', tera: 'tera-orb' };
 
-  return { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM, slabEl };
+  return { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM, slabEl, marksEl };
 })();
