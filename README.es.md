@@ -84,6 +84,8 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | `tokenBinder.packs.everyTokens` | `750000` | Cada cuántos tokens usados ganas un sobre. |
 | `tokenBinder.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
 | `tokenBinder.mishaps.enabled` | `false` | Percances por pasarte del 100 % de tu propia cuota mensual (mira [Pasarse de la cuota](#pasarse-de-la-cuota-percances)). Desactivado por defecto; las cartas en las que has invertido nunca se pierden. |
+| `tokenBinder.online.enabled` | `false` | Activa las ligas online (mira [Ligas online](#ligas-online-opcional)). |
+| `tokenBinder.online.server` | `""` | Dirección del servidor de la liga (`https`). Solo la puedes cambiar tú, nunca un workspace. |
 | `tokenBinder.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
 
 Los títulos de los comandos y las descripciones de los ajustes en la ventana de Ajustes de VS Code siguen el idioma de VS Code; todo lo demás (panel, álbum, avisos, diálogos) sigue a `tokenBinder.language`.
@@ -167,6 +169,16 @@ Como los coleccionistas de verdad, puedes proteger tus cartas y hacer que las **
 - **Las probabilidades:** la nota sigue una campana (la mayoría saca un 5-7). Un Gem Mint 10 es un 0,5 % sin protección y un 8 % con funda **y** toploader.
 - **Reenviar** una carta cuesta una tarifa base más cada vez y solo puede **mejorar** la nota, nunca bajarla.
 - **Qué hace la nota:** la carta se muestra en una slab con su nota y su valor de mercado se multiplica (10 → ×3, 9 → ×1,8, 8 → ×1,3, 7 → ×1,1, 6 → ×1, y menos con notas bajas), lo que también cuenta en el valor de tu colección.
+
+## Ligas online (opcional)
+
+Reta a tus amigos con la carta que llevas a combatir y sube en un ranking compartido. Está **desactivado por defecto** y solo funciona si tú (y tus amigos) apuntáis la extensión a un servidor de liga (mira [`server/`](server/README.md): es pequeño y puedes alojar el tuyo en Vercel).
+
+- Las **ligas** son privadas: alguien crea una y comparte su **código de invitación** (como `K7MQ-4XPD`). Hasta 30 jugadores por liga. La pestaña **Liga** del álbum muestra el ranking, tu luchador y los duelos.
+- **Los duelos son asíncronos.** Retas a la carta que un amigo registró; el servidor juega el combate al instante con las mismas reglas que la pestaña Combate, mueve el Elo de los dos (K = 32) y tu amigo recibe un aviso y puede ver la repetición. Límites: **10 retos al día** y **2 al día contra el mismo jugador**. Los duelos **no dan monedas** (inflarían la economía); la carta con la que peleas gana XP de combate como en cualquier otro combate.
+- **Los dos usan los mismos datos.** El servidor consulta las cartas en TCGdex por su cuenta, así que una carta tiene las mismas estadísticas y precio para los dos jugadores. Tú registras tu nivel, grado y objeto equipado; para que eso sea honesto entre amigos, **un jugador nuevo puede usar cartas hasta nivel 10 y el tope sube 4 niveles al día** (lo que pase se recorta, no se rechaza). Es un freno, no una prueba: el servidor no ve tus tokens.
+- **Una página de ranking compartida** en `<servidor>/l/<código de invitación>` muestra la tabla de Elo y los últimos duelos a quien tenga el código.
+- **Privacidad.** Al activarla te pregunta antes y luego entras con la cuenta de GitHub que VS Code ya tiene. El servidor guarda solo tu **id y usuario de GitHub**, tu **carta de combate (nivel, grado, objeto)**, más o menos **cuánta cuota has gastado** (alimenta el pequeño bono por uso de tokens) y los **resultados de tus duelos**. Tu consumo, tus chats, tu código y el resto de tu colección nunca salen de tu ordenador, y el token de GitHub se comprueba una vez y nunca se guarda. **Borrar mis datos online** (pestaña Liga o paleta de comandos) elimina todo sobre ti del servidor. El ajuste con la dirección del servidor solo lo puedes cambiar tú, nunca un workspace, y la extensión solo envía tu inicio de sesión a una dirección `https`.
 
 ## Pasarse de la cuota: percances
 

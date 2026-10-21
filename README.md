@@ -85,6 +85,8 @@ This extension **does not query GitHub or your organization**: it computes the p
 | `tokenBinder.packs.everyTokens` | `750000` | Every how many tokens used you earn a pack. |
 | `tokenBinder.growth.multiplier` | `1` | Scales the tokens each card needs to evolve (0.1–2). |
 | `tokenBinder.mishaps.enabled` | `false` | Mishaps for going over 100% of your own monthly quota (see [Going over the quota](#going-over-the-quota-mishaps)). Off by default; cards you invested in are never lost. |
+| `tokenBinder.online.enabled` | `false` | Turn on the online leagues (see [Online leagues](#online-leagues-opt-in)). |
+| `tokenBinder.online.server` | `""` | Address of the league server (`https`). Only you can set it, never a workspace. |
 | `tokenBinder.storageRoots` | `[]` | VS Code `User` folders to read, if you use a non-standard installation. |
 
 Command titles and the setting descriptions in VS Code's Settings editor follow VS Code's display language; everything else (panel, album, notices, dialogs) follows `tokenBinder.language`.
@@ -168,6 +170,16 @@ Like real collectors, you can protect your cards and have them **graded**. Open 
 - **The odds:** the grade follows a bell curve (most cards get a 5-7). A Gem Mint 10 is about 0.5% without protection and about 8% with a sleeve **and** a toploader.
 - **Re-submitting** a card costs one more base fee each time and can only **improve** its grade, never lower it.
 - **What a grade does:** the card is shown in a slab with its grade, and its market value is multiplied (10 → ×3, 9 → ×1.8, 8 → ×1.3, 7 → ×1.1, 6 → ×1, then lower for poor grades), which also counts in the value of your collection.
+
+## Online leagues (opt-in)
+
+Challenge your friends with the card you take to battle and climb a shared ranking. It is **off by default** and only works if you (and your friends) point the extension at a league server (see [`server/`](server/README.md): it is small and you can host your own on Vercel).
+
+- **Leagues** are private: someone creates one and shares its **invite code** (like `K7MQ-4XPD`). Up to 30 players per league. The **League** tab of the album lists the ranking, your fighter and the duels.
+- **Duels are asynchronous.** You challenge the card a friend registered; the server plays the fight at once with the same rules as the Battle tab, moves the Elo of both (K = 32) and your friend gets a notification and can watch the replay. Limits: **10 challenges a day** and **2 a day against the same player**. Duels pay **no coins** (they would inflate the economy); the card you fight with earns battle XP like in any other fight.
+- **Both sides use the same data.** The server looks the cards up in TCGdex itself, so a card has the same stats and price for both players. You register your level, grade and held item; to keep that honest between friends, **a new player can field cards up to level 10 and the cap rises 4 levels a day** (anything above is clamped, not refused). It is a speed bump, not proof: the server cannot see your tokens.
+- **A shared ranking page** at `<server>/l/<invite code>` shows the Elo table and the latest duels to whoever has the code.
+- **Privacy.** Turning it on asks first and then signs you in with the GitHub account VS Code already has. The server stores only your **GitHub id and login**, your **battle card (level, grade, held item)**, roughly **how much of your quota you used** (it feeds the small token-usage bonus) and your **duel results**. Your usage, chats, code and the rest of your collection never leave your computer, and the GitHub token is checked once and never stored. **Delete my online data** (League tab or the command palette) removes everything about you from the server. The setting that holds the server address can only be set by you, never by a workspace, and the extension only sends your sign-in to an `https` address.
 
 ## Going over the quota: mishaps
 
