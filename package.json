@@ -117,12 +117,14 @@
         "tokenBinder.online.enabled": {
           "type": "boolean",
           "default": false,
-          "markdownDescription": "%config.online.enabled%"
+          "markdownDescription": "%config.online.enabled%",
+          "scope": "application"
         },
         "tokenBinder.online.server": {
           "type": "string",
           "default": "",
-          "markdownDescription": "%config.online.server%"
+          "markdownDescription": "%config.online.server%",
+          "scope": "application"
         },
         "tokenBinder.quota.unit": {
           "type": "string",

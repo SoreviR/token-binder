@@ -106,7 +106,7 @@ export const es: Record<Key, string> = {
   'mishap.rainSaved': 'TokenBinder: te pasaste de la cuota y te pilló la lluvia, ¡pero tus fundas y slabs mantuvieron secas las {0} cartas!',
   'mishap.open': 'Abrir álbum',
   // ligas online
-  'league.consent': 'Ligas online de TokenBinder\n\nSi continúas, esto se envía al servidor de la liga: tu id y tu usuario de GitHub, la carta que llevas a combatir (su nivel, grado y objeto equipado), más o menos qué parte de tu cuota mensual has gastado y los resultados de tus duelos. Tu consumo de tokens, tus chats, tu código y el resto de tu colección nunca salen de tu ordenador.\n\nPuedes borrar todo lo que el servidor guarda sobre ti cuando quieras desde la pestaña Liga.',
+  'league.consent': 'Ligas online de TokenBinder\n\nSi continúas, esto se envía al servidor de la liga ({0}): tu id y tu usuario de GitHub, la carta que llevas a combatir (su nivel, grado y objeto equipado), más o menos qué parte de tu cuota mensual has gastado y los resultados de tus duelos. Tu consumo de tokens, tus chats, tu código y el resto de tu colección nunca salen de tu ordenador.\n\nPuedes borrar todo lo que el servidor guarda sobre ti cuando quieras desde la pestaña Liga.',
   'league.consentButton': 'Entrar con GitHub y continuar',
   'league.leaveConfirm': '¿Salir de la liga «{0}»? Pierdes tu puesto en su ranking.',
   'league.leave': 'Salir de la liga',

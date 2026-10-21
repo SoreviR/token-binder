@@ -83,7 +83,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     quotaPct: () => lastQuotaPct,
     enabled: () => cfg().get<boolean>('online.enabled', false),
     setEnabled: on => Promise.resolve(cfg().update('online.enabled', on, vscode.ConfigurationTarget.Global)),
-    confirmConsent: async () => (await vscode.window.showInformationMessage(t('league.consent'), { modal: true }, t('league.consentButton'))) === t('league.consentButton'),
+    confirmConsent: async () => (await vscode.window.showInformationMessage(t('league.consent', leagueClient.host), { modal: true }, t('league.consentButton'))) === t('league.consentButton'),
     confirm: async (message, button) => (await vscode.window.showWarningMessage(message, { modal: true }, button)) === button,
     notify: async (message, ...actions) => vscode.window.showInformationMessage(message, ...actions),
     post: d => album.send(d as WebviewMessage),

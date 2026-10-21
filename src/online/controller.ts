@@ -102,7 +102,7 @@ export class LeagueController {
       case 'leagueReplay': return this.replay(Number(m.id));
       case 'leagueRefresh': return this.sync(true);
       case 'leagueCopy': if (typeof m.code === 'string') { this.h.copy(m.code); } return;
-      case 'leaguePage': if (typeof m.code === 'string') { this.h.openExternal(`${this.h.serverUrl().replace(/\/+$/, '')}/l/${encodeURIComponent(m.code)}`); } return;
+      case 'leaguePage': if (typeof m.code === 'string' && this.h.client.configured) { this.h.openExternal(`${this.h.serverUrl().replace(/\/+$/, '')}/l/${encodeURIComponent(m.code)}`); } return;
       case 'leagueDelete': await this.deleteData(); return;
     }
   }

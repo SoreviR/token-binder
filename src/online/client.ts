@@ -19,7 +19,14 @@ export class LeagueClient {
 
   get configured(): boolean { return !!this.base(); }
 
-  private base(): string { return this.d.serverUrl().trim().replace(/\/+$/, ''); }
+  /** The server address, or '' if it is not a safe one: the GitHub token is only ever sent over https (or to a local server). */
+  private base(): string {
+    const url = this.d.serverUrl().trim().replace(/\/+$/, '');
+    return /^https:\/\/[^\s/]+(\/[^\s]*)?$/i.test(url) || /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?(\/[^\s]*)?$/i.test(url) ? url : '';
+  }
+
+  /** Where the data goes, for the notice the player accepts. */
+  get host(): string { try { return new URL(this.base()).host; } catch { return ''; } }
 
   async hasSession(): Promise<boolean> { return !!(await this.d.secrets.get(KEY)); }
 

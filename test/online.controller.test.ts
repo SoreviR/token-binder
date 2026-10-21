@@ -198,3 +198,19 @@ test('offline: calls fail with a code instead of throwing', async () => {
   assert.equal(none.configured, false);
   assert.equal((await none.connect(true)).ok, false);
 });
+
+test('the server address must be https (or a local server): the GitHub token is never sent anywhere else', async () => {
+  const calls: string[] = [];
+  const mk = (url: string) => new LeagueClient({
+    serverUrl: () => url, secrets: { get: async () => 'x.y', store: async () => {}, delete: async () => {} }, githubToken: async () => 'tok', battleVersion: 1,
+    fetch: (async (u: string) => { calls.push(u); throw new TypeError('x'); }) as unknown as typeof fetch,
+  });
+  for (const bad of ['http://evil.example', 'ftp://x.y', 'javascript:alert(1)', 'https://', 'https:// spaced.example', 'evil.example', 'http://localhost.evil.example']) {
+    const c = mk(bad);
+    assert.equal(c.configured, false, bad);
+    assert.deepEqual(await c.call('GET', '/leagues'), { ok: false, error: 'no-server', status: 0 }, bad);
+  }
+  assert.deepEqual(calls, [], 'nothing was sent');
+  for (const good of ['https://league.example.com', 'https://league.example.com/', 'http://localhost:3000', 'http://127.0.0.1:3000/x']) { assert.equal(mk(good).configured, true, good); }
+  assert.equal(mk('https://league.example.com/').host, 'league.example.com');
+});
