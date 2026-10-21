@@ -23,6 +23,7 @@ import { backupIfUpgraded, exportPayload, parseImport } from './game/backup';
 import { registerDevTools } from './devhook';
 import { Fighter, effectiveness, estimateWin, factorGaps, simulate } from './game/battle';
 import { LEADERS, LEADER_BY_ID, REMATCH_DAILY_CAP, battleOf, dayKey, leaderFighter, leaderUnlocked, playerFighter, recordBattle, setFighter } from './game/leaders';
+import { MishapResult, ROCKET, dryCard, overageMishap, recordRocketBattle } from './game/mishaps';
 import { PROTECTORS, Protector, applyWear, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading, wearChance } from './game/grading';
 
 const cfg = () => vscode.workspace.getConfiguration('tokenBinder');
@@ -97,6 +98,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const pace = underPace(pct, now, start, periodEnd(now, resetDay));
       earnCoins(state, lifetime, pace);
       if (pct >= 100 && state.bonusPeriod !== start) { state.bonusPeriod = start; state.packs++; events.push('bonusPack'); }
+      const mishap = cfg().get<boolean>('mishaps.enabled', false) ? overageMishap(state, pct, start) : null;
+      if (mishap) { announceMishap(mishap); }
       events.push(...accrueXp(state, lifetime));
       events.push(...resolveGrading(state, lifetime));
       // Evolution/graduation: needs the network; if it fails it is retried at most every 30 s.
@@ -130,7 +133,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const earned = sellDuplicates(state, m.id);
       if (earned) { await game.save(state); await tick(true); }
     } else if (m.type === 'sellAll') {
-      const n = Object.values(state.collection).reduce((s, o) => s + Math.max(0, o.count - 1), 0);
+      const n = Object.values(state.collection).reduce((s, o) => s + (o.soaked ? 0 : Math.max(0, o.count - 1)), 0);
       if (!n) { void vscode.window.showInformationMessage(t('sell.none')); return; }
       const ok = await vscode.window.showWarningMessage(t('sell.confirm', n), { modal: true }, t('sell.button'));
       if (ok === t('sell.button')) {
@@ -160,6 +163,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
       await startBattle(m.leader);
     } else if (m.type === 'protect' && typeof m.id === 'string' && PROTECTORS.includes(m.item as Protector)) {
       if (protect(state, m.id, m.item as Protector)) { await game.save(state); await tick(true); }
+    } else if (m.type === 'dry' && typeof m.id === 'string') {
+      if (dryCard(state, m.id)) { await game.save(state); await tick(true); }
     } else if (m.type === 'grade' && typeof m.id === 'string') {
       const r = sendToGrading(state, m.id, usage.lifetimeTokens());
       if (r.ok) { await game.save(state); await tick(true); }
@@ -209,7 +214,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     void (async () => {
       let changed = false;
       try {
-        for (const d of LEADERS) {
+        for (const d of state?.stolen?.length ? [...LEADERS, ROCKET] : LEADERS) {
           const card = await tcg.leaderCard(d.id, d.species);
           if (card && !tcg.cachedImage(card, 'low')) { await tcg.image(card, 'low'); changed = true; }
         }
@@ -237,6 +242,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
       };
     }));
     const today = dayKey(Date.now());
+    const rocketCard = s.stolen?.length ? await tcg.cachedLeaderCard(ROCKET.id) : undefined;
+    const rocketFoe = rocketCard ? leaderFighter(ROCKET, rocketCard) : undefined;
+    const rocketArt = rocketCard ? tcg.cachedImage(rocketCard, 'low') : undefined;
     return {
       fighter: own && me.ok ? await fighterView(me.fighter, own.card) : null,
       fighterBlocked: me.ok ? undefined : me.reason,
@@ -244,16 +252,22 @@ export function activate(ctx: vscode.ExtensionContext): void {
       rewardsLeft: rec.daily.day === today ? Math.max(0, REMATCH_DAILY_CAP - rec.daily.rewarded) : REMATCH_DAILY_CAP,
       history: rec.history,
       leaders,
+      rocket: s.stolen?.length ? {
+        id: ROCKET.id, name: ROCKET.name, species: ROCKET.species, level: ROCKET.level, stolen: s.stolen.map(o => o.card.name),
+        card: rocketCard?.name, src: rocketArt ? album.uri(rocketArt) : undefined, types: rocketFoe?.types ?? [],
+        odds: me.ok && rocketFoe ? estimateWin(me.fighter, rocketFoe, 200, 9) : undefined,
+      } : undefined,
     };
   }
 
   /** One battle against a gym leader: simulate, record, pay and send the whole fight to the screen to be played back. */
   async function startBattle(leaderId: string): Promise<void> {
-    const def = LEADER_BY_ID[leaderId];
+    const rocket = leaderId === ROCKET.id;
+    const def = rocket ? ROCKET : LEADER_BY_ID[leaderId];
     if (!state || !def) { return; }
-    if (!leaderUnlocked(state, LEADERS.indexOf(def))) { void vscode.window.showWarningMessage(t('battle.locked')); return; }
+    if (rocket ? !state.stolen?.length : !leaderUnlocked(state, LEADERS.indexOf(def))) { void vscode.window.showWarningMessage(t(rocket ? 'rocket.none' : 'battle.locked')); return; }
     const me = playerFighter(state, lastQuotaPct);
-    if (!me.ok) { void vscode.window.showWarningMessage(t(me.reason === 'grading' ? 'battle.grading' : 'battle.noFighter')); return; }
+    if (!me.ok) { void vscode.window.showWarningMessage(t(me.reason === 'grading' ? 'battle.grading' : me.reason === 'soaked' ? 'battle.soaked' : 'battle.noFighter')); return; }
     const card = await tcg.leaderCard(def.id, def.species);
     if (!card) { void vscode.window.showWarningMessage(t('battle.offline')); return; }
     const foe = leaderFighter(def, card);
@@ -261,7 +275,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const odds = estimateWin(me.fighter, foe, 400, 99);
     const result = simulate(me.fighter, foe, (Math.random() * 4294967296) >>> 0);
     const won = result.winner === 'a';
-    const outcome = recordBattle(state, def, me.fighter.name, won, result.rounds);
+    const recovered = rocket ? recordRocketBattle(state, me.fighter.name, won, result.rounds) : null;
+    const outcome = rocket ? { coins: 0, firstWin: false, capped: false, recovered: recovered?.name } : recordBattle(state, def, me.fighter.name, won, result.rounds);
     const worn = applyWear(state, state.fighter!, Math.random);   // the card that fought may lose condition
     await game.save(state);
     album.send({
@@ -338,17 +353,17 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const lv = levelProgress(xp);
     const rawValue = marketValue(c);
     return {
-      grade: owned?.grade, care: owned?.care ?? {}, wear: owned?.grade ? 0 : owned?.wear ?? 0, wearRisk: owned ? wearChance(owned) : 0, gradeMult: gradeMultiplier(owned?.grade), gradeCost: gradeCost(c.tier, owned?.tries ?? 0),
+      grade: owned?.grade, care: owned?.care ?? {}, wear: owned?.grade ? 0 : owned?.wear ?? 0, soaked: !!owned?.soaked, wearRisk: owned ? wearChance(owned) : 0, gradeMult: gradeMultiplier(owned?.grade), gradeCost: gradeCost(c.tier, owned?.tries ?? 0),
       grading: owned?.grading ? gradingProgress(owned.grading, usage.lifetimeTokens()) : undefined,
       ...(c.cv === CARD_DATA_VERSION ? {} : { basic: true }),   // no attacks or price yet: estimated stats
       stats: statsOf(c, xp), lvPct: lv ? lv.pct : 100, xp, mastered: !!owned?.mastered,
       transforms: owned?.mastered
         ? (['mega', 'vmax', 'vstar', 'tera'] as Transform[]).filter(k => canTransform(c, { mastered: true, level: levelOf(xp) }, k))
         : [],
-      market: rawValue === undefined ? undefined : Math.round(rawValue * gradeMultiplier(owned?.grade) * conditionMultiplier(owned?.wear, owned?.grade) * 100) / 100, eur: c.price?.eur, usd: c.price?.usd, priceAt: c.priceAt, collector: collectorLabel(c),
+      market: rawValue === undefined ? undefined : Math.round(rawValue * gradeMultiplier(owned?.grade) * conditionMultiplier(owned?.wear, owned?.grade, owned?.soaked) * 100) / 100, eur: c.price?.eur, usd: c.price?.usd, priceAt: c.priceAt, collector: collectorLabel(c),
       id: keyOf(c), name: c.name, rarity: c.rarity, tier: c.tier, stage: c.stage, hp: c.hp,
       types: c.types, set: c.set, era: c.era,   // era/variant/tier/collector are ids: the webview translates them
-      variant: c.variant, sell: sellValue(c),
+      variant: c.variant, sell: owned?.soaked ? 0 : sellValue(c),
       src: file ? toUri(file) : undefined,
     };
   }
@@ -364,7 +379,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     })));
     return {
       lang: lang(), items: s.items, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
-      value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade) * conditionMultiplier(o.wear, o.grade), 0)),
+      value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade) * conditionMultiplier(o.wear, o.grade, o.soaked), 0)),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };
   }
@@ -382,6 +397,17 @@ export function activate(ctx: vscode.ExtensionContext): void {
       } finally { prefetching = false; }
       void tick(true);
     })();
+  }
+
+  /** A mishap is announced with a notification (the panel is rarely open) that leads to the album, where its effects show. */
+  function announceMishap(m: MishapResult): void {
+    const names = m.cards.map(c => (c.n > 1 ? `${c.name} ×${c.n}` : c.name)).join(', ');
+    const lost = m.cards.reduce((n, c) => n + c.n, 0);
+    const msg = m.kind === 'rocket' ? t('mishap.rocket', names)
+      : m.kind === 'trip' ? t('mishap.trip', lost, names)
+        : m.cards.length ? t('mishap.rain', m.cards.length, m.saved) : t('mishap.rainSaved', m.saved);
+    log.appendLine(`[mishap] ${m.kind}: ${names || '-'}${m.saved ? ` (${m.saved} kept dry)` : ''}`);
+    void vscode.window.showWarningMessage(msg, t('mishap.open')).then(a => { if (a) { album.show(); } });
   }
 
   async function alerts(period: number, pct: number): Promise<void> {
@@ -403,6 +429,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       { id: 'box', name: t('shop.box.name'), desc: t('shop.box.desc') },
       { id: 'sleeve', name: t('shop.sleeve.name'), desc: t('shop.sleeve.desc') },
       { id: 'toploader', name: t('shop.toploader.name'), desc: t('shop.toploader.desc') },
+      { id: 'hair-dryer', name: t('shop.hair-dryer.name'), desc: t('shop.hair-dryer.desc') },
       { id: 'slot', name: t('shop.slot.name'), desc: t('shop.slot.desc', s.slots.length, MAX_SLOTS) },
       { id: 'luck', name: t('shop.luck.name'), desc: t('shop.luck.desc', s.luck, MAX_LUCK) },
     ];

@@ -2,6 +2,10 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## Unreleased
+
+- **Mishaps for going over the quota** (optional, off by default: `tokenBinder.mishaps.enabled`). Past 100% of the monthly quota, one mishap per quota period: **Team Rocket** steals a card (60%; win it back in the Battle tab), you **trip** and drop 10% of your album (30%; graded cards are safe), or the **rain** soaks half of it (10%; sleeves and slabs keep cards dry). A soaked card is worthless and cannot train, battle, be graded or be sold until a **Charmandryer** (40 coins, new in the shop) dries it; it comes back Heavily Played.
+
 ## 1.9.0 - 2026-10-21
 
 - **Protection is now visible:** a sleeve is drawn over the card, a toploader as a rigid frame, and chips under the card name (with hover explanations) show what protects it and its condition. Album thumbnails get small 🛡️ / 📦 icons. Sleeves and toploaders never changed the stats; the item descriptions now say so.

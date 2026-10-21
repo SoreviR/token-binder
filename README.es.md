@@ -83,6 +83,7 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | `tokenBinder.alerts.thresholds` | `[50, 80, 100]` | Porcentajes que disparan un aviso. |
 | `tokenBinder.packs.everyTokens` | `750000` | Cada cuántos tokens usados ganas un sobre. |
 | `tokenBinder.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
+| `tokenBinder.mishaps.enabled` | `false` | Pasarte del 100 % de la cuota trae un percance por periodo (ver [Pasarse de la cuota](#pasarse-de-la-cuota-percances)). |
 | `tokenBinder.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
 
 Los títulos de los comandos y las descripciones de los ajustes en la ventana de Ajustes de VS Code siguen el idioma de VS Code; todo lo demás (panel, álbum, avisos, diálogos) sigue a `tokenBinder.language`.
@@ -161,6 +162,16 @@ Como los coleccionistas de verdad, puedes proteger tus cartas y hacer que las **
 - **Las probabilidades:** la nota sigue una campana (la mayoría saca un 5-7). Un Gem Mint 10 es un 0,5 % sin protección y un 8 % con funda **y** toploader.
 - **Reenviar** una carta cuesta una tarifa base más cada vez y solo puede **mejorar** la nota, nunca bajarla.
 - **Qué hace la nota:** la carta se muestra en una slab con su nota y su valor de mercado se multiplica (10 → ×3, 9 → ×1,8, 8 → ×1,3, 7 → ×1,1, 6 → ×1, y menos con notas bajas), lo que también cuenta en el valor de tu colección.
+
+## Pasarse de la cuota: percances
+
+Opcional y desactivado por defecto: activa `tokenBinder.mishaps.enabled` para jugar con consecuencias. Cuando te pasas **del 100 %** de la cuota mensual ocurre **un** percance en ese periodo de cuota (nunca más de uno por periodo):
+
+- 🚀 **El Team Rocket** (60 %) te roba una carta al azar. Aparece en la pestaña **Combate** mientras la tenga: gánales (Arbok, nivel 15) y la recuperas tal como estaba. Sin monedas, y si pierdes solo tienes que volver a intentarlo.
+- 🏃 **Tropiezas corriendo** (30 %) y se te cae el **10 %** de las copias del álbum (al menos una); se pierden. Las cartas gradeadas están a salvo en su slab.
+- 🌧️ **Llueve** (10 %) sobre **la mitad** del álbum. Las cartas con **funda** o en **slab** no se mojan; el resto quedan **empapadas**: no valen nada y no pueden entrenar, combatir, gradearse ni venderse. Un **Charmandryer** (40 monedas en la tienda, un secador con la llama de la cola de Charmander) seca una carta empapada, que vuelve a servir pero queda muy jugada.
+
+La carta que está entrenando va contigo y la que está en el servicio de gradeo no está en casa, así que a ninguna de las dos se la pueden robar, caer ni mojar. Una notificación te cuenta qué pasó y abre el álbum.
 
 ## Monedas y tienda
 

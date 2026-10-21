@@ -104,6 +104,11 @@
           "default": true,
           "description": "%config.updates.check%"
         },
+        "tokenBinder.mishaps.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%config.mishaps.enabled%"
+        },
         "tokenBinder.quota.unit": {
           "type": "string",
           "enum": [

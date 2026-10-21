@@ -90,6 +90,7 @@
       c.variant ? el('span', { class: 'vt', text: t('variant.tag.' + c.variant) }) : null,
       D.trainingIds.includes(c.id) ? el('span', { class: 'tr', text: t('album.training') }) : null,
       c.grade ? el('span', { class: 'gr g' + c.grade, text: 'TBGS ' + c.grade }) : null,
+      c.soaked ? el('span', { class: 'wet-tag', title: t('care.tipSoaked'), text: '💧' }) : null,
       !c.grade && (c.care.sleeve || c.care.toploader) ? el('span', { class: 'care', title: t('care.tipSleeve'), text: (c.care.sleeve ? '🛡️' : '') + (c.care.toploader ? '📦' : '') }) : null,
       c.id === D.fighterId ? el('span', { class: 'fgt', title: t('battle.isFighter'), text: '⚔' }) : null,
       c.stats.level > 1 || c.mastered ? el('span', { class: 'lvl', text: (c.mastered ? '★ ' : '') + t('stats.level', c.stats.level) }) : null),
@@ -137,8 +138,8 @@
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap' },
           training
             ? el('button', { class: 'btn ghost', text: t('viewer.untrain'), onclick: () => { send('untrain', { id }); closeViewer(); } })
-            : el('button', { class: 'btn', ...(D.freeSlots ? {} : { disabled: '' }), text: label, onclick: () => { send('train', { id }); closeViewer(); } }),
-          c.count > 1 ? el('button', { class: 'btn ghost', text: t('viewer.sell', c.sell), onclick: () => send('sell', { id }) }) : null,
+            : el('button', { class: 'btn', ...(D.freeSlots && !c.soaked ? {} : { disabled: '' }), text: label, onclick: () => { send('train', { id }); closeViewer(); } }),
+          c.count > 1 && !c.soaked ? el('button', { class: 'btn ghost', text: t('viewer.sell', c.sell), onclick: () => send('sell', { id }) }) : null,
           el('button', { class: 'btn ghost', text: t('viewer.close'), onclick: closeViewer }))));
     if (!keepHigh) send('high', { id });
     overlay.querySelector('.viewer .btn')?.focus();
@@ -161,6 +162,11 @@
     const have = id => (D.items && D.items[id]) || 0;
     const care = c.care || {};
     const buttons = [];
+    if (c.soaked) {
+      return el('div', { class: 'itemrow' }, have('hair-dryer')
+        ? el('div', { class: 'row', style: 'justify-content:center' }, el('button', { class: 'btn', text: itemIcon('hair-dryer') + ' ' + t('viewer.dry', have('hair-dryer')), onclick: () => send('dry', { id: c.id }) }))
+        : el('div', { class: 'sub center', text: t('viewer.soakedHint') }));
+    }
     if (!care.sleeve && have('sleeve')) buttons.push(el('button', { class: 'btn ghost', text: itemIcon('sleeve') + ' ' + t('viewer.protectSleeve', have('sleeve')), onclick: () => send('protect', { item: 'sleeve', id: c.id }) }));
     if (!care.toploader && have('toploader')) buttons.push(el('button', { class: 'btn ghost', text: itemIcon('toploader') + ' ' + t('viewer.protectToploader', have('toploader')), onclick: () => send('protect', { item: 'toploader', id: c.id }) }));
     let note = null;

@@ -33,6 +33,7 @@ window.PT = (function () {
     const root = el('div', { class: 'card3d t' + c.tier + (c.variant ? ' v-' + c.variant : ''), style: '--w:' + (width || 150) + 'px' },
       el('div', { class: 'inner' }, face, el('div', { class: 'foil' }), el('div', { class: 'glare' }),
         !c.grade && c.wear > 0 ? el('div', { class: 'wear w' + c.wear }) : null,
+        c.soaked ? el('div', { class: 'wet' }) : null,
         c.care && c.care.sleeve && !c.grade ? el('div', { class: 'sleeve' }) : null, c.care && c.care.toploader && !c.grade ? el('div', { class: 'toploader' }) : null,
         c.variant ? el('div', { class: 'vtag', text: t('variant.tag.' + c.variant) }) : null));
     root.addEventListener('pointermove', e => {
@@ -93,6 +94,7 @@ window.PT = (function () {
     if (care.sleeve && !c.grade) chips.push(el('span', { class: 'mark sleeve-mark', title: t('care.tipSleeve'), text: '🛡️ ' + t('care.sleeve') }));
     if (care.toploader && !c.grade) chips.push(el('span', { class: 'mark top-mark', title: t('care.tipToploader'), text: '📦 ' + t('care.toploader') }));
     if (c.grade) chips.push(el('span', { class: 'mark slab-mark', title: t('care.tipSlab'), text: '🔒 ' + t('care.slab') }));
+    else if (c.soaked) chips.push(el('span', { class: 'mark soaked-mark', title: t('care.tipSoaked'), text: t('care.soaked') }));
     else chips.push(el('span', { class: 'mark cond w' + (c.wear || 0), title: t('care.tipCondition'), text: t('condition.' + (c.wear || 0)) }));
     return el('div', { class: 'marks' }, chips);
   }
@@ -118,7 +120,7 @@ window.PT = (function () {
   const ITEM_ICON = {
     'fire-stone': '🔥', 'water-stone': '💧', 'thunder-stone': '⚡', 'leaf-stone': '🍃', 'ice-stone': '❄️', 'sun-stone': '☀️',
     'moon-stone': '🌙', 'shiny-stone': '✨', 'dawn-stone': '🌅', 'kings-rock': '👑', 'rare-candy': '🍬', 'lucky-egg': '🥚',
-    'mega-stone': '💎', 'dynamax-band': '🔴', 'star-core': '⭐', 'tera-orb': '🔮', sleeve: '🛡️', toploader: '📦',
+    'mega-stone': '💎', 'dynamax-band': '🔴', 'star-core': '⭐', 'tera-orb': '🔮', sleeve: '🛡️', toploader: '📦', 'hair-dryer': '🔥',
   };
   const itemIcon = id => ITEM_ICON[id] || '🎁';
   const itemName = id => t('item.' + id + '.name');

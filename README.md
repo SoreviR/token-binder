@@ -84,6 +84,7 @@ This extension **does not query GitHub or your organization**: it computes the p
 | `tokenBinder.alerts.thresholds` | `[50, 80, 100]` | Percentages that trigger a warning. |
 | `tokenBinder.packs.everyTokens` | `750000` | Every how many tokens used you earn a pack. |
 | `tokenBinder.growth.multiplier` | `1` | Scales the tokens each card needs to evolve (0.1–2). |
+| `tokenBinder.mishaps.enabled` | `false` | Going over 100% of the quota brings one mishap per period (see [Going over the quota](#going-over-the-quota-mishaps)). |
 | `tokenBinder.storageRoots` | `[]` | VS Code `User` folders to read, if you use a non-standard installation. |
 
 Command titles and the setting descriptions in VS Code's Settings editor follow VS Code's display language; everything else (panel, album, notices, dialogs) follows `tokenBinder.language`.
@@ -162,6 +163,16 @@ Like real collectors, you can protect your cards and have them **graded**. Open 
 - **The odds:** the grade follows a bell curve (most cards get a 5-7). A Gem Mint 10 is about 0.5% without protection and about 8% with a sleeve **and** a toploader.
 - **Re-submitting** a card costs one more base fee each time and can only **improve** its grade, never lower it.
 - **What a grade does:** the card is shown in a slab with its grade, and its market value is multiplied (10 → ×3, 9 → ×1.8, 8 → ×1.3, 7 → ×1.1, 6 → ×1, then lower for poor grades), which also counts in the value of your collection.
+
+## Going over the quota: mishaps
+
+Optional, and off by default: turn on `tokenBinder.mishaps.enabled` for a game with consequences. Once you go **over 100%** of the monthly quota, **one** mishap happens in that quota period (never more than one per period):
+
+- 🚀 **Team Rocket** (60%) steals one random card. It appears in the **Battle** tab while they have it: beat them (Arbok, level 15) and you get it back exactly as it was. No coins, and a loss only means you try again.
+- 🏃 **You trip while running** (30%) and drop **10%** of the copies in your album (at least one); they are lost. Graded cards are safe in their slab.
+- 🌧️ **It rains** (10%) on **half** of your album. Cards in a **sleeve** or a **slab** stay dry; the rest end up **soaked**: worth nothing, and they cannot train, battle, be graded or be sold. A **Charmandryer** (40 coins in the shop, a hair dryer with the flame of Charmander's tail) dries one soaked card, which comes back usable but Heavily Played.
+
+The card in a training slot goes with you and the one at the grading service is not at home, so neither of them can be stolen, dropped or soaked. A notification tells you what happened and opens the album.
 
 ## Coins and shop
 

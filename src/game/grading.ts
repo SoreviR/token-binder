@@ -34,8 +34,8 @@ export const MAX_WEAR = 4;
 /** Condition names, in order of wear: 0 Mint, 1 Near Mint, 2 Lightly Played, 3 Moderately Played, 4 Heavily Played (i18n `condition.N`). */
 
 /** Chance that a card wears one step after a battle: none 10%, sleeve 2%, toploader 4%, both 0%. A graded card (in its slab) never wears. */
-export function wearChance(o: { care?: { sleeve?: boolean; toploader?: boolean }; grade?: number; wear?: number }): number {
-  if (o.grade || (o.wear ?? 0) >= MAX_WEAR) { return 0; }
+export function wearChance(o: { care?: { sleeve?: boolean; toploader?: boolean }; grade?: number; wear?: number; soaked?: boolean }): number {
+  if (o.grade || o.soaked || (o.wear ?? 0) >= MAX_WEAR) { return 0; }
   const sleeve = !!o.care?.sleeve, top = !!o.care?.toploader;
   return sleeve && top ? 0 : sleeve ? 0.02 : top ? 0.04 : 0.1;
 }
@@ -49,8 +49,9 @@ export function applyWear(s: GameState, key: string, rng: () => number = Math.ra
   return o.wear;
 }
 
-/** Market value of an ungraded card by condition: -6% per step of wear. A graded card is valued by its grade instead. */
-export const conditionMultiplier = (wear: number | undefined, grade?: number): number => (grade ? 1 : 1 - 0.06 * clamp(wear ?? 0, 0, MAX_WEAR));
+/** Market value of an ungraded card by condition: -6% per step of wear, nothing when soaked. A graded card is valued by its grade instead. */
+export const conditionMultiplier = (wear: number | undefined, grade?: number, soaked?: boolean): number =>
+  (grade ? 1 : soaked ? 0 : 1 - 0.06 * clamp(wear ?? 0, 0, MAX_WEAR));
 
 /** Puts a sleeve or a toploader on a card (one of each per card). The item is only spent when it is applied. */
 export function protect(s: GameState, key: string, kind: Protector): boolean {
@@ -61,13 +62,14 @@ export function protect(s: GameState, key: string, kind: Protector): boolean {
   return true;
 }
 
-export type SendResult = { ok: true; cost: number } | { ok: false; reason: 'none' | 'training' | 'busy' | 'coins' };
+export type SendResult = { ok: true; cost: number } | { ok: false; reason: 'none' | 'training' | 'busy' | 'coins' | 'soaked' };
 
 /** Sends a card to grading: pays the fee and starts the wait. A card in a training slot has to be retired first. */
 export function sendToGrading(s: GameState, key: string, lifetime: number): SendResult {
   const o = s.collection[key];
   if (!o) { return { ok: false, reason: 'none' }; }
   if (o.grading) { return { ok: false, reason: 'busy' }; }
+  if (o.soaked) { return { ok: false, reason: 'soaked' }; }   // no grader takes a soaked card: dry it first
   if (s.slots.some(t => t && keyOf(t.card) === key)) { return { ok: false, reason: 'training' }; }
   const cost = gradeCost(o.card.tier, o.tries ?? 0);
   if (s.coins < cost) { return { ok: false, reason: 'coins' }; }

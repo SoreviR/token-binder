@@ -103,6 +103,7 @@ export interface Owned {
   care?: { sleeve?: boolean; toploader?: boolean };   // protection applied (improves the odds when grading)
   grade?: number;       // 1-10, from the grading service (never goes down)
   wear?: number;        // 0-4 wear from battles (0 = Mint); a graded card sits in its slab and does not wear
+  soaked?: boolean;     // caught in the rain (see mishaps.ts): worthless and unusable until a hair dryer dries it
   tries?: number;       // how many times it has been graded (re-submissions cost more)
   grading?: { since: number; cost: number };         // out for grading: lifetime tokens when it left, fee paid
 }
@@ -143,6 +144,8 @@ export interface GameState {
   fighter?: string;       // key of the card taken to battles
   battle?: BattleRecord;  // record, badges and recent fights
   items: Partial<Record<ItemId, number>>;   // item inventory
+  mishapPeriod?: number;  // quota period in which the mishap for going over 100% already happened
+  stolen?: Owned[];       // cards Team Rocket took, oldest first: each win against them brings one back
 }
 
 /* ───────── Packs ───────── */
@@ -292,11 +295,11 @@ export function earnCoins(s: GameState, lifetime: number, bonus: boolean): numbe
   return earned;
 }
 
-export type Item = 'pack' | 'premium' | 'ball' | 'box' | 'sleeve' | 'toploader' | 'slot' | 'luck';
+export type Item = 'pack' | 'premium' | 'ball' | 'box' | 'sleeve' | 'toploader' | 'hair-dryer' | 'slot' | 'luck';
 
 const SLOT_PRICES = [400, 900, 1600, 2600, 4000];   // slots 2 to 6
 const LUCK_PRICES = [300, 600, 1200, 2400, 4800];   // levels 1 to 5
-const FIXED_PRICES: Record<'pack' | 'premium' | 'ball' | 'box' | 'sleeve' | 'toploader', number> = { pack: 80, premium: 250, ball: 15, box: BOX_PRICE, sleeve: 15, toploader: 50 };
+const FIXED_PRICES: Record<'pack' | 'premium' | 'ball' | 'box' | 'sleeve' | 'toploader' | 'hair-dryer', number> = { pack: 80, premium: 250, ball: 15, box: BOX_PRICE, sleeve: 15, toploader: 50, 'hair-dryer': 40 };
 
 /** Current price of an item, or null if the maximum was already bought. */
 export function priceOf(s: GameState, item: Item): number | null {
@@ -313,7 +316,7 @@ export function buy(s: GameState, item: Item): boolean {
   else if (item === 'premium') { s.premium++; }
   else if (item === 'ball') { s.balls++; }
   else if (item === 'box') { s.boxes++; }
-  else if (item === 'sleeve' || item === 'toploader') { grantItem(s, item); }
+  else if (item === 'sleeve' || item === 'toploader' || item === 'hair-dryer') { grantItem(s, item); }
   else if (item === 'slot') { s.slots.push(null); }
   else { s.luck++; }
   return true;
@@ -352,11 +355,11 @@ export function sellValue(c: Pick<Card, 'tier' | 'variant'>): number {
   return SELL_VALUE[c.tier] * (c.variant === 'first' ? 5 : c.variant === 'shadowless' ? 2 : 1);
 }
 
-/** Sells duplicate copies (you always keep one). With `key`, only that card. Returns the coins earned. */
+/** Sells duplicate copies (you always keep one). With `key`, only that card. Soaked cards are worthless and stay. Returns the coins earned. */
 export function sellDuplicates(s: GameState, key?: string): number {
   let earned = 0;
   for (const [k, o] of Object.entries(s.collection)) {
-    if (key !== undefined && k !== key) { continue; }
+    if ((key !== undefined && k !== key) || o.soaked) { continue; }
     if (o.count > 1) { earned += (o.count - 1) * sellValue(o.card); o.count = 1; }
   }
   s.coins += earned;
@@ -367,7 +370,7 @@ export function sellDuplicates(s: GameState, key?: string): number {
 export function startTraining(s: GameState, cardId: string, lifetime: number): boolean {
   const owned = s.collection[cardId];
   const slot = s.slots.findIndex(x => x === null);
-  if (!owned || slot < 0 || owned.grading) { return false; }   // a card out for grading cannot train
+  if (!owned || slot < 0 || owned.grading || owned.soaked) { return false; }   // a card out for grading or soaked cannot train
   if (s.slots.some(t => t && keyOf(t.card) === cardId)) { return false; }
   // A card that already completed its line goes back into the slot to keep leveling up.
   s.slots[slot] = { card: owned.card, born: lifetime, evolved: 0, last: lifetime, mastered: owned.mastered || undefined };
