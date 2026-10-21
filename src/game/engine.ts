@@ -100,6 +100,10 @@ export interface Owned {
   card: Card; count: number; firstAt: number;
   xp: number;           // total tokens this card has trained (inherited on evolution)
   mastered?: boolean;   // already completed its evolutionary line
+  care?: { sleeve?: boolean; toploader?: boolean };   // protection applied (improves the odds when grading)
+  grade?: number;       // 1-10, from the grading service (never goes down)
+  tries?: number;       // how many times it has been graded (re-submissions cost more)
+  grading?: { since: number; cost: number };         // out for grading: lifetime tokens when it left, fee paid
 }
 export interface Training {
   card: Card; born: number; evolved: number;
@@ -274,11 +278,11 @@ export function earnCoins(s: GameState, lifetime: number, bonus: boolean): numbe
   return earned;
 }
 
-export type Item = 'pack' | 'premium' | 'ball' | 'box' | 'slot' | 'luck';
+export type Item = 'pack' | 'premium' | 'ball' | 'box' | 'sleeve' | 'toploader' | 'slot' | 'luck';
 
 const SLOT_PRICES = [400, 900, 1600, 2600, 4000];   // slots 2 to 6
 const LUCK_PRICES = [300, 600, 1200, 2400, 4800];   // levels 1 to 5
-const FIXED_PRICES: Record<'pack' | 'premium' | 'ball' | 'box', number> = { pack: 80, premium: 250, ball: 15, box: BOX_PRICE };
+const FIXED_PRICES: Record<'pack' | 'premium' | 'ball' | 'box' | 'sleeve' | 'toploader', number> = { pack: 80, premium: 250, ball: 15, box: BOX_PRICE, sleeve: 15, toploader: 50 };
 
 /** Current price of an item, or null if the maximum was already bought. */
 export function priceOf(s: GameState, item: Item): number | null {
@@ -295,6 +299,7 @@ export function buy(s: GameState, item: Item): boolean {
   else if (item === 'premium') { s.premium++; }
   else if (item === 'ball') { s.balls++; }
   else if (item === 'box') { s.boxes++; }
+  else if (item === 'sleeve' || item === 'toploader') { grantItem(s, item); }
   else if (item === 'slot') { s.slots.push(null); }
   else { s.luck++; }
   return true;
@@ -348,7 +353,7 @@ export function sellDuplicates(s: GameState, key?: string): number {
 export function startTraining(s: GameState, cardId: string, lifetime: number): boolean {
   const owned = s.collection[cardId];
   const slot = s.slots.findIndex(x => x === null);
-  if (!owned || slot < 0) { return false; }
+  if (!owned || slot < 0 || owned.grading) { return false; }   // a card out for grading cannot train
   if (s.slots.some(t => t && keyOf(t.card) === cardId)) { return false; }
   // A card that already completed its line goes back into the slot to keep leveling up.
   s.slots[slot] = { card: owned.card, born: lifetime, evolved: 0, last: lifetime, mastered: owned.mastered || undefined };

@@ -20,6 +20,8 @@ import { lastBackend } from './usage/sqlite';
 import { lang, resolveLang, setLang, t } from './i18n';
 import { Updater } from './update/updater';
 import { backupIfUpgraded, exportPayload, parseImport } from './game/backup';
+import { registerDevTools } from './devhook';
+import { PROTECTORS, Protector, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading } from './game/grading';
 
 const cfg = () => vscode.workspace.getConfiguration('tokenBinder');
 
@@ -91,6 +93,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       earnCoins(state, lifetime, pace);
       if (pct >= 100 && state.bonusPeriod !== start) { state.bonusPeriod = start; state.packs++; events.push('bonusPack'); }
       events.push(...accrueXp(state, lifetime));
+      events.push(...resolveGrading(state, lifetime));
       // Evolution/graduation: needs the network; if it fails it is retried at most every 30 s.
       const due = state.slots.some(t => t && trainingProgress(t, lifetime, mult).due);
       if (due && now - lastEvolveTry > 30_000) {
@@ -146,6 +149,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (ok) { await game.save(state); await tick(true); }
     } else if (m.type === 'transform' && typeof m.id === 'string' && isItemId(m.item)) {
       await transform(m.id, m.item);
+    } else if (m.type === 'protect' && typeof m.id === 'string' && PROTECTORS.includes(m.item as Protector)) {
+      if (protect(state, m.id, m.item as Protector)) { await game.save(state); await tick(true); }
+    } else if (m.type === 'grade' && typeof m.id === 'string') {
+      const r = sendToGrading(state, m.id, usage.lifetimeTokens());
+      if (r.ok) { await game.save(state); await tick(true); }
+      else { void vscode.window.showWarningMessage(t(`grade.${r.reason}` as 'grade.coins')); }
     } else if (m.type === 'high' && typeof m.id === 'string') {
       const card = state.collection[m.id]?.card;
       const file = card && await tcg.image(card, 'high');
@@ -233,13 +242,16 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const owned = state?.collection[keyOf(c)];
     const xp = owned?.xp ?? 0;
     const lv = levelProgress(xp);
+    const rawValue = marketValue(c);
     return {
+      grade: owned?.grade, care: owned?.care ?? {}, gradeMult: gradeMultiplier(owned?.grade), gradeCost: gradeCost(c.tier, owned?.tries ?? 0),
+      grading: owned?.grading ? gradingProgress(owned.grading, usage.lifetimeTokens()) : undefined,
       ...(c.cv === CARD_DATA_VERSION ? {} : { basic: true }),   // no attacks or price yet: estimated stats
       stats: statsOf(c, xp), lvPct: lv ? lv.pct : 100, xp, mastered: !!owned?.mastered,
       transforms: owned?.mastered
         ? (['mega', 'vmax', 'vstar', 'tera'] as Transform[]).filter(k => canTransform(c, { mastered: true, level: levelOf(xp) }, k))
         : [],
-      market: marketValue(c), eur: c.price?.eur, usd: c.price?.usd, priceAt: c.priceAt, collector: collectorLabel(c),
+      market: rawValue === undefined ? undefined : Math.round(rawValue * gradeMultiplier(owned?.grade) * 100) / 100, eur: c.price?.eur, usd: c.price?.usd, priceAt: c.priceAt, collector: collectorLabel(c),
       id: keyOf(c), name: c.name, rarity: c.rarity, tier: c.tier, stage: c.stage, hp: c.hp,
       types: c.types, set: c.set, era: c.era,   // era/variant/tier/collector are ids: the webview translates them
       variant: c.variant, sell: sellValue(c),
@@ -256,8 +268,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
       ...await cardView(o.card, 'low', false, p => album.uri(p)), count: o.count, firstAt: o.firstAt,
     })));
     return {
-      lang: lang(), items: s.items, album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
-      value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count, 0)),
+      lang: lang(), items: s.items, coins: Math.floor(s.coins), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade), 0)),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };
   }
@@ -294,6 +306,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
       { id: 'premium', name: t('shop.premium.name'), desc: t('shop.premium.desc') },
       { id: 'ball', name: t('shop.ball.name'), desc: t('shop.ball.desc') },
       { id: 'box', name: t('shop.box.name'), desc: t('shop.box.desc') },
+      { id: 'sleeve', name: t('shop.sleeve.name'), desc: t('shop.sleeve.desc') },
+      { id: 'toploader', name: t('shop.toploader.name'), desc: t('shop.toploader.desc') },
       { id: 'slot', name: t('shop.slot.name'), desc: t('shop.slot.desc', s.slots.length, MAX_SLOTS) },
       { id: 'luck', name: t('shop.luck.name'), desc: t('shop.luck.desc', s.luck, MAX_LUCK) },
     ];
@@ -417,6 +431,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
 
   void tick(true);
   updater.start();
+  // Private, git-ignored testing tools plug in here; the public source registers nothing.
+  registerDevTools({ ctx, getState: () => state, lifetime: () => usage.lifetimeTokens(), growth: () => cfg().get<number>('growth.multiplier', 1),
+    save: () => (state ? game.save(state) : Promise.resolve()), refresh: () => tick(true) });
   // Settings from the old version and the prompt to remove it (does not block startup).
   void migrateLegacySettings(s => log.appendLine(s)).then(() => offerUninstallLegacy());
 }

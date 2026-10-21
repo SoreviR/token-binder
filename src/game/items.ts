@@ -21,6 +21,9 @@ export const ITEM_LIST = [
   { id: 'dynamax-band', kind: 'transform', weight: 2 },
   { id: 'star-core', kind: 'transform', weight: 2 },
   { id: 'tera-orb', kind: 'transform', weight: 2 },
+  // card protection (see grading.ts)
+  { id: 'sleeve', kind: 'protect', weight: 12 },
+  { id: 'toploader', kind: 'protect', weight: 6 },
 ] as const;
 
 export type ItemId = (typeof ITEM_LIST)[number]['id'];

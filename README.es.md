@@ -131,6 +131,16 @@ Una **caja misteriosa** (120 monedas en la tienda) da un objeto al azar. Se abre
 
 **Transformaciones.** Una **carta terminada (Maestra) de nivel 20 o más** se puede transformar con el objeto correspondiente: Megapiedra → Mega (*M X EX*, *Mega X ex*), Banda Dynamax → VMAX, Núcleo Astral → VSTAR, Orbe Teracristal → Terastal ex. Abre la carta en el álbum y usa el botón; la carta nueva conserva el nivel y la antigua sigue en tu álbum. El objeto solo se gasta si esa carta existe (la búsqueda se hace antes). Las cartas que ya son Mega/VMAX/VSTAR no se pueden transformar otra vez.
 
+## Protección y gradeo
+
+Como los coleccionistas de verdad, puedes proteger tus cartas y hacer que las **gradeen**. Abre una carta en el álbum para ver su protección y el servicio de gradeo.
+
+- **Funda** (15 monedas) y **toploader** (50 monedas): se compran en la tienda o salen en las cajas misteriosas. Cada carta puede tener una de cada una; mejoran sus opciones al gradearla.
+- **Gradeo («TBGS», un servicio ficticio):** pagas una tarifa que depende de la rareza de la carta (30 monedas una Común hasta 1 200 una Secreta). La carta se queda fuera hasta que hayas usado **500 K tokens más** y vuelve con una nota del **1 al 10** (Gem Mint). Una carta en un hueco de entrenamiento hay que retirarla antes, y una carta que está fuera no puede entrenar.
+- **Las probabilidades:** la nota sigue una campana (la mayoría saca un 5-7). Un Gem Mint 10 es un 0,5 % sin protección y un 8 % con funda **y** toploader.
+- **Reenviar** una carta cuesta una tarifa base más cada vez y solo puede **mejorar** la nota, nunca bajarla.
+- **Qué hace la nota:** la carta se muestra en una slab con su nota y su valor de mercado se multiplica (10 → ×3, 9 → ×1,8, 8 → ×1,3, 7 → ×1,1, 6 → ×1, y menos con notas bajas), lo que también cuenta en el valor de tu colección.
+
 ## Monedas y tienda
 
 Además de los sobres gratis, ganas **1 moneda cada 10 K tokens** usados. Hay un **bonus del +20 %** mientras tu uso del cupo vaya por debajo del ritmo del mes (por ejemplo, llevar un 40 % del cupo a mitad de mes). No se dan monedas por tokens usados antes de instalar la versión 0.3.
@@ -142,6 +152,8 @@ Además de los sobres gratis, ganas **1 moneda cada 10 K tokens** usados. Hay un
 | Sobre | 80 | 2 cartas |
 | Sobre premium | 250 | 2 cartas sin comunes y con mejores probabilidades de Holo o superior |
 | Pokébola | 15 | 1 carta |
+| Funda | 15 | Protección para una carta (mejores opciones al gradear) |
+| Toploader | 50 | Protección rígida para una carta (mejora más las opciones al gradear) |
 | Caja misteriosa | 120 | 1 objeto al azar (piedras, caramelos, Huevo Suerte, objetos de transformación raros) |
 | Hueco de entrenamiento | 400 · 900 · 1 600 · 2 600 · 4 000 | Una carta más creciendo a la vez (hasta 6 huecos) |
 | Mejora de suerte | 300 · 600 · 1 200 · 2 400 · 4 800 | +20 % por nivel al peso de las eras Moderna y Actual en los sobres, y a la probabilidad de variantes Shadowless (5 niveles) |
@@ -209,6 +221,7 @@ npm run package     # genera token-binder-X.Y.Z.vsix
 ```
 
 Pulsa **F5** en VS Code para abrir una ventana de desarrollo con la extensión cargada.
+
 
 Estructura: `src/update/` (búsqueda de actualizaciones), `src/usage/` (lectura de sesiones: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (cuota), `src/game/` (motor de sobres/entrenamiento y cliente de TCGdex), `src/i18n/` y `media/i18n.js` (textos en inglés y español), `src/webview/` y `media/` (panel lateral y pestaña del álbum).
 

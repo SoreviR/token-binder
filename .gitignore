@@ -2,3 +2,5 @@ node_modules
 dist
 *.vsix
 release-notes.md
+*.local.ts
+*.local.test.ts

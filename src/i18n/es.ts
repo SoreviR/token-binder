@@ -77,6 +77,17 @@ export const es: Record<Key, string> = {
   'shop.box.name': 'Caja misteriosa',
   'shop.box.desc': '1 objeto al azar: piedras evolutivas, caramelos, objetos de transformación raros',
 
+  'shop.sleeve.name': 'Funda',
+  'shop.sleeve.desc': 'Protege una carta y mejora sus opciones al gradearla',
+  'shop.toploader.name': 'Toploader',
+  'shop.toploader.desc': 'Protección rígida: mejora aún más sus opciones al gradearla',
+
+  // grading
+  'grade.coins': 'TokenBinder: no tienes monedas suficientes para enviar esta carta a gradear.',
+  'grade.training': 'TokenBinder: retira la carta del entrenamiento antes de enviarla a gradear.',
+  'grade.busy': 'TokenBinder: esta carta ya está en el servicio de gradeo.',
+  'grade.none': 'TokenBinder: no se encontró esa carta.',
+
   // items
   'branch.item': 'TokenBinder: no tienes el objeto de esa evolución.',
   'branch.invalid': 'TokenBinder: esa carta no está esperando que elijas una evolución.',

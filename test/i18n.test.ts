@@ -69,6 +69,7 @@ test('webview: every static PT.t / t key used in media/*.js exists, and so do th
     ...['tier', 'recent', 'name', 'count'].map(s => 'sort.' + s),
     ...ITEM_IDS.flatMap(id => ['item.' + id + '.name', 'item.' + id + '.desc']),
     ...['mega', 'vmax', 'vstar', 'tera'].map(k => 'transform.kind.' + k),
+    ...[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(g => 'grade.' + g),
   ];
   for (const k of dynamic) { assert.ok(k in d.en, `missing "${k}"`); }
 });

@@ -170,6 +170,10 @@
       else if (e.startsWith('evolve:')) toast(t('toast.evolved', e.slice(7)));
       else if (e.startsWith('graduate:')) toast(t('toast.graduated', e.slice(9)));
       else if (e.startsWith('branch:')) toast(t('toast.branch', e.slice(7)));
+      else if (e.startsWith('graded:')) {
+        const [, grade, better, ...name] = e.split(':');
+        toast(better === '1' ? t('toast.graded', name.join(':'), grade, t('grade.' + grade)) : t('toast.gradedSame', name.join(':'), grade, t('grade.' + grade)));
+      }
       else if (e.startsWith('level:')) { const [, name, lv] = e.split(':'); toast(t('toast.level', name, lv)); }
     }
   }

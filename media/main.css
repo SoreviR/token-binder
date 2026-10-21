@@ -149,3 +149,13 @@ body.album #overlay { justify-content: center; cursor: pointer; }
 .itemfound .big { font-size: 56px; line-height: 1; animation: pop .5s ease-out; }
 .itemrow { margin-top: 8px; }
 @keyframes pop { from { transform: scale(.3) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }
+
+/* grading slab and grade badge */
+.slab { display: inline-block; padding: 6px 8px 8px; border-radius: 10px; border: 3px solid #b8c4cc; background: linear-gradient(160deg, rgba(255,255,255,.22), rgba(255,255,255,.06)); box-shadow: 0 0 10px rgba(180,200,215,.35); }
+.slab .slabhead { font-size: 11px; font-weight: 800; letter-spacing: .4px; text-align: center; padding: 2px 6px 6px; color: var(--vscode-foreground); }
+.slab.g10 { border-color: #ffd54a; box-shadow: 0 0 18px rgba(255,213,74,.75); }
+.slab.g10 .slabhead { color: #ffd54a; }
+.slab.g9 { border-color: #e0e6ea; box-shadow: 0 0 12px rgba(224,230,234,.55); }
+.slab.g4, .slab.g3, .slab.g2, .slab.g1 { border-color: #8a6a55; box-shadow: none; }
+.agrid .thumb .gr { position: absolute; right: 2px; top: 17px; font-size: 8px; font-weight: 800; padding: 0 4px; border-radius: 3px; color: #1a2530; background: linear-gradient(135deg, #f4f7f9, #b8c4cc); }
+.agrid .thumb .gr.g10 { background: linear-gradient(135deg, #fff3b0, #e0a800); color: #3a2a00; }

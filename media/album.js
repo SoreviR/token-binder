@@ -1,6 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, TRANSFORM_ITEM } = window.PT;
+  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, TRANSFORM_ITEM, slabEl, fmt } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
   const send = (type, extra) => vscode.postMessage(Object.assign({ type }, extra));
@@ -72,6 +72,7 @@
       c.count > 1 ? el('span', { class: 'n', text: '×' + c.count }) : null,
       c.variant ? el('span', { class: 'vt', text: t('variant.tag.' + c.variant) }) : null,
       D.trainingIds.includes(c.id) ? el('span', { class: 'tr', text: t('album.training') }) : null,
+      c.grade ? el('span', { class: 'gr g' + c.grade, text: 'TBGS ' + c.grade }) : null,
       c.stats.level > 1 || c.mastered ? el('span', { class: 'lvl', text: (c.mastered ? '★ ' : '') + t('stats.level', c.stats.level) }) : null),
       () => openViewer(c.id), c.name + ', ' + c.rarity + (c.variant ? ', ' + variantName(c) : ''))));
   }
@@ -96,16 +97,18 @@
     const training = D.trainingIds.includes(id);
     const label = training ? t('album.training') : D.freeSlots ? t('reveal.train') : t('viewer.noSlots');
     const card = cardEl(c, 300);
+    const framed = c.grade ? slabEl(card, c) : card;
     const img = card.querySelector('img');
     if (prevSrc && img) img.src = prevSrc; // do not flicker to low resolution on refresh
     overlay.replaceChildren(
       el('div', { class: 'viewer', onclick: e => e.stopPropagation() },
-        card,
+        framed,
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:10px' }, el('b', { text: c.name }), badge(c.tier)),
         el('div', { class: 'sub center', text: info(c) }),
         statsEl(c),
         marketEl(c),
         itemButtons(c, training),
+        careRow(c, training),
         c.count > 1 ? el('div', { class: 'sub center', text: t('viewer.copies', c.count) }) : null,
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap' },
           training
@@ -128,6 +131,25 @@
     }
     if (!buttons.length) return null;
     return el('div', { class: 'itemrow' }, el('div', { class: 'sub center', text: t('viewer.items') }), el('div', { class: 'row', style: 'gap:6px;justify-content:center;flex-wrap:wrap' }, buttons));
+  }
+  /** Protection (sleeve, toploader) and the grading service for this card. */
+  function careRow(c, training) {
+    const have = id => (D.items && D.items[id]) || 0;
+    const care = c.care || {};
+    const status = [care.sleeve && t('care.sleeve'), care.toploader && t('care.toploader')].filter(Boolean).join(' + ') || t('care.none');
+    const buttons = [];
+    if (!care.sleeve && have('sleeve')) buttons.push(el('button', { class: 'btn ghost', text: itemIcon('sleeve') + ' ' + t('viewer.protectSleeve', have('sleeve')), onclick: () => send('protect', { item: 'sleeve', id: c.id }) }));
+    if (!care.toploader && have('toploader')) buttons.push(el('button', { class: 'btn ghost', text: itemIcon('toploader') + ' ' + t('viewer.protectToploader', have('toploader')), onclick: () => send('protect', { item: 'toploader', id: c.id }) }));
+    let note = null;
+    if (c.grading) {
+      note = el('div', null, el('div', { class: 'sub center', text: t('viewer.grading', fmt(c.grading.into), fmt(c.grading.span)) }), el('div', { class: 'barwrap lv' }, el('i', { style: 'width:' + c.grading.pct.toFixed(1) + '%' })));
+    } else if (training) {
+      note = el('div', { class: 'sub center', text: t('viewer.gradeBlocked') });
+    } else {
+      buttons.push(el('button', { class: 'btn', ...(D.coins >= c.gradeCost ? {} : { disabled: '' }), text: t(c.grade ? 'viewer.regrade' : 'viewer.grade', c.gradeCost), onclick: () => send('grade', { id: c.id }) }));
+    }
+    return el('div', { class: 'itemrow' }, el('div', { class: 'sub center', text: t('viewer.care') + ': ' + status }), note,
+      buttons.length ? el('div', { class: 'row', style: 'gap:6px;justify-content:center;flex-wrap:wrap;margin-top:4px' }, buttons) : null);
   }
   function closeViewer() { viewing = null; overlay.replaceChildren(); }
   overlay.addEventListener('click', closeViewer);

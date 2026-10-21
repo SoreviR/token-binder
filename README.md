@@ -132,6 +132,16 @@ A **mystery box** (120 coins in the shop) gives one random item. Open it from th
 
 **Transformations.** A **finished (Master) card of level 20 or higher** can be transformed with the matching item: Mega Stone → Mega (*M X EX*, *Mega X ex*), Dynamax Band → VMAX, Star Core → VSTAR, Tera Orb → Terastal ex. Open the card in the album and use the button; the new card keeps the level and the old one stays in your album. The item is only spent if such a card exists (the lookup is done first). Cards that are already a Mega/VMAX/VSTAR cannot be transformed again.
 
+## Protection and grading
+
+Like real collectors, you can protect your cards and have them **graded**. Open a card in the album to see its protection and the grading service.
+
+- **Sleeve** (15 coins) and **toploader** (50 coins): bought in the shop or found in mystery boxes. Each card can have one of each; they improve its odds when graded.
+- **Grading ("TBGS", a fictional service):** pay a fee that depends on the card's rarity (30 coins for a Common up to 1,200 for a Secret). The card is away until you have used **500K more tokens**, then it comes back with a grade from **1 to 10** (Gem Mint). A card in a training slot must be retired first, and a card that is away cannot train.
+- **The odds:** the grade follows a bell curve (most cards get a 5-7). A Gem Mint 10 is about 0.5% without protection and about 8% with a sleeve **and** a toploader.
+- **Re-submitting** a card costs one more base fee each time and can only **improve** its grade, never lower it.
+- **What a grade does:** the card is shown in a slab with its grade, and its market value is multiplied (10 → ×3, 9 → ×1.8, 8 → ×1.3, 7 → ×1.1, 6 → ×1, then lower for poor grades), which also counts in the value of your collection.
+
 ## Coins and shop
 
 Besides the free packs, you earn **1 coin per 10K tokens** used. There is a **+20% bonus** while your quota usage is below the pace of the month (for example, being at 40% of the quota halfway through the month). No coins are given for tokens used before installing version 0.3.
@@ -143,6 +153,8 @@ Besides the free packs, you earn **1 coin per 10K tokens** used. There is a **+2
 | Pack | 80 | 2 cards |
 | Premium pack | 250 | 2 cards with no commons and better odds of Holo or higher |
 | Poké Ball | 15 | 1 card |
+| Sleeve | 15 | Protection for one card (better grading odds) |
+| Toploader | 50 | Rigid protection for one card (a bigger boost to grading odds) |
 | Mystery box | 120 | 1 random item (stones, candy, Lucky Egg, rare transformation items) |
 | Training slot | 400 · 900 · 1,600 · 2,600 · 4,000 | One more card growing at a time (up to 6 slots) |
 | Luck upgrade | 300 · 600 · 1,200 · 2,400 · 4,800 | +20% per level to the weight of the Modern and Current eras in packs, and to the probability of Shadowless variants (5 levels) |
@@ -210,6 +222,7 @@ npm run package     # produces token-binder-X.Y.Z.vsix
 ```
 
 Press **F5** in VS Code to open a development window with the extension loaded.
+
 
 Layout: `src/update/` (update check), `src/usage/` (session reading: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (quota), `src/game/` (pack/training engine and TCGdex client), `src/i18n/` and `media/i18n.js` (English and Spanish texts), `src/webview/` and `media/` (side panel and album tab).
 

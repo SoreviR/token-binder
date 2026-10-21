@@ -83,6 +83,12 @@ window.PT = (function () {
       c.basic ? el('div', { class: 'sub', text: t('stats.basic') }) : null);
   }
 
+  /** A graded card sits in a slab: a frame with the grade and its name. */
+  function slabEl(cardNode, c) {
+    return el('div', { class: 'slab g' + c.grade },
+      el('div', { class: 'slabhead', text: t('slab.label', c.grade, t('grade.' + c.grade)) }), cardNode);
+  }
+
   /** Approximate market value and collectibility label. */
   function marketEl(c) {
     if (c.market === undefined) return el('div', { class: 'sub center', text: t('market.none') });
@@ -91,13 +97,14 @@ window.PT = (function () {
     if (c.usd !== undefined) parts.push('$' + c.usd.toFixed(2) + ' TCGplayer');
     return el('div', { class: 'market' },
       el('span', { class: 'coll', text: c.collector ? t('collector.' + c.collector) : '' }),
-      el('span', { class: 'sub', text: parts.join(' · ') + (c.priceAt ? ' · ' + new Date(c.priceAt).toLocaleDateString(lang) : '') }));
+      el('span', { class: 'sub', text: parts.join(' · ') + (c.priceAt ? ' · ' + new Date(c.priceAt).toLocaleDateString(lang) : '') }),
+      c.gradeMult && c.gradeMult !== 1 ? el('span', { class: 'sub', text: t('viewer.gradedValue', c.gradeMult) + ' → €' + c.market.toFixed(2) }) : null);
   }
 
   const ITEM_ICON = {
     'fire-stone': '🔥', 'water-stone': '💧', 'thunder-stone': '⚡', 'leaf-stone': '🍃', 'ice-stone': '❄️', 'sun-stone': '☀️',
     'moon-stone': '🌙', 'shiny-stone': '✨', 'dawn-stone': '🌅', 'kings-rock': '👑', 'rare-candy': '🍬', 'lucky-egg': '🥚',
-    'mega-stone': '💎', 'dynamax-band': '🔴', 'star-core': '⭐', 'tera-orb': '🔮',
+    'mega-stone': '💎', 'dynamax-band': '🔴', 'star-core': '⭐', 'tera-orb': '🔮', sleeve: '🛡️', toploader: '📦',
   };
   const itemIcon = id => ITEM_ICON[id] || '🎁';
   const itemName = id => t('item.' + id + '.name');
@@ -105,5 +112,5 @@ window.PT = (function () {
   // Which item turns a card into which transformed form (the same table the host uses).
   const TRANSFORM_ITEM = { mega: 'mega-stone', vmax: 'dynamax-band', vstar: 'star-core', tera: 'tera-orb' };
 
-  return { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM };
+  return { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM, slabEl };
 })();

@@ -2,6 +2,10 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.7.0 - 2026-10-21
+
+- **Protection and grading:** sleeves and toploaders (shop or mystery boxes) improve the odds when a card is sent to the "TBGS" grading service. It comes back after 500K tokens with a 1-10 grade, shown in a slab; re-submitting can only improve it. The grade multiplies the card's market value (10 → ×3), which also counts in the value of your collection.
+
 ## 1.6.0 - 2026-10-21
 
 - **Mystery boxes** (120 coins) with 16 items: evolution stones and King's Rock, Rare Candy (+1 level), Lucky Egg (double XP for 1M tokens) and four rare transformation items. An *Items* panel shows what you own.

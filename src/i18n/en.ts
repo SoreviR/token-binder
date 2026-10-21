@@ -76,6 +76,17 @@ export const en = {
   'shop.box.name': 'Mystery box',
   'shop.box.desc': '1 random item: evolution stones, candy, rare transformation items',
 
+  'shop.sleeve.name': 'Sleeve',
+  'shop.sleeve.desc': 'Protects a card and improves its odds when graded',
+  'shop.toploader.name': 'Toploader',
+  'shop.toploader.desc': 'Rigid protection: a bigger boost to its grading odds',
+
+  // grading
+  'grade.coins': 'TokenBinder: you do not have enough coins to send this card for grading.',
+  'grade.training': 'TokenBinder: retire the card from training before sending it for grading.',
+  'grade.busy': 'TokenBinder: this card is already at the grading service.',
+  'grade.none': 'TokenBinder: that card was not found.',
+
   // items
   'branch.item': 'TokenBinder: you do not have the item for that evolution.',
   'branch.invalid': 'TokenBinder: that card is not waiting for an evolution choice.',
