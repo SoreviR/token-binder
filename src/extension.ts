@@ -98,7 +98,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const pace = underPace(pct, now, start, periodEnd(now, resetDay));
       earnCoins(state, lifetime, pace);
       if (pct >= 100 && state.bonusPeriod !== start) { state.bonusPeriod = start; state.packs++; events.push('bonusPack'); }
-      const mishap = cfg().get<boolean>('mishaps.enabled', false) ? overageMishap(state, pct, start) : null;
+      const mishap = cfg().get<boolean>('mishaps.enabled', true) ? overageMishap(state, pct, start) : null;
       if (mishap) { announceMishap(mishap); }
       events.push(...accrueXp(state, lifetime));
       events.push(...resolveGrading(state, lifetime));

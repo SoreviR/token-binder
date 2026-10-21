@@ -83,7 +83,7 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | `tokenBinder.alerts.thresholds` | `[50, 80, 100]` | Porcentajes que disparan un aviso. |
 | `tokenBinder.packs.everyTokens` | `750000` | Cada cuántos tokens usados ganas un sobre. |
 | `tokenBinder.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
-| `tokenBinder.mishaps.enabled` | `false` | Pasarte del 100 % de la cuota trae un percance por periodo (ver [Pasarse de la cuota](#pasarse-de-la-cuota-percances)). |
+| `tokenBinder.mishaps.enabled` | `true` | Pasarte del 100 % de la cuota trae un percance por periodo (ver [Pasarse de la cuota](#pasarse-de-la-cuota-percances)). |
 | `tokenBinder.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
 
 Los títulos de los comandos y las descripciones de los ajustes en la ventana de Ajustes de VS Code siguen el idioma de VS Code; todo lo demás (panel, álbum, avisos, diálogos) sigue a `tokenBinder.language`.
@@ -165,7 +165,7 @@ Como los coleccionistas de verdad, puedes proteger tus cartas y hacer que las **
 
 ## Pasarse de la cuota: percances
 
-Opcional y desactivado por defecto: activa `tokenBinder.mishaps.enabled` para jugar con consecuencias. Cuando te pasas **del 100 %** de la cuota mensual ocurre **un** percance en ese periodo de cuota (nunca más de uno por periodo):
+Pasarse de la cuota tiene consecuencias (se desactivan con `tokenBinder.mishaps.enabled`). Cuando te pasas **del 100 %** de la cuota mensual ocurre **un** percance en ese periodo de cuota (nunca más de uno por periodo):
 
 - 🚀 **El Team Rocket** (60 %) te roba una carta al azar. Aparece en la pestaña **Combate** mientras la tenga: gánales (Arbok, nivel 15) y la recuperas tal como estaba. Sin monedas, y si pierdes solo tienes que volver a intentarlo.
 - 🏃 **Tropiezas corriendo** (30 %) y se te cae el **10 %** de las copias del álbum (al menos una); se pierden. Las cartas gradeadas están a salvo en su slab.

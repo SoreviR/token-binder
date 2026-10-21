@@ -84,7 +84,7 @@ This extension **does not query GitHub or your organization**: it computes the p
 | `tokenBinder.alerts.thresholds` | `[50, 80, 100]` | Percentages that trigger a warning. |
 | `tokenBinder.packs.everyTokens` | `750000` | Every how many tokens used you earn a pack. |
 | `tokenBinder.growth.multiplier` | `1` | Scales the tokens each card needs to evolve (0.1–2). |
-| `tokenBinder.mishaps.enabled` | `false` | Going over 100% of the quota brings one mishap per period (see [Going over the quota](#going-over-the-quota-mishaps)). |
+| `tokenBinder.mishaps.enabled` | `true` | Going over 100% of the quota brings one mishap per period (see [Going over the quota](#going-over-the-quota-mishaps)). |
 | `tokenBinder.storageRoots` | `[]` | VS Code `User` folders to read, if you use a non-standard installation. |
 
 Command titles and the setting descriptions in VS Code's Settings editor follow VS Code's display language; everything else (panel, album, notices, dialogs) follows `tokenBinder.language`.
@@ -166,7 +166,7 @@ Like real collectors, you can protect your cards and have them **graded**. Open 
 
 ## Going over the quota: mishaps
 
-Optional, and off by default: turn on `tokenBinder.mishaps.enabled` for a game with consequences. Once you go **over 100%** of the monthly quota, **one** mishap happens in that quota period (never more than one per period):
+Going over the quota has consequences (turn them off with `tokenBinder.mishaps.enabled`). Once you go **over 100%** of the monthly quota, **one** mishap happens in that quota period (never more than one per period):
 
 - 🚀 **Team Rocket** (60%) steals one random card. It appears in the **Battle** tab while they have it: beat them (Arbok, level 15) and you get it back exactly as it was. No coins, and a loss only means you try again.
 - 🏃 **You trip while running** (30%) and drop **10%** of the copies in your album (at least one); they are lost. Graded cards are safe in their slab.

@@ -106,7 +106,7 @@
         },
         "tokenBinder.mishaps.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "markdownDescription": "%config.mishaps.enabled%"
         },
         "tokenBinder.quota.unit": {

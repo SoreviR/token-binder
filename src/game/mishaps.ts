@@ -1,6 +1,6 @@
 // Mishaps for going over the monthly quota: once per quota period, past 100%, something bad happens to the album.
 // Team Rocket steals a card (it can be won back in a battle), you trip and drop some cards, or it rains and soaks half of
-// the album (a Charmandryer, the hair dryer of the shop, saves a soaked card). Opt-in through `tokenBinder.mishaps.enabled`. Pure: no VS Code, no network.
+// the album (a Charmandryer, the hair dryer of the shop, saves a soaked card). On by default; turned off with `tokenBinder.mishaps.enabled`. Pure: no VS Code, no network.
 import { Card, GameState, Owned, keyOf, takeItem } from './engine';
 import { MAX_WEAR } from './grading';
 import { HISTORY_SIZE, LeaderDef, battleOf } from './leaders';
