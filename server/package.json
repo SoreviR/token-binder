@@ -1,0 +1,13 @@
+{
+  "name": "token-binder-server",
+  "private": true,
+  "version": "1.0.0",
+  "description": "League server of TokenBinder: ranking and asynchronous duels. Deployed on Vercel with Neon Postgres.",
+  "license": "MIT",
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0"
+  },
+  "devDependencies": {
+    "@vercel/node": "^5.0.0"
+  }
+}

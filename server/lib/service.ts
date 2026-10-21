@@ -1,0 +1,281 @@
+// What the league server does, with no HTTP in it: every function takes the dependencies it needs and returns a plain result,
+// so the whole flow can be tested against an in-memory database.
+import { BattleEvent, Fighter, makeFighter, simulate, BATTLE_VERSION } from '../../src/game/battle';
+import { levelOf } from '../../src/game/engine';
+import { tokensBonus } from '../../src/game/strength';
+import { FetchJson, SESSION_DAYS, githubUser, signSession } from './auth';
+import { getCard } from './cards';
+import type { Db } from './db';
+import {
+  DAILY_DUELS, MAX_JOINED_LEAGUES, MAX_MEMBERS, MAX_OWNED_LEAGUES,
+  checkClaim, checkDailyLimits, cleanLeagueName, eloDelta, inviteCode, normalizeCode,
+} from './rules';
+
+export interface Deps { db: Db; now: () => number; rng: () => number; fetchJson: FetchJson; secret: string }
+export type Fail = { ok: false; error: string; status: number };
+export type Result<T> = ({ ok: true } & T) | Fail;
+const fail = (error: string, status = 400): Fail => ({ ok: false, error, status });
+
+const DAY = 864e5;
+const num = (x: unknown): number => Number(x);
+const iso = (t: number): string => new Date(t).toISOString();
+const startOfDay = (t: number): number => Math.floor(t / DAY) * DAY;
+
+/* ───── players ───── */
+
+/** Exchanges a GitHub token for a session. The player must have accepted the data notice (`consent`). */
+export async function login(d: Deps, githubToken: unknown, consent: unknown): Promise<Result<{ token: string; id: number; login: string; battleVersion: number }>> {
+  if (consent !== true) { return fail('consent-required'); }
+  if (typeof githubToken !== 'string' || !githubToken) { return fail('github-rejected', 401); }
+  const u = await githubUser(githubToken, d.fetchJson);
+  if (!u) { return fail('github-rejected', 401); }
+  await d.db.query(
+    'insert into players (id, login, consent_at, created_at) values ($1, $2, $3, $3) on conflict (id) do update set login = excluded.login',
+    [u.id, u.login, iso(d.now())]);
+  const token = signSession({ sub: u.id, login: u.login, exp: d.now() + SESSION_DAYS * DAY }, d.secret);
+  return { ok: true, token, id: u.id, login: u.login, battleVersion: BATTLE_VERSION };
+}
+
+/** When the player joined (the level cap grows from there), or undefined if they deleted their data. */
+async function joinedAt(d: Deps, pid: number): Promise<number | undefined> {
+  const r = await d.db.query<{ created_at: string }>('select created_at from players where id = $1', [pid]);
+  return r[0] ? new Date(r[0].created_at).getTime() : undefined;
+}
+
+export async function playerExists(d: Deps, pid: number): Promise<boolean> {
+  return (await joinedAt(d, pid)) !== undefined;
+}
+
+/** Everything the server holds about the player goes away, and the leagues they own pass to someone else (or end). */
+export async function deleteMe(d: Deps, pid: number): Promise<Result<object>> {
+  const owned = await d.db.query<{ id: number }>('select id from leagues where owner = $1', [pid]);
+  for (const l of owned) { await passOrEndLeague(d, num(l.id), pid); }
+  await d.db.query('delete from players where id = $1', [pid]);   // members, fighter and duels go with it
+  return { ok: true };
+}
+
+/** The owner leaves: the oldest member takes over; with nobody left the league ends. */
+async function passOrEndLeague(d: Deps, leagueId: number, leaving: number): Promise<void> {
+  const next = await d.db.query<{ player_id: number }>(
+    'select player_id from members where league_id = $1 and player_id <> $2 order by joined_at, player_id limit 1', [leagueId, leaving]);
+  if (next[0]) { await d.db.query('update leagues set owner = $1 where id = $2', [num(next[0].player_id), leagueId]); }
+  else { await d.db.query('delete from leagues where id = $1', [leagueId]); }
+}
+
+/* ───── leagues ───── */
+
+async function isMember(d: Deps, leagueId: number, pid: number): Promise<boolean> {
+  return (await d.db.query('select 1 from members where league_id = $1 and player_id = $2', [leagueId, pid])).length > 0;
+}
+
+const countJoined = async (d: Deps, pid: number): Promise<number> =>
+  num((await d.db.query<{ n: number }>('select count(*)::int as n from members where player_id = $1', [pid]))[0].n);
+
+export async function createLeague(d: Deps, pid: number, rawName: unknown): Promise<Result<{ league: { id: number; name: string; code: string } }>> {
+  const name = cleanLeagueName(rawName);
+  if (!name) { return fail('invalid-name'); }
+  const owned = num((await d.db.query<{ n: number }>('select count(*)::int as n from leagues where owner = $1', [pid]))[0].n);
+  if (owned >= MAX_OWNED_LEAGUES) { return fail('too-many-owned'); }
+  if (await countJoined(d, pid) >= MAX_JOINED_LEAGUES) { return fail('too-many-joined'); }
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const code = inviteCode(d.rng);
+    const row = await d.db.query<{ id: number }>('insert into leagues (name, code, owner, created_at) values ($1, $2, $3, $4) on conflict (code) do nothing returning id', [name, code, pid, iso(d.now())]);
+    if (!row[0]) { continue; }
+    const id = num(row[0].id);
+    await d.db.query('insert into members (league_id, player_id, joined_at) values ($1, $2, $3)', [id, pid, iso(d.now())]);
+    return { ok: true, league: { id, name, code } };
+  }
+  return fail('try-again', 503);
+}
+
+export async function joinLeague(d: Deps, pid: number, rawCode: unknown): Promise<Result<{ league: { id: number; name: string; code: string } }>> {
+  const code = typeof rawCode === 'string' ? normalizeCode(rawCode) : undefined;
+  if (!code) { return fail('invalid-code'); }
+  const l = (await d.db.query<{ id: number; name: string }>('select id, name from leagues where code = $1', [code]))[0];
+  if (!l) { return fail('unknown-code', 404); }
+  const id = num(l.id);
+  if (!(await isMember(d, id, pid))) {
+    if (await countJoined(d, pid) >= MAX_JOINED_LEAGUES) { return fail('too-many-joined'); }
+    const n = num((await d.db.query<{ n: number }>('select count(*)::int as n from members where league_id = $1', [id]))[0].n);
+    if (n >= MAX_MEMBERS) { return fail('league-full'); }
+    await d.db.query('insert into members (league_id, player_id, joined_at) values ($1, $2, $3)', [id, pid, iso(d.now())]);
+  }
+  return { ok: true, league: { id, name: l.name, code } };
+}
+
+export async function leaveLeague(d: Deps, pid: number, leagueId: number): Promise<Result<object>> {
+  if (!(await isMember(d, leagueId, pid))) { return fail('not-member', 404); }
+  const owner = (await d.db.query<{ owner: number }>('select owner from leagues where id = $1', [leagueId]))[0];
+  if (owner && num(owner.owner) === pid) { await passOrEndLeague(d, leagueId, pid); }
+  await d.db.query('delete from members where league_id = $1 and player_id = $2', [leagueId, pid]);
+  return { ok: true };
+}
+
+export async function myLeagues(d: Deps, pid: number): Promise<Result<{ leagues: { id: number; name: string; code: string; elo: number; members: number }[] }>> {
+  const rows = await d.db.query<{ id: number; name: string; code: string; elo: number; members: number }>(
+    `select l.id, l.name, l.code, m.elo,
+            (select count(*)::int from members x where x.league_id = l.id) as members
+       from members m join leagues l on l.id = m.league_id
+      where m.player_id = $1 order by m.joined_at`, [pid]);
+  return { ok: true, leagues: rows.map(r => ({ id: num(r.id), name: r.name, code: r.code, elo: num(r.elo), members: num(r.members) })) };
+}
+
+/* ───── fighters ───── */
+
+export interface FighterView {
+  cardId: string; image?: string; key: string; name: string; types: string[]; tier: number; level: number; grade?: number; held?: string;
+}
+
+export async function registerFighter(d: Deps, pid: number, raw: unknown): Promise<Result<{ fighter: FighterView; clamped: boolean; levelCap: number }>> {
+  const since = await joinedAt(d, pid);
+  if (since === undefined) { return fail('unknown-player', 401); }
+  const check = checkClaim(raw, since, d.now());
+  if (!check.ok) { return fail(check.error); }
+  const c = check.claim;
+  const card = await getCard(d.db, c.key, d.fetchJson, d.now());
+  if (!card) { return fail('card-unavailable', 422); }
+  await d.db.query(
+    `insert into fighters (player_id, card_key, xp, grade, held, quota_pct, updated_at) values ($1, $2, $3, $4, $5, $6, $7)
+     on conflict (player_id) do update set card_key = excluded.card_key, xp = excluded.xp, grade = excluded.grade, held = excluded.held,
+       quota_pct = excluded.quota_pct, updated_at = excluded.updated_at`,
+    [pid, c.key, c.xp, c.grade ?? null, c.held ?? null, c.quotaPct, iso(d.now())]);
+  return { ok: true, clamped: check.clamped, levelCap: check.cap, fighter: { cardId: card.id, image: card.image, key: c.key, name: card.name, types: card.types ?? [], tier: card.tier, level: levelOf(c.xp), grade: c.grade, held: c.held } };
+}
+
+interface FighterRow { player_id: number; card_key: string; xp: number; grade: number | null; held: string | null; quota_pct: number }
+
+const fighterRow = async (d: Deps, pid: number): Promise<FighterRow | undefined> =>
+  (await d.db.query<FighterRow>('select player_id, card_key, xp, grade, held, quota_pct from fighters where player_id = $1', [pid]))[0];
+
+/* ───── the league board ───── */
+
+export interface MemberView { id: number; login: string; elo: number; wins: number; losses: number; fighter?: FighterView; you: boolean }
+export interface DuelLine { id: number; challenger: string; defender: string; winner: string; rounds: number; eloChange: number; at: string; you?: 'challenger' | 'defender' }
+
+async function recentDuels(d: Deps, leagueId: number, limit: number, pid?: number): Promise<DuelLine[]> {
+  const rows = await d.db.query<{ id: number; c: string; df: string; cid: number; did: number; winner: string; rounds: number; elo_change: number; created_at: string }>(
+    `select u.id, pc.login as c, pd.login as df, u.challenger as cid, u.defender as did, u.winner, u.rounds, u.elo_change, u.created_at
+       from duels u join players pc on pc.id = u.challenger join players pd on pd.id = u.defender
+      where u.league_id = $1 order by u.id desc limit $2`, [leagueId, limit]);
+  return rows.map(r => ({
+    id: num(r.id), challenger: r.c, defender: r.df, winner: r.winner === 'a' ? r.c : r.df, rounds: num(r.rounds), eloChange: num(r.elo_change),
+    at: new Date(r.created_at).toISOString(),
+    you: pid === undefined ? undefined : num(r.cid) === pid ? 'challenger' : num(r.did) === pid ? 'defender' : undefined,
+  }));
+}
+
+async function membersOf(d: Deps, leagueId: number, me?: number): Promise<MemberView[]> {
+  const rows = await d.db.query<{ id: number; login: string; elo: number; wins: number; losses: number; card_key: string | null; xp: number | null; grade: number | null; held: string | null; data: any }>(
+    `select p.id, p.login, m.elo, m.wins, m.losses, f.card_key, f.xp, f.grade, f.held, c.data
+       from members m join players p on p.id = m.player_id
+       left join fighters f on f.player_id = p.id
+       left join cards c on c.id = split_part(f.card_key, '#', 1)
+      where m.league_id = $1 order by m.elo desc, m.wins desc, p.login`, [leagueId]);
+  return rows.map(r => ({
+    id: num(r.id), login: r.login, elo: num(r.elo), wins: num(r.wins), losses: num(r.losses), you: me !== undefined && num(r.id) === me,
+    fighter: r.card_key && r.data ? {
+      cardId: r.data.id, image: r.data.image, key: r.card_key, name: r.data.name, types: r.data.types ?? [], tier: r.data.tier,
+      level: levelOf(num(r.xp)), grade: r.grade ?? undefined, held: r.held ?? undefined,
+    } : undefined,
+  }));
+}
+
+export async function leagueView(d: Deps, pid: number, leagueId: number):
+  Promise<Result<{ league: { id: number; name: string; code: string }; members: MemberView[]; duels: DuelLine[]; today: { used: number; max: number } }>> {
+  if (!(await isMember(d, leagueId, pid))) { return fail('not-member', 404); }
+  const l = (await d.db.query<{ id: number; name: string; code: string }>('select id, name, code from leagues where id = $1', [leagueId]))[0];
+  const used = num((await d.db.query<{ n: number }>('select count(*)::int as n from duels where challenger = $1 and created_at >= $2', [pid, iso(startOfDay(d.now()))]))[0].n);
+  return {
+    ok: true, league: { id: num(l.id), name: l.name, code: l.code }, members: await membersOf(d, leagueId, pid),
+    duels: await recentDuels(d, leagueId, 10, pid), today: { used, max: DAILY_DUELS },
+  };
+}
+
+/** For the web page: whoever has the invite code can read the ranking (logins and results only). */
+export async function publicLeague(d: Deps, rawCode: string): Promise<Result<{ name: string; members: Omit<MemberView, 'id' | 'you'>[]; duels: DuelLine[] }>> {
+  const code = normalizeCode(rawCode);
+  const l = code ? (await d.db.query<{ id: number; name: string }>('select id, name from leagues where code = $1', [code]))[0] : undefined;
+  if (!l) { return fail('unknown-code', 404); }
+  const members = (await membersOf(d, num(l.id))).map(({ id: _id, you: _you, ...m }) => m);
+  return { ok: true, name: l.name, members, duels: await recentDuels(d, num(l.id), 15) };
+}
+
+/* ───── duels ───── */
+
+function snapshot(f: Fighter, row: FighterRow, card: { id: string; image?: string; tier: number }): Fighter & { cardId: string; image?: string; tier: number; cardKey: string; grade?: number } {
+  return { ...f, cardId: card.id, image: card.image, tier: card.tier, cardKey: row.card_key, grade: row.grade ?? undefined };
+}
+
+export async function challenge(d: Deps, pid: number, leagueId: number, rivalId: number): Promise<Result<{
+  duelId: number; winner: 'a' | 'b'; won: boolean; rounds: number; reason: string; log: unknown[]; battleVersion: number;
+  me: unknown; foe: unknown; rival: string; eloChange: number; elo: number; today: { used: number; max: number };
+}>> {
+  if (!Number.isInteger(rivalId) || rivalId === pid) { return fail('invalid-rival'); }
+  if (!(await isMember(d, leagueId, pid))) { return fail('not-member', 404); }
+  if (!(await isMember(d, leagueId, rivalId))) { return fail('rival-not-member', 404); }
+  const mine = await fighterRow(d, pid);
+  if (!mine) { return fail('no-fighter'); }
+  const theirs = await fighterRow(d, rivalId);
+  if (!theirs) { return fail('rival-no-fighter'); }
+
+  const day = iso(startOfDay(d.now()));
+  const total = num((await d.db.query<{ n: number }>('select count(*)::int as n from duels where challenger = $1 and created_at >= $2', [pid, day]))[0].n);
+  const vs = num((await d.db.query<{ n: number }>('select count(*)::int as n from duels where challenger = $1 and defender = $2 and created_at >= $3', [pid, rivalId, day]))[0].n);
+  const limit = checkDailyLimits(total, vs);
+  if (!limit.ok) { return fail(limit.error, 429); }
+
+  const cardA = await getCard(d.db, mine.card_key, d.fetchJson, d.now());
+  const cardB = await getCard(d.db, theirs.card_key, d.fetchJson, d.now());
+  if (!cardA || !cardB) { return fail('card-unavailable', 503); }
+  const qa = num(mine.quota_pct), qb = num(theirs.quota_pct);
+  const a = makeFighter(`duel:${pid}`, cardA, num(mine.xp), { grade: mine.grade ?? undefined, tokensBonus: tokensBonus(qa, qb), held: (mine.held ?? undefined) as never });
+  const b = makeFighter(`duel:${rivalId}`, cardB, num(theirs.xp), { grade: theirs.grade ?? undefined, tokensBonus: tokensBonus(qb, qa), held: (theirs.held ?? undefined) as never });
+  const seed = Math.floor(d.rng() * 0xffffffff);
+  const result = simulate(a, b, seed);
+  const won = result.winner === 'a';
+
+  const elos = await d.db.query<{ player_id: number; elo: number }>('select player_id, elo from members where league_id = $1 and player_id in ($2, $3)', [leagueId, pid, rivalId]);
+  const eloOf = (id: number) => num(elos.find(e => num(e.player_id) === id)!.elo);
+  const delta = eloDelta(eloOf(pid), eloOf(rivalId), won);
+  await d.db.query('update members set elo = elo + $1, wins = wins + $2, losses = losses + $3 where league_id = $4 and player_id = $5', [delta, won ? 1 : 0, won ? 0 : 1, leagueId, pid]);
+  await d.db.query('update members set elo = elo - $1, wins = wins + $2, losses = losses + $3 where league_id = $4 and player_id = $5', [delta, won ? 0 : 1, won ? 1 : 0, leagueId, rivalId]);
+
+  const snapA = snapshot(a, mine, cardA), snapB = snapshot(b, theirs, cardB);
+  const row = await d.db.query<{ id: number }>(
+    `insert into duels (league_id, challenger, defender, seed, battle_version, a, b, winner, elo_change, rounds, log, created_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) returning id`,
+    [leagueId, pid, rivalId, seed, result.version, JSON.stringify(snapA), JSON.stringify(snapB), result.winner, delta, result.rounds, JSON.stringify(result.log), iso(d.now())]);
+  const rivalLogin = (await d.db.query<{ login: string }>('select login from players where id = $1', [rivalId]))[0].login;
+  return {
+    ok: true, duelId: num(row[0].id), winner: result.winner, won, rounds: result.rounds, reason: result.reason, log: result.log, battleVersion: result.version,
+    me: snapA, foe: snapB, rival: rivalLogin, eloChange: delta, elo: eloOf(pid) + delta, today: { used: total + 1, max: DAILY_DUELS },
+  };
+}
+
+const flip = (x: 'a' | 'b'): 'a' | 'b' => (x === 'a' ? 'b' : 'a');
+
+/** The same fight seen from the other corner: the stored log is the challenger's ('a'), the defender watches it as 'a' too. */
+export function mirrorLog(log: BattleEvent[]): BattleEvent[] {
+  return log.map(e => e.t === 'start' ? { ...e, a: e.b, b: e.a }
+    : e.t === 'attack' ? { ...e, side: flip(e.side), hp: { a: e.hp.b, b: e.hp.a } }
+      : { ...e, winner: flip(e.winner), hp: { a: e.hp.b, b: e.hp.a } });
+}
+
+/** Duels other players started against you since you last looked. Returned once. */
+export async function inbox(d: Deps, pid: number): Promise<Result<{ duels: {
+  id: number; league: string; challenger: string; won: boolean; rounds: number; reason: string; log: unknown[]; battleVersion: number;
+  me: unknown; foe: unknown; eloChange: number; at: string;
+}[] }>> {
+  const rows = await d.db.query<{ id: number; league: string; challenger: string; winner: string; rounds: number; log: unknown[]; battle_version: number; a: unknown; b: unknown; elo_change: number; created_at: string }>(
+    `select u.id, l.name as league, p.login as challenger, u.winner, u.rounds, u.log, u.battle_version, u.a, u.b, u.elo_change, u.created_at
+       from duels u join leagues l on l.id = u.league_id join players p on p.id = u.challenger
+      where u.defender = $1 and not u.seen order by u.id desc limit 20`, [pid]);
+  if (rows.length) { await d.db.query('update duels set seen = true where defender = $1 and id = any($2::int[])', [pid, rows.map(r => num(r.id))]); }
+  return {
+    ok: true,
+    duels: rows.map(r => ({
+      id: num(r.id), league: r.league, challenger: r.challenger, won: r.winner === 'b', rounds: num(r.rounds), reason: (r.log as any[]).at(-1)?.reason ?? 'ko',
+      log: mirrorLog(r.log as BattleEvent[]), battleVersion: num(r.battle_version), me: r.b, foe: r.a, eloChange: -num(r.elo_change), at: new Date(r.created_at).toISOString(),
+    })),
+  };
+}

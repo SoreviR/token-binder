@@ -175,8 +175,11 @@
     "balance": "node --import tsx scripts/balance.ts"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11",
+    "@neondatabase/serverless": "^1.2.0",
     "@types/node": "^22.0.0",
     "@types/vscode": "^1.90.0",
+    "@vercel/node": "^26.0.0",
     "@vscode/vsce": "^3.0.0",
     "esbuild": "^0.25.0",
     "tsx": "^4.19.0",

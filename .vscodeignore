@@ -11,3 +11,4 @@ install.ps1
 .gitignore
 install.sh
 CHANGELOG.md
+server/**

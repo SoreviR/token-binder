@@ -3,5 +3,5 @@
     "target": "ES2022", "module": "commonjs", "lib": ["ES2022"], "strict": true,
     "esModuleInterop": true, "skipLibCheck": true, "outDir": "out", "rootDir": ".", "noEmit": true
   },
-  "include": ["src", "test"]
+  "include": ["src", "test", "server"]
 }
