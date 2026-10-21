@@ -140,7 +140,7 @@ Lo que imprime la carta solo cambia *cómo* pelea: una con más PS que daño es 
 
 ## Cajas misteriosas, objetos y evoluciones
 
-Una **caja misteriosa** (120 monedas en la tienda) da un objeto al azar. Se abre desde el panel *Objetos*, donde también ves los que tienes.
+Una **caja misteriosa** (120 monedas en la tienda) da un objeto al azar. Se abre desde el panel lateral o desde la pestaña **Objetos** del álbum, donde cada objeto que tienes aparece como una tarjeta que explica qué hace.
 
 | Objeto | Qué hace |
 |---|---|

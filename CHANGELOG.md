@@ -2,6 +2,13 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.12.0 - 2026-10-21
+
+- **Items tab in the album:** the mystery boxes and every item you own are now shown as cards (icon, amount and what it does), grouped by use. The side panel keeps the box button and a link to the tab.
+- **Album filters and sorting:** filter by condition (graded, mint, worn, soaked, sleeve or toploader) and by held item, and sort by level or by condition.
+- **Condition and held item visible on the thumbnails:** a worn card shows its condition (NM, LP, MP, HP) and a card holding an item shows its icon, without opening it.
+- **New slab design:** graded cards sit in a thick clear case with a label (TBGS brand, name, set and number, certificate, four subgrades and the grade in a black box; a gold-on-black label for a 10).
+
 ## 1.11.0 - 2026-10-21
 
 - **Mishaps for going over the quota** (opt-in: turn them on with `tokenBinder.mishaps.enabled`; contributed by Hector in #1). Past 100% of your own monthly quota, one mishap per quota period: **Team Rocket** steals a spare card (60%; win it back in the Battle tab), you **trip** and drop spare copies while another 10% of the cards get scuffed or lose their sleeve (30%; graded cards are safe), or the **rain** soaks up to 6 cards (10%; sleeves and slabs keep cards dry). Cards you invested in are never lost: only virgin cards and spare copies can be taken. A soaked card is worthless and cannot train, battle, be graded, sold or transformed until a **Charmandryer** (40 coins, new in the shop) dries it; it comes back Heavily Played. The first period after turning them on is free.

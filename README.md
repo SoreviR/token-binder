@@ -141,7 +141,7 @@ What the card prints only changes *how* it fights: a card with more HP than dama
 
 ## Mystery boxes, items and evolutions
 
-A **mystery box** (120 coins in the shop) gives one random item. Open it from the *Items* panel. Items you own are listed there.
+A **mystery box** (120 coins in the shop) gives one random item. Open it from the side panel or from the **Items** tab of the album, where every item you own is shown as a card with what it does.
 
 | Item | What it does |
 |---|---|
