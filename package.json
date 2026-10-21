@@ -1,8 +1,8 @@
 {
   "name": "token-binder",
   "displayName": "TokenBinder",
-  "description": "Tokens de Copilot Chat convertidos en sobres de cartas Pokémon TCG que evolucionan, con % de cuota mensual.",
-  "version": "1.3.0",
+  "description": "%extension.description%",
+  "version": "1.4.0",
   "publisher": "sorevir",
   "license": "MIT",
   "engines": {
@@ -30,47 +30,70 @@
         {
           "type": "webview",
           "id": "tokenBinder.view",
-          "name": "Compañero"
+          "name": "%view.companion%"
         }
       ]
     },
     "commands": [
       {
         "command": "tokenBinder.open",
-        "title": "TokenBinder: Abrir panel"
+        "title": "%command.open%",
+        "category": "TokenBinder"
       },
       {
         "command": "tokenBinder.openAlbum",
-        "title": "TokenBinder: Abrir álbum"
+        "title": "%command.openAlbum%",
+        "category": "TokenBinder"
       },
       {
         "command": "tokenBinder.setQuota",
-        "title": "TokenBinder: Configurar cupo mensual"
+        "title": "%command.setQuota%",
+        "category": "TokenBinder"
       },
       {
         "command": "tokenBinder.openSettings",
-        "title": "TokenBinder: Abrir ajustes"
+        "title": "%command.openSettings%",
+        "category": "TokenBinder"
       },
       {
         "command": "tokenBinder.refresh",
-        "title": "TokenBinder: Recalcular uso"
+        "title": "%command.refresh%",
+        "category": "TokenBinder"
       },
       {
         "command": "tokenBinder.exportProgress",
-        "title": "TokenBinder: Exportar progreso"
+        "title": "%command.exportProgress%",
+        "category": "TokenBinder"
       },
       {
         "command": "tokenBinder.importProgress",
-        "title": "TokenBinder: Importar progreso"
+        "title": "%command.importProgress%",
+        "category": "TokenBinder"
       },
       {
         "command": "tokenBinder.resetProgress",
-        "title": "TokenBinder: Reiniciar progreso"
+        "title": "%command.resetProgress%",
+        "category": "TokenBinder"
       }
     ],
     "configuration": {
       "title": "TokenBinder",
       "properties": {
+        "tokenBinder.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "en",
+            "es"
+          ],
+          "enumDescriptions": [
+            "%config.language.auto%",
+            "%config.language.en%",
+            "%config.language.es%"
+          ],
+          "default": "auto",
+          "description": "%config.language%"
+        },
         "tokenBinder.quota.unit": {
           "type": "string",
           "enum": [
@@ -78,20 +101,20 @@
             "credits"
           ],
           "default": "tokens",
-          "description": "Unidad del cupo mensual."
+          "description": "%config.quota.unit%"
         },
         "tokenBinder.quota.monthlyLimit": {
           "type": "number",
           "default": 5000000,
           "minimum": 1,
-          "description": "Cupo mensual asignado (en la unidad elegida)."
+          "description": "%config.quota.monthlyLimit%"
         },
         "tokenBinder.quota.resetDay": {
           "type": "integer",
           "default": 1,
           "minimum": 1,
           "maximum": 28,
-          "description": "Día del mes (UTC) en que se reinicia el cupo."
+          "description": "%config.quota.resetDay%"
         },
         "tokenBinder.alerts.thresholds": {
           "type": "array",
@@ -103,20 +126,20 @@
             80,
             100
           ],
-          "description": "Porcentajes que disparan una alerta."
+          "description": "%config.alerts.thresholds%"
         },
         "tokenBinder.packs.everyTokens": {
           "type": "number",
           "default": 750000,
           "minimum": 50000,
-          "description": "Cada cuántos tokens usados ganas un sobre de cartas."
+          "description": "%config.packs.everyTokens%"
         },
         "tokenBinder.growth.multiplier": {
           "type": "number",
           "default": 1,
           "minimum": 0.1,
           "maximum": 2,
-          "description": "Multiplica los tokens que necesita cada carta para evolucionar."
+          "description": "%config.growth.multiplier%"
         },
         "tokenBinder.storageRoots": {
           "type": "array",
@@ -124,7 +147,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Carpetas 'User' de VS Code a leer (por defecto la carpeta User de Code y Code - Insiders en AppData/Roaming)."
+          "description": "%config.storageRoots%"
         }
       }
     }

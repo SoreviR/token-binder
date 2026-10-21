@@ -5,9 +5,9 @@ import { defaultRoots, runningUserRoot, uniqueRoots } from './usage/paths';
 import { fmt, parseLimit, percent, periodEnd, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
 import {
-  accrueXp, addCards, buy, CARD_DATA_VERSION, Card, consume, earnCoins, ERA_BY_ID, GameState, grantPacks, Item, keyOf, levelProgress, MAX_LUCK, MAX_SLOTS,
-  newState, nextPackProgress, normalize, PackKind, priceOf, resolveDue, sellDuplicates, sellValue, startTraining, TIER_NAMES, trainingProgress, underPace,
-  untrain, VARIANT_LABELS,
+  accrueXp, addCards, buy, CARD_DATA_VERSION, Card, consume, earnCoins, GameState, grantPacks, Item, keyOf, levelProgress, MAX_LUCK, MAX_SLOTS,
+  newState, nextPackProgress, normalize, PackKind, priceOf, resolveDue, sellDuplicates, sellValue, startTraining, trainingProgress, underPace,
+  untrain,
 } from './game/engine';
 import { collectorLabel, marketValue, statsOf } from './game/stats';
 import { Tcgdex } from './game/tcgdex';
@@ -15,13 +15,16 @@ import { BinderViewProvider, WebviewMessage } from './webview/provider';
 import { AlbumPanel } from './webview/albumPanel';
 import { migrateLegacySettings, migrateLegacyState, offerUninstallLegacy } from './migrate';
 import { lastBackend } from './usage/sqlite';
+import { lang, resolveLang, setLang, t } from './i18n';
 
 const cfg = () => vscode.workspace.getConfiguration('tokenBinder');
 
 export function activate(ctx: vscode.ExtensionContext): void {
   const roots = () => { const r = cfg().get<string[]>('storageRoots', []); return r.length ? r : uniqueRoots([runningUserRoot(ctx.globalStorageUri.fsPath), ...defaultRoots()]); };
+  const applyLanguage = () => setLang(resolveLang(cfg().get<string>('language', 'auto'), vscode.env.language));
+  applyLanguage();
   const log = vscode.window.createOutputChannel('TokenBinder');
-  // Antes se llamaba PokeToken: se recupera su progreso ANTES de leer el estado (lo hace síncrono).
+  // It used to be called PokeToken: its progress is recovered BEFORE the state is read (this runs synchronously).
   migrateLegacyState(ctx, s => log.appendLine(s));
   const usage = new UsageStore(roots);
   usage.stamps = ctx.globalState.get('tokenBinder.stamps.v1', usage.stamps);
@@ -32,7 +35,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   bar.command = 'tokenBinder.open';
   bar.show();
-  // Sobres sin abrir: el panel casi nunca está visible, así que se avisa desde la barra de estado.
+  // Unopened packs: the panel is rarely visible, so they are announced from the status bar.
   const packBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 99);
   packBar.command = 'tokenBinder.open';
 
@@ -44,19 +47,19 @@ export function activate(ctx: vscode.ExtensionContext): void {
   let lastLogged = '';
   let lastEvolveTry = 0;
   let prefetching = false;
-  const failedThumbs = new Set<string>(); // no reintentar en bucle si no hay red; se limpia al recargar
+  const failedThumbs = new Set<string>(); // do not retry in a loop when offline; cleared on reload
   const failedEnrich = new Set<string>();
   let enriching = false;
 
   let rerun = false;
   async function tick(force = false): Promise<void> {
-    if (busy) { rerun = rerun || force; return; } // no perder un refresco pedido mientras trabajamos
+    if (busy) { rerun = rerun || force; return; } // do not lose a refresh requested while we are busy
     busy = true;
     try {
       const changed = usage.refresh();
       if (usage.stampsDirty) { usage.stampsDirty = false; await ctx.globalState.update('tokenBinder.stamps.v1', usage.stamps); }
       if (usage.lastError && usage.lastError !== lastLogged) { lastLogged = usage.lastError; log.appendLine(`[error] ${usage.lastError}`); }
-      if (changed) { log.appendLine(`[uso] ${usage.records().length} registros (${lastBackend})`); }
+      if (changed) { log.appendLine(`[usage] ${usage.records().length} records (${lastBackend})`); }
       if (!changed && !force && state) { return; }
       const unit = cfg().get<Unit>('quota.unit', 'tokens');
       const limit = cfg().get<number>('quota.monthlyLimit', 5_000_000);
@@ -78,11 +81,11 @@ export function activate(ctx: vscode.ExtensionContext): void {
       earnCoins(state, lifetime, pace);
       if (pct >= 100 && state.bonusPeriod !== start) { state.bonusPeriod = start; state.packs++; events.push('bonusPack'); }
       events.push(...accrueXp(state, lifetime));
-      // Evolución/graduación: necesita red; si falla se reintenta como mucho cada 30 s.
+      // Evolution/graduation: needs the network; if it fails it is retried at most every 30 s.
       const due = state.slots.some(t => t && trainingProgress(t, lifetime, mult).due);
       if (due && now - lastEvolveTry > 30_000) {
         lastEvolveTry = now;
-        try { events.push(...await resolveDue(state, lifetime, mult, tcg.findNext)); } catch (e) { log.appendLine(`[error] evolución: ${e}`); }
+        try { events.push(...await resolveDue(state, lifetime, mult, tcg.findNext)); } catch (e) { log.appendLine(`[error] evolution: ${e}`); }
       }
       await game.save(state);
 
@@ -97,7 +100,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     }
   }
 
-  /** Mensajes de los paneles: abrir sobre, comprar, entrenar, abrir el álbum, pedir la imagen grande. */
+  /** Messages from the panels: open a pack, buy, train, open the album, request the large image. */
   async function onMessage(m: WebviewMessage, from: 'side' | 'album'): Promise<void> {
     if (!state) { return; }
     const target = from === 'album' ? album : provider;
@@ -110,12 +113,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (earned) { await game.save(state); await tick(true); }
     } else if (m.type === 'sellAll') {
       const n = Object.values(state.collection).reduce((s, o) => s + Math.max(0, o.count - 1), 0);
-      if (!n) { void vscode.window.showInformationMessage('TokenBinder: no tienes cartas repetidas.'); return; }
-      const ok = await vscode.window.showWarningMessage(`¿Vender ${n} cartas repetidas? Te quedas con una copia de cada una.`, { modal: true }, 'Vender');
-      if (ok === 'Vender') {
+      if (!n) { void vscode.window.showInformationMessage(t('sell.none')); return; }
+      const ok = await vscode.window.showWarningMessage(t('sell.confirm', n), { modal: true }, t('sell.button'));
+      if (ok === t('sell.button')) {
         const earned = sellDuplicates(state);
         await game.save(state); await tick(true);
-        void vscode.window.showInformationMessage(`TokenBinder: vendiste ${n} repetidas por ${Math.floor(earned)} monedas.`);
+        void vscode.window.showInformationMessage(t('sell.done', n, Math.floor(earned)));
       }
     } else if (m.type === 'train' && typeof m.id === 'string') {
       if (startTraining(state, m.id, usage.lifetimeTokens())) { await game.save(state); await tick(true); }
@@ -124,9 +127,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
     } else if (m.type === 'high' && typeof m.id === 'string') {
       const card = state.collection[m.id]?.card;
       const file = card && await tcg.image(card, 'high');
-      const src = file && target.uri(file); // cada webview genera sus propias URI
+      const src = file && target.uri(file); // each webview generates its own URIs
       if (src) { target.send({ type: 'high', id: m.id, src }); }
-      if (card) { void refreshCard(m.id); }  // al mirar una carta se pone al día su precio de mercado
+      if (card) { void refreshCard(m.id); }  // looking at a card brings its market price up to date
     }
   }
 
@@ -139,7 +142,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const cards = await tcg.rollPack(kind, state.luck);
       if (!cards.length) {
         provider.send({ type: 'openFailed' });
-        void vscode.window.showWarningMessage('TokenBinder: no se pudo abrir el sobre (¿sin conexión o red bloqueada a api.tcgdex.net?). No se gastó el sobre.');
+        void vscode.window.showWarningMessage(t('pack.openFailed'));
         return;
       }
       consume(state, kind);
@@ -151,7 +154,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     } finally { opening = false; }
   }
 
-  /** Pone al día una carta (ataques y precio) en la colección y en los huecos de entrenamiento. */
+  /** Updates a card (attacks and price) in the collection and in the training slots. */
   function applyCard(key: string, card: Card): void {
     const o = state?.collection[key];
     if (o) { o.card = card; }
@@ -165,7 +168,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     if (fresh && fresh !== card) { applyCard(key, fresh); await game.save(state); void tick(true); }
   }
 
-  /** Completa en segundo plano las cartas guardadas antes de que se conocieran ataques y precios (hace falta para sus stats). */
+  /** Fills in, in the background, cards saved before attacks and prices were known (needed for their stats). */
   function enrichMissing(cards: Card[]): void {
     const missing = [...new Map(cards.map(c => [keyOf(c), c])).values()].filter(c => c.cv !== CARD_DATA_VERSION && !failedEnrich.has(c.id));
     if (!missing.length || enriching) { return; }
@@ -190,17 +193,17 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const xp = owned?.xp ?? 0;
     const lv = levelProgress(xp);
     return {
-      ...(c.cv === CARD_DATA_VERSION ? {} : { basic: true }),   // sin ataques ni precio todavía: stats estimadas
+      ...(c.cv === CARD_DATA_VERSION ? {} : { basic: true }),   // no attacks or price yet: estimated stats
       stats: statsOf(c, xp), lvPct: lv ? lv.pct : 100, xp, mastered: !!owned?.mastered,
       market: marketValue(c), eur: c.price?.eur, usd: c.price?.usd, priceAt: c.priceAt, collector: collectorLabel(c),
-      id: keyOf(c), name: c.name, rarity: c.rarity, tier: c.tier, tierName: TIER_NAMES[c.tier], stage: c.stage, hp: c.hp,
-      types: c.types, set: c.set, era: c.era ? ERA_BY_ID[c.era].label : undefined,
-      variant: c.variant, variantLabel: c.variant ? VARIANT_LABELS[c.variant] : undefined, sell: sellValue(c),
+      id: keyOf(c), name: c.name, rarity: c.rarity, tier: c.tier, stage: c.stage, hp: c.hp,
+      types: c.types, set: c.set, era: c.era,   // era/variant/tier/collector are ids: the webview translates them
+      variant: c.variant, sell: sellValue(c),
       src: file ? toUri(file) : undefined,
     };
   }
 
-  /** Datos de la pestaña del álbum: toda la colección con miniaturas (se descargan en segundo plano). */
+  /** Data for the album tab: the whole collection with thumbnails (downloaded in the background). */
   async function albumData(s: GameState) {
     const owned = Object.values(s.collection);
     prefetchThumbs(owned.map(o => o.card));
@@ -209,13 +212,13 @@ export function activate(ctx: vscode.ExtensionContext): void {
       ...await cardView(o.card, 'low', false, p => album.uri(p)), count: o.count, firstAt: o.firstAt,
     })));
     return {
-      album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      lang: lang(), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count, 0)),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };
   }
 
-  /** Descarga en segundo plano las miniaturas que faltan y vuelve a pintar el panel al terminar. */
+  /** Downloads the missing thumbnails in the background and repaints the panel when done. */
   function prefetchThumbs(cards: Card[]): void {
     const missing = [...new Map(cards.map(c => [c.id, c])).values()].filter(c => !tcg.cachedImage(c, 'low') && !failedThumbs.has(c.id));
     if (!missing.length || prefetching) { return; }
@@ -237,17 +240,17 @@ export function activate(ctx: vscode.ExtensionContext): void {
     if (!crossed.length) { return; }
     await game.markAlerted(period, [...fired, ...crossed]);
     const top = crossed[crossed.length - 1];
-    const msg = `TokenBinder: llevas ${pct.toFixed(0)}% del cupo mensual (umbral ${top}%).`;
+    const msg = t('alert.quota', pct.toFixed(0), top);
     void (top >= 100 ? vscode.window.showErrorMessage(msg) : vscode.window.showWarningMessage(msg));
   }
 
   async function snapshot(unit: Unit, limit: number, usedNow: number, pct: number, agg: ReturnType<UsageStore['aggregate']>, s: GameState, lifetime: number, mult: number, every: number, events: string[], pace: boolean) {
     const shopItems: { id: Item; name: string; desc: string }[] = [
-      { id: 'pack', name: 'Sobre', desc: '2 cartas' },
-      { id: 'premium', name: 'Sobre premium', desc: '2 cartas, mejores rarezas' },
-      { id: 'ball', name: 'Pokébola', desc: '1 carta' },
-      { id: 'slot', name: 'Hueco de entrenamiento', desc: `${s.slots.length}/${MAX_SLOTS} · una carta más creciendo` },
-      { id: 'luck', name: 'Mejora de suerte', desc: `nivel ${s.luck}/${MAX_LUCK} · +20 % por nivel a las eras modernas y a las variantes Shadowless` },
+      { id: 'pack', name: t('shop.pack.name'), desc: t('shop.pack.desc') },
+      { id: 'premium', name: t('shop.premium.name'), desc: t('shop.premium.desc') },
+      { id: 'ball', name: t('shop.ball.name'), desc: t('shop.ball.desc') },
+      { id: 'slot', name: t('shop.slot.name'), desc: t('shop.slot.desc', s.slots.length, MAX_SLOTS) },
+      { id: 'luck', name: t('shop.luck.name'), desc: t('shop.luck.desc', s.luck, MAX_LUCK) },
     ];
     const shop = shopItems.map(i => ({ ...i, price: priceOf(s, i.id) }));
     const b = (x: { input: number; cached: number; output: number; credits: number }) => ({ ...x, total: totalOf(x) });
@@ -262,7 +265,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     prefetchThumbs(newest);
     const recent = await Promise.all(newest.map(c => cardView(c, 'low', false)));
     return {
-      unit, limit, used: usedNow, pct, events,
+      lang: lang(), unit, limit, used: usedNow, pct, events,
       today: b(agg.today), month: b(agg.month),
       byModel: Object.entries(agg.byModel).map(([k, v]) => ({ name: k, ...b(v) })).sort((a, c) => c.total - a.total),
       daily: agg.daily,
@@ -281,74 +284,74 @@ export function activate(ctx: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('tokenBinder.setQuota', async () => {
       const c = cfg();
       const unit = await vscode.window.showQuickPick(
-        [{ label: 'tokens', description: 'Cupo medido en tokens' }, { label: 'credits', description: 'Cupo medido en créditos de IA de Copilot' }],
-        { title: 'TokenBinder: unidad del cupo', placeHolder: `Actual: ${c.get('quota.unit')}` });
+        [{ label: 'tokens', description: t('quota.unit.tokens') }, { label: 'credits', description: t('quota.unit.credits') }],
+        { title: t('quota.unit.title'), placeHolder: t('quota.unit.current', String(c.get('quota.unit'))) });
       if (!unit) { return; }
       const raw = await vscode.window.showInputBox({
-        title: 'TokenBinder: cupo mensual',
-        prompt: `Tu cupo en ${unit.label}. Acepta sufijos K, M, B (ej. 5M = 5.000.000).`,
+        title: t('quota.title'),
+        prompt: t('quota.prompt', unit.label),
         value: String(c.get('quota.monthlyLimit')),
-        validateInput: v => (parseLimit(v) ? undefined : 'Escribe un número mayor que 0, p. ej. 5000000 o 5M'),
+        validateInput: v => (parseLimit(v) ? undefined : t('quota.invalid')),
       });
       if (raw === undefined) { return; }
       await c.update('quota.unit', unit.label, vscode.ConfigurationTarget.Global);
       await c.update('quota.monthlyLimit', parseLimit(raw), vscode.ConfigurationTarget.Global);
-      void vscode.window.showInformationMessage(`TokenBinder: cupo fijado en ${fmt(parseLimit(raw)!)} ${unit.label}.`);
+      void vscode.window.showInformationMessage(t('quota.set', fmt(parseLimit(raw)!), unit.label));
     }),
     vscode.commands.registerCommand('tokenBinder.exportProgress', async (): Promise<boolean> => {
       if (!state) { return false; }
-      const file = await vscode.window.showSaveDialog({ title: 'Exportar progreso de TokenBinder', filters: { JSON: ['json'] }, defaultUri: vscode.Uri.file(path.join(require('os').homedir(), 'tokenbinder-progreso.json')) });
+      const file = await vscode.window.showSaveDialog({ title: t('export.title'), filters: { JSON: ['json'] }, defaultUri: vscode.Uri.file(path.join(require('os').homedir(), 'tokenbinder-progress.json')) });
       if (!file) { return false; }
       const payload = { app: 'token-binder', exportedAt: new Date().toISOString(), game: state };
       await vscode.workspace.fs.writeFile(file, Buffer.from(JSON.stringify(payload, null, 2), 'utf8'));
-      void vscode.window.showInformationMessage(`TokenBinder: progreso exportado (${Object.keys(state.collection).length} cartas distintas, ${Math.floor(state.coins)} monedas).`);
+      void vscode.window.showInformationMessage(t('export.done', Object.keys(state.collection).length, Math.floor(state.coins)));
       return true;
     }),
     vscode.commands.registerCommand('tokenBinder.resetProgress', async () => {
       if (!state) { return; }
       const n = Object.keys(state.collection).length;
       const choice = await vscode.window.showWarningMessage(
-        `¿Reiniciar TokenBinder desde cero? Se borran ${n} cartas distintas, ${Math.floor(state.coins)} monedas, las cartas en entrenamiento y las mejoras compradas. Se conservan tus tokens y la configuración del cupo. Recomendado: guardar antes una copia.`,
-        { modal: true }, 'Exportar y reiniciar', 'Reiniciar sin copia');
+        t('reset.confirm', n, Math.floor(state.coins)),
+        { modal: true }, t('reset.exportFirst'), t('reset.noCopy'));
       if (!choice) { return; }
-      if (choice === 'Exportar y reiniciar') {
+      if (choice === t('reset.exportFirst')) {
         const saved = await vscode.commands.executeCommand<boolean>('tokenBinder.exportProgress');
-        if (!saved) { return; } // canceló el guardado: no se reinicia nada
+        if (!saved) { return; } // the save was cancelled: nothing is reset
       }
       state = newState(usage.lifetimeTokens());
       await game.save(state);
       await tick(true);
-      void vscode.window.showInformationMessage('TokenBinder: progreso reiniciado. Tienes un sobre de bienvenida.');
+      void vscode.window.showInformationMessage(t('reset.done'));
     }),
     vscode.commands.registerCommand('tokenBinder.importProgress', async () => {
-      const pick = await vscode.window.showOpenDialog({ title: 'Importar progreso de TokenBinder', filters: { JSON: ['json'] }, canSelectMany: false });
+      const pick = await vscode.window.showOpenDialog({ title: t('import.title'), filters: { JSON: ['json'] }, canSelectMany: false });
       if (!pick?.length) { return; }
       let imported: GameState;
       try {
         const data = JSON.parse(Buffer.from(await vscode.workspace.fs.readFile(pick[0])).toString('utf8'));
         const g = data?.game;
-        if (data?.app !== 'token-binder' || g?.v !== 2 || typeof g.collection !== 'object' || !Array.isArray(g.slots)) { throw new Error('formato'); }
+        if (data?.app !== 'token-binder' || g?.v !== 2 || typeof g.collection !== 'object' || !Array.isArray(g.slots)) { throw new Error('format'); }
         imported = normalize(g, usage.lifetimeTokens());
       } catch {
-        void vscode.window.showErrorMessage('TokenBinder: el archivo no es un progreso válido exportado por TokenBinder.');
+        void vscode.window.showErrorMessage(t('import.invalid'));
         return;
       }
       const ok = await vscode.window.showWarningMessage(
-        `Esto reemplaza tu progreso actual por el del archivo (${Object.keys(imported.collection).length} cartas distintas, ${Math.floor(imported.coins)} monedas). ¿Continuar?`, { modal: true }, 'Reemplazar');
-      if (ok !== 'Reemplazar') { return; }
-      // Los tokens ya usados en este equipo no deben dar monedas ni sobres otra vez.
+        t('import.confirm', Object.keys(imported.collection).length, Math.floor(imported.coins)), { modal: true }, t('import.replace'));
+      if (ok !== t('import.replace')) { return; }
+      // Tokens already used on this machine must not give coins or packs again.
       imported.lastLifetime = usage.lifetimeTokens();
       imported.baseline = usage.lifetimeTokens() - imported.packsGranted * cfg().get<number>('packs.everyTokens', 750_000);
       state = imported;
       await game.save(state);
       await tick(true);
-      void vscode.window.showInformationMessage('TokenBinder: progreso importado.');
+      void vscode.window.showInformationMessage(t('import.done'));
     }),
     vscode.commands.registerCommand('tokenBinder.openSettings', () => vscode.commands.executeCommand('workbench.action.openSettings', 'tokenBinder')),
-    vscode.workspace.onDidChangeConfiguration(e => { if (e.affectsConfiguration('tokenBinder')) { void tick(true); } }),
+    vscode.workspace.onDidChangeConfiguration(e => { if (e.affectsConfiguration('tokenBinder')) { applyLanguage(); void tick(true); } }),
   );
 
-  // Watcher (carpetas fuera del workspace via RelativePattern absoluto) + polling de respaldo.
+  // Watchers (folders outside the workspace via an absolute RelativePattern) + fallback polling.
   let timer: NodeJS.Timeout | undefined;
   const debounced = () => { clearTimeout(timer); timer = setTimeout(() => void tick(), 1000); };
   const watch = (base: string, glob: string) => {
@@ -357,14 +360,14 @@ export function activate(ctx: vscode.ExtensionContext): void {
     ctx.subscriptions.push(w);
   };
   for (const r of roots()) {
-    watch(path.join(r, 'workspaceStorage'), '*/chatSessions/*');           // formato anterior (.jsonl / .json)
+    watch(path.join(r, 'workspaceStorage'), '*/chatSessions/*');           // previous format (.jsonl / .json)
     watch(path.join(path.dirname(r), 'agentSessionData'), '*/session.db*'); // agent host (SQLite + -wal)
   }
   const poll = setInterval(() => void tick(), 15_000);
   ctx.subscriptions.push({ dispose: () => { clearInterval(poll); clearTimeout(timer); } });
 
   void tick(true);
-  // Ajustes de la versión antigua y aviso para quitarla (no bloquea el arranque).
+  // Settings from the old version and the prompt to remove it (does not block startup).
   void migrateLegacySettings(s => log.appendLine(s)).then(() => offerUninstallLegacy());
 }
 
@@ -374,10 +377,10 @@ function renderBar(bar: vscode.StatusBarItem, unit: Unit, usedNow: number, pct: 
     : pct >= 80 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined;
   const md = new vscode.MarkdownString(undefined, true);
   md.isTrusted = { enabledCommands: ['tokenBinder.setQuota', 'tokenBinder.open'] };
-  md.appendMarkdown(`**TokenBinder** — ${pct.toFixed(1)}% del cupo mensual\n\n`);
-  md.appendMarkdown(`Hoy: **${fmt(totalOf(today))}** tokens · Mes: **${fmt(totalOf(month))}** tokens\n\n`);
+  md.appendMarkdown(t('bar.tooltip.title', pct.toFixed(1)) + '\n\n');
+  md.appendMarkdown(t('bar.tooltip.usage', fmt(totalOf(today)), fmt(totalOf(month))) + '\n\n');
   const rows = (o: Record<string, any>) => Object.entries(o).sort(([, a], [, b]) => totalOf(b) - totalOf(a)).slice(0, 6).map(([k, v]) => `- ${k}: ${fmt(totalOf(v))}`).join('\n');
-  md.appendMarkdown(`**Por modelo**\n${rows(byModel) || '- (sin datos)'}\n\n[Configurar cupo](command:tokenBinder.setQuota) · [Abrir panel](command:tokenBinder.open)`);
+  md.appendMarkdown(`${t('bar.tooltip.byModel')}\n${rows(byModel) || t('bar.tooltip.noData')}\n\n${t('bar.tooltip.links')}`);
   bar.tooltip = md;
 }
 
@@ -385,8 +388,8 @@ function renderPackBar(item: vscode.StatusBarItem, s: GameState): void {
   const n = s.packs + s.premium + s.balls;
   if (!n) { item.hide(); return; }
   item.text = `$(gift) ${n}`;
-  item.tooltip = `TokenBinder: ${n} ${n === 1 ? 'sobre sin abrir' : 'sobres sin abrir'} (${s.packs} normales · ${s.premium} premium · ${s.balls} Pokébolas). Pulsa para abrir el panel.`;
+  item.tooltip = t(n === 1 ? 'packbar.one' : 'packbar.many', n, s.packs, s.premium, s.balls);
   item.show();
 }
 
-export function deactivate(): void { /* disposables en ctx.subscriptions */ }
+export function deactivate(): void { /* disposables live in ctx.subscriptions */ }

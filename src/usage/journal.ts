@@ -1,5 +1,5 @@
-// Reconstruye una sesión de Copilot Chat a partir del journal .jsonl
-// (kind 0 = raíz, 1 = set en ruta, 2 = push/splice en array, 3 = delete).
+// Rebuilds a Copilot Chat session from its .jsonl journal
+// (kind 0 = root, 1 = set at path, 2 = push/splice on an array, 3 = delete).
 type Path = (string | number)[];
 type Json = any;
 
@@ -22,7 +22,7 @@ export function replayJournal(text: string): Json | undefined {
   for (const line of text.split(/\r?\n/)) {
     if (!line.trim()) { continue; }
     let ev: Json;
-    try { ev = JSON.parse(line); } catch { continue; } // línea parcial al final del archivo
+    try { ev = JSON.parse(line); } catch { continue; } // partial line at the end of the file
     if (ev.kind === 0) { root = ev.v; continue; }
     if (root === undefined) { continue; }
     const path: Path = ev.k ?? [];

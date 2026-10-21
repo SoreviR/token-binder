@@ -1,9 +1,7 @@
-// Motor del juego de cartas: sobres → cartas con rareza → entrenamiento por tokens → evolución/graduación.
-// Puro y sin dependencias de VS Code ni de red (la red entra por funciones inyectadas) para poder testearlo.
+// Card game engine: packs → cards with rarity → token-based training → evolution/graduation.
+// Pure, with no VS Code or network dependencies (the network comes in through injected functions) so it can be tested.
 
-export const TIER_NAMES = ['Común', 'Poco común', 'Rara', 'Holo', 'Ultra', 'Ilustración', 'Secreta'] as const;
-
-/** Rarezas de TCGdex agrupadas por categoría (0 = más común … 6 = más rara). */
+/** TCGdex rarities grouped by tier (0 = most common … 6 = rarest). Display names live in the i18n dictionaries (`tier.N`). */
 export const TIER_RARITIES: string[][] = [
   ['Common', 'One Diamond'],
   ['Uncommon', 'Two Diamond'],
@@ -18,33 +16,32 @@ export const TIER_RARITIES: string[][] = [
 const TIER_BY_RARITY = new Map(TIER_RARITIES.flatMap((names, tier) => names.map(n => [n.toLowerCase(), tier] as const)));
 export const tierOf = (rarity?: string): number => TIER_BY_RARITY.get((rarity ?? '').toLowerCase()) ?? 2;
 
-/* ───────── Eras: qué cartas pueden salir en un sobre ───────── */
+/* ───────── Eras: which cards can come out of a pack ───────── */
 
 export type Era = 'vintage' | 'classic' | 'bwxy' | 'modern' | 'current';
 
 export interface EraDef {
   id: Era;
-  label: string;
-  series: string[];                 // series de TCGdex que pertenecen a la era
-  holoOnly: boolean;                // solo cartas con variante holo (en lo vintage la rareza dice solo "Rare")
-  rarities: [rarity: string, weight: number][];  // rarezas que pueden salir en esta era
+  series: string[];                 // TCGdex series that belong to the era
+  holoOnly: boolean;                // only cards with a holo variant (in vintage the rarity just says "Rare")
+  rarities: [rarity: string, weight: number][];  // rarities that can come out in this era
 }
 
 /**
- * Filtro «premium»: en las eras antiguas solo salen las holográficas; cuanto más moderna la era, más alta
- * es la rareza mínima (nada de comunes ni de rarezas normales). Se excluyen promos varias, TCG Pocket y kits.
+ * "Premium" filter: old eras only produce holographic cards; the more modern the era, the higher the minimum
+ * rarity (no commons or plain rarities). Assorted promos, TCG Pocket and kits are excluded.
  */
 export const ERAS: EraDef[] = [
-  { id: 'vintage', label: 'Vintage', series: ['base', 'gym', 'neo', 'lc', 'ecard'], holoOnly: true,
+  { id: 'vintage', series: ['base', 'gym', 'neo', 'lc', 'ecard'], holoOnly: true,
     rarities: [['Rare', 1], ['Holo Rare', 1], ['Rare Holo', 1]] },
-  { id: 'classic', label: 'Clásica', series: ['ex', 'dp', 'pl', 'hgss', 'col'], holoOnly: true,
+  { id: 'classic', series: ['ex', 'dp', 'pl', 'hgss', 'col'], holoOnly: true,
     rarities: [['Rare', 3], ['Holo Rare', 3], ['Rare Holo', 3], ['Rare Holo LV.X', 2], ['Rare PRIME', 2], ['LEGEND', 1], ['Ultra Rare', 2]] },
-  { id: 'bwxy', label: 'Black & White / XY', series: ['bw', 'xy'], holoOnly: false,
+  { id: 'bwxy', series: ['bw', 'xy'], holoOnly: false,
     rarities: [['Ultra Rare', 9], ['Secret Rare', 1], ['Black White Rare', 1]] },
-  { id: 'modern', label: 'Moderna', series: ['sm', 'swsh'], holoOnly: false,
+  { id: 'modern', series: ['sm', 'swsh'], holoOnly: false,
     rarities: [['Ultra Rare', 4], ['Holo Rare V', 3], ['Holo Rare VMAX', 2], ['Holo Rare VSTAR', 2], ['Secret Rare', 2], ['Radiant Rare', 1],
       ['Amazing Rare', 1], ['Shiny rare V', 1], ['Shiny rare VMAX', 1], ['Illustration rare', 1]] },
-  { id: 'current', label: 'Actual', series: ['sv', 'me'], holoOnly: false,
+  { id: 'current', series: ['sv', 'me'], holoOnly: false,
     rarities: [['Illustration rare', 5], ['Ultra Rare', 3], ['Special illustration rare', 3], ['Hyper rare', 2], ['Mega Hyper Rare', 1],
       ['Shiny Ultra Rare', 1], ['Mega Attack Rare', 1]] },
 ];
@@ -54,7 +51,7 @@ export function eraOfSerie(serie: string): Era | undefined {
   return ERAS.find(e => e.series.includes(serie))?.id;
 }
 
-/** ¿Cumple la carta el filtro premium de su era? (Se usa para elegir bien las evoluciones.) */
+/** Does the card pass the premium filter of its era? (Used to pick evolutions well.) */
 export function isPremium(c: Pick<Card, 'era' | 'rarity' | 'holo'>): boolean {
   if (!c.era) { return false; }
   const e = ERA_BY_ID[c.era];
@@ -62,7 +59,6 @@ export function isPremium(c: Pick<Card, 'era' | 'rarity' | 'holo'>): boolean {
 }
 
 export type Variant = 'shadowless' | 'first';
-export const VARIANT_LABELS: Record<Variant, string> = { shadowless: 'Shadowless', first: '1.ª edición Shadowless' };
 
 export interface Card {
   id: string;
@@ -78,49 +74,49 @@ export interface Card {
   setId?: string;
   era?: Era;
   holo?: boolean;
-  shadowless?: boolean; // esta carta existe en versión Shadowless (solo el Set Base)
-  attacks?: Attack[];   // ataques con el daño base ya convertido a número (para las stats de combate)
-  weak?: string[];      // tipos a los que es débil
-  resist?: string[];    // tipos a los que resiste
-  retreat?: number;     // coste de retirada
-  price?: Price;        // valor de mercado aproximado
-  priceAt?: number;     // cuándo se consultó el precio
-  cv?: number;          // versión de los datos guardados (2 = incluye ataques y precio)
-  variant?: Variant;    // variante sacada en este ejemplar
-  image: string;        // URL base de assets.tcgdex.net (se le añade /low.webp o /high.webp)
+  shadowless?: boolean; // this card exists as Shadowless (Base Set only)
+  attacks?: Attack[];   // attacks with the base damage already converted to a number (for combat stats)
+  weak?: string[];      // types it is weak to
+  resist?: string[];    // types it resists
+  retreat?: number;     // retreat cost
+  price?: Price;        // approximate market value
+  priceAt?: number;     // when the price was last fetched
+  cv?: number;          // version of the stored data (2 = includes attacks and price)
+  variant?: Variant;    // variant of this particular copy
+  image: string;        // base URL on assets.tcgdex.net (/low.webp or /high.webp is appended)
 }
 
 export interface Attack { name: string; damage: number; cost: number }
 export interface Price { eur?: number; usd?: number }
 export const CARD_DATA_VERSION = 2;
 
-/** Clave única de un ejemplar: el mismo id con otra variante es una carta distinta en el álbum. */
+/** Unique key of a copy: the same id with another variant is a different card in the album. */
 export const keyOf = (c: Pick<Card, 'id' | 'variant'>): string => (c.variant ? `${c.id}#${c.variant}` : c.id);
 
 export interface Owned {
   card: Card; count: number; firstAt: number;
-  xp: number;           // tokens que esta carta ha entrenado en total (se hereda al evolucionar)
-  mastered?: boolean;   // ya completó su línea evolutiva
+  xp: number;           // total tokens this card has trained (inherited on evolution)
+  mastered?: boolean;   // already completed its evolutionary line
 }
 export interface Training {
   card: Card; born: number; evolved: number;
-  last: number;         // tokens de por vida hasta los que ya se repartió XP
-  mastered?: boolean;   // línea completa: sigue en el hueco ganando XP hasta que la retires
+  last: number;         // lifetime tokens up to which XP has already been granted
+  mastered?: boolean;   // line complete: stays in the slot earning XP until you retire it
 }
 export interface GameState {
   v: 2;
-  baseline: number;       // tokens de por vida al empezar: los sobres se cuentan desde aquí
-  packsGranted: number;   // sobres ya concedidos por tokens
-  packs: number;          // sobres normales sin abrir
-  premium: number;        // sobres premium sin abrir
-  balls: number;          // Pokébolas (1 carta) sin abrir
+  baseline: number;       // lifetime tokens at the start: packs are counted from here
+  packsGranted: number;   // packs already granted for tokens
+  packs: number;          // unopened regular packs
+  premium: number;        // unopened premium packs
+  balls: number;          // unopened Poké Balls (1 card)
   collection: Record<string, Owned>;
   slots: (Training | null)[];
-  mastered: number;       // cartas que completaron su línea evolutiva
-  bonusPeriod: number;    // periodo de cuota en el que ya se dio el sobre por llegar al 100 %
-  coins: number;          // monedas (con decimales; se muestran redondeadas hacia abajo)
-  lastLifetime: number;   // tokens de por vida en la última cuenta de monedas
-  luck: number;           // nivel de mejora de suerte (0-5)
+  mastered: number;       // cards that completed their evolutionary line
+  bonusPeriod: number;    // quota period in which the pack for reaching 100% was already given
+  coins: number;          // coins (with decimals; shown rounded down)
+  lastLifetime: number;   // lifetime tokens at the last coin count
+  luck: number;           // luck upgrade level (0-5)
 }
 
 /* ───────── Sobres ───────── */
@@ -128,7 +124,7 @@ export interface GameState {
 export type PackKind = 'pack' | 'premium' | 'ball';
 
 type EraWeights = Record<Era, number>;
-/** Reparto de eras de una carta normal, de la carta «estrella» y de las últimas cartas de un premium. */
+/** Era weights for a normal card, for the "star" card, and for the last cards of a premium pack. */
 const BASE_W: EraWeights = { vintage: 34, classic: 28, bwxy: 16, modern: 14, current: 8 };
 const HIT_W: EraWeights = { vintage: 14, classic: 20, bwxy: 20, modern: 26, current: 20 };
 const TOP_W: EraWeights = { vintage: 8, classic: 12, bwxy: 20, modern: 30, current: 30 };
@@ -139,20 +135,20 @@ export function pickWeighted<T>(items: [T, number][], rng: () => number = Math.r
   return items[items.length - 1][0];
 }
 
-/** La mejora de suerte da +20 % por nivel al peso de las eras modernas (las más raras). */
+/** The luck upgrade adds +20% per level to the weight of the modern eras (the rarest). */
 export function pickEra(w: EraWeights, luck = 0, rng: () => number = Math.random): Era {
   const boost = 1 + 0.2 * luck;
   return pickWeighted(ERAS.map(e => [e.id, w[e.id] * (e.id === 'modern' || e.id === 'current' ? boost : 1)] as [Era, number]), rng);
 }
 
-/** Era que pide cada carta de un sobre de ese tipo. */
+/** The era each card of a pack of that kind asks for. */
 export function rollEras(kind: PackKind, luck = 0, rng: () => number = Math.random): Era[] {
   const slots = kind === 'pack' ? [BASE_W, HIT_W]
     : kind === 'premium' ? [HIT_W, TOP_W] : [BASE_W];
   return slots.map(w => pickEra(w, luck, rng));
 }
 
-/** Rareza concreta dentro de una era, ordenadas al azar ponderado (para ir probando si alguna no tiene cartas). */
+/** Rarities within an era in weighted random order (to try the next one if some has no cards). */
 export function shuffledRarities(era: Era, rng: () => number = Math.random): string[] {
   const left = [...ERA_BY_ID[era].rarities];
   const out: string[] = [];
@@ -164,7 +160,7 @@ export function shuffledRarities(era: Era, rng: () => number = Math.random): str
   return out;
 }
 
-/** Variante Shadowless / 1.ª edición Shadowless (solo existe en cartas del Set Base). La suerte la favorece. */
+/** Shadowless / 1st Edition Shadowless variant (only exists for Base Set cards). Luck favors it. */
 export function rollVariant(card: Pick<Card, 'shadowless'>, luck = 0, rng: () => number = Math.random): Variant | undefined {
   if (!card.shadowless) { return undefined; }
   const m = 1 + 0.2 * luck;
@@ -176,10 +172,10 @@ export function rollVariant(card: Pick<Card, 'shadowless'>, luck = 0, rng: () =>
 
 /* ───────── Entrenamiento ───────── */
 
-/** Tokens que dura cada etapa antes de evolucionar (se aplica growth.multiplier). */
+/** Tokens each stage lasts before evolving (growth.multiplier is applied). */
 const STAGE_TOKENS = [1_500_000, 4_500_000, 6_000_000, 8_000_000];
 
-/** Tokens acumulados (desde que empezó a entrenar) en los que termina la etapa k. */
+/** Accumulated tokens (since training began) at which stage k ends. */
 export function stageEnd(k: number, mult: number): number {
   let sum = 0;
   for (let i = 0; i <= k; i++) { sum += STAGE_TOKENS[Math.min(i, STAGE_TOKENS.length - 1)]; }
@@ -200,9 +196,9 @@ export function trainingProgress(t: Training, lifetime: number, mult: number): T
 
 export const XP_PER_LEVEL = 400_000;
 export const MAX_LEVEL = 50;
-/** Nivel de una carta a partir de los tokens que ha entrenado (1-50; unos 20 M tokens para el máximo). */
+/** Level of a card from the tokens it has trained (1-50; about 20M tokens for the maximum). */
 export const levelOf = (xp: number): number => Math.min(MAX_LEVEL, 1 + Math.floor(Math.max(0, xp) / XP_PER_LEVEL));
-/** Progreso hacia el siguiente nivel (null en el nivel máximo). */
+/** Progress towards the next level (null at the maximum level). */
 export function levelProgress(xp: number): { level: number; into: number; span: number; pct: number } | null {
   const level = levelOf(xp);
   if (level >= MAX_LEVEL) { return null; }
@@ -210,7 +206,7 @@ export function levelProgress(xp: number): { level: number; into: number; span: 
   return { level, into, span: XP_PER_LEVEL, pct: (into / XP_PER_LEVEL) * 100 };
 }
 
-/** Reparte a las cartas en entrenamiento los tokens usados desde la última vez. Devuelve los niveles subidos. */
+/** Grants the cards in training the tokens used since the last time. Returns the level-ups. */
 export function accrueXp(s: GameState, lifetime: number): string[] {
   const events: string[] = [];
   for (const t of s.slots) {
@@ -229,18 +225,18 @@ export function accrueXp(s: GameState, lifetime: number): string[] {
 /* ───────── Estado ───────── */
 
 export function newState(lifetime: number): GameState {
-  // Un sobre de bienvenida para que haya algo que abrir desde el primer momento.
+  // A welcome pack so there is something to open from the very first moment.
   return {
     v: 2, baseline: lifetime, packsGranted: 0, packs: 1, premium: 0, balls: 0, collection: {}, slots: [null], mastered: 0,
     bonusPeriod: 0, coins: 0, lastLifetime: lifetime, luck: 0,
   };
 }
 
-/** Completa los campos añadidos en versiones nuevas a un estado guardado antes (sin dar monedas retroactivas). */
+/** Fills in the fields added in newer versions to a previously saved state (without giving retroactive coins). */
 export function normalize(s: GameState, lifetime: number): GameState {
   s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime;
   for (const o of Object.values(s.collection)) { o.xp ??= 0; }
-  // Las cartas que ya entrenaban reciben la XP de todo lo entrenado hasta ahora (desde que nacieron en el hueco).
+  // Cards that were already training receive the XP of everything trained so far (since they entered the slot).
   for (const t of s.slots) { if (t) { t.last ??= t.born; } }
   return s;
 }
@@ -252,14 +248,14 @@ export const PACE_BONUS = 1.2;
 export const MAX_SLOTS = 6;
 export const MAX_LUCK = 5;
 
-/** ¿Vas por debajo del ritmo del cupo? (% usado ≤ % del periodo transcurrido.) */
+/** Are you under the quota pace? (% used ≤ % of the period elapsed.) */
 export function underPace(quotaPct: number, now: number, start: number, end: number): boolean {
   if (end <= start) { return false; }
   const elapsed = Math.min(1, Math.max(0, (now - start) / (end - start)));
   return quotaPct <= elapsed * 100;
 }
 
-/** Suma las monedas de los tokens usados desde la última vez. Devuelve cuántas se ganaron. */
+/** Adds the coins for the tokens used since the last time. Returns how many were earned. */
 export function earnCoins(s: GameState, lifetime: number, bonus: boolean): number {
   const delta = Math.max(0, lifetime - s.lastLifetime);
   s.lastLifetime = lifetime;
@@ -270,11 +266,11 @@ export function earnCoins(s: GameState, lifetime: number, bonus: boolean): numbe
 
 export type Item = 'pack' | 'premium' | 'ball' | 'slot' | 'luck';
 
-const SLOT_PRICES = [400, 900, 1600, 2600, 4000];   // huecos 2 al 6
-const LUCK_PRICES = [300, 600, 1200, 2400, 4800];   // niveles 1 al 5
+const SLOT_PRICES = [400, 900, 1600, 2600, 4000];   // slots 2 to 6
+const LUCK_PRICES = [300, 600, 1200, 2400, 4800];   // levels 1 to 5
 const FIXED_PRICES: Record<'pack' | 'premium' | 'ball', number> = { pack: 80, premium: 250, ball: 15 };
 
-/** Precio actual de un artículo, o null si ya se compró el máximo. */
+/** Current price of an item, or null if the maximum was already bought. */
 export function priceOf(s: GameState, item: Item): number | null {
   if (item === 'slot') { return s.slots.length >= MAX_SLOTS ? null : SLOT_PRICES[s.slots.length - 1]; }
   if (item === 'luck') { return s.luck >= MAX_LUCK ? null : LUCK_PRICES[s.luck]; }
@@ -293,7 +289,7 @@ export function buy(s: GameState, item: Item): boolean {
   return true;
 }
 
-/** Descuenta un sobre/Pokébola del inventario. Devuelve false si no hay. */
+/** Takes a pack/Poké Ball out of the inventory. Returns false if there is none. */
 export function consume(s: GameState, kind: PackKind): boolean {
   const key = kind === 'pack' ? 'packs' : kind === 'premium' ? 'premium' : 'balls';
   if (s[key] < 1) { return false; }
@@ -320,13 +316,13 @@ export function addCards(s: GameState, cards: Card[], now = Date.now()): void {
   }
 }
 
-/** Monedas por vender una copia repetida: según la categoría de rareza, con extra para las variantes Shadowless. */
+/** Coins for selling a duplicate copy: by rarity tier, with a bonus for Shadowless variants. */
 const SELL_VALUE = [3, 6, 12, 30, 70, 160, 400];
 export function sellValue(c: Pick<Card, 'tier' | 'variant'>): number {
   return SELL_VALUE[c.tier] * (c.variant === 'first' ? 5 : c.variant === 'shadowless' ? 2 : 1);
 }
 
-/** Vende las copias repetidas (siempre te quedas con una). Con `key` solo esa carta. Devuelve monedas ganadas. */
+/** Sells duplicate copies (you always keep one). With `key`, only that card. Returns the coins earned. */
 export function sellDuplicates(s: GameState, key?: string): number {
   let earned = 0;
   for (const [k, o] of Object.entries(s.collection)) {
@@ -337,18 +333,18 @@ export function sellDuplicates(s: GameState, key?: string): number {
   return earned;
 }
 
-/** Pone una carta de la colección a entrenar en un hueco libre. Devuelve false si no se puede. */
+/** Puts a card from the collection into a free slot to train. Returns false if it cannot be done. */
 export function startTraining(s: GameState, cardId: string, lifetime: number): boolean {
   const owned = s.collection[cardId];
   const slot = s.slots.findIndex(x => x === null);
   if (!owned || slot < 0) { return false; }
   if (s.slots.some(t => t && keyOf(t.card) === cardId)) { return false; }
-  // Una carta que ya completó su línea vuelve al hueco para seguir subiendo de nivel.
+  // A card that already completed its line goes back into the slot to keep leveling up.
   s.slots[slot] = { card: owned.card, born: lifetime, evolved: 0, last: lifetime, mastered: owned.mastered || undefined };
   return true;
 }
 
-/** Retira una carta del hueco (conserva su nivel y su XP). */
+/** Removes a card from its slot (it keeps its level and XP). */
 export function untrain(s: GameState, key: string): boolean {
   const i = s.slots.findIndex(t => t && keyOf(t.card) === key);
   if (i < 0) { return false; }
@@ -359,11 +355,11 @@ export function untrain(s: GameState, key: string): boolean {
 export type FindNext = (card: Card) => Promise<{ ok: true; card: Card | null } | { ok: false }>;
 
 /**
- * Resuelve las etapas cumplidas: evoluciona a la carta siguiente o, si la línea terminó, gradúa la carta
- * (+1 sobre). Si la búsqueda falla por red (ok:false) no se toca nada y se reintenta más tarde.
+ * Resolves the completed stages: evolves into the next card or, if the line is over, graduates the card
+ * (+1 pack). If the lookup fails because of the network (ok:false) nothing is touched and it is retried later.
  */
 export async function resolveDue(s: GameState, lifetime: number, mult: number, findNext: FindNext, now = Date.now()): Promise<string[]> {
-  accrueXp(s, lifetime);   // el aviso de nivel lo da quien llama a accrueXp (tick); aquí solo asegura la XP antes de evolucionar
+  accrueXp(s, lifetime);   // the level-up notice is raised by whoever calls accrueXp (tick); this only makes sure the XP is in before evolving
   const events: string[] = [];
   for (let i = 0; i < s.slots.length; i++) {
     for (let guard = 0; guard < 10; guard++) {
@@ -373,13 +369,13 @@ export async function resolveDue(s: GameState, lifetime: number, mult: number, f
       if (!r.ok) { break; }
       if (r.card) {
         addCards(s, [r.card], now);
-        // La carta nueva hereda el nivel de la anterior.
+        // The new card inherits the level of the previous one.
         const next = s.collection[keyOf(r.card)], prev = s.collection[keyOf(t.card)];
         if (next && prev) { next.xp = Math.max(next.xp, prev.xp); }
         s.slots[i] = { card: r.card, born: t.born, evolved: t.evolved + 1, last: t.last };
         events.push(`evolve:${r.card.name}`);
       } else {
-        // La carta se queda en el hueco como «Maestra» y sigue ganando XP (nivel) hasta que la retires.
+        // The card stays in the slot as a "Master" and keeps earning XP (levels) until you retire it.
         s.slots[i] = { ...t, mastered: true };
         const own = s.collection[keyOf(t.card)];
         if (own) { own.mastered = true; }

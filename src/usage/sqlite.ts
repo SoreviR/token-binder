@@ -6,7 +6,7 @@ declare const module: { require(id: string): any };
 
 const QUERY = 'select turn_id as turnId, usage from turn_usage';
 
-// Script para el respaldo: corre con el `node` del PATH (>=22.5) y devuelve turn_id + usage como JSON.
+// Script for the fallback: runs with Node (>=22.5) and returns turn_id + usage as JSON.
 const CHILD = `
 const { DatabaseSync } = require('node:sqlite');
 const db = new DatabaseSync(process.argv[1], { readOnly: true });
@@ -16,11 +16,11 @@ process.stdout.write(JSON.stringify(rows));
 `;
 
 /**
- * Ejecuta un script con Node y devuelve su stdout. Primero con el propio binario de VS Code (ELECTRON_RUN_AS_NODE), que
- * no depende del PATH —en macOS las apps gráficas no heredan el de la terminal—, y si falla con el `node` del PATH.
+ * Runs a script with Node and returns its stdout. First with VS Code's own binary (ELECTRON_RUN_AS_NODE), which does
+ * not depend on the PATH (on macOS GUI apps do not inherit the terminal's), and if that fails with the PATH's `node`.
  */
 function runChild(js: string, args: string[], maxBuffer: number): { ok: true; stdout: string } | { ok: false; error: string } {
-  let error = 'node falló';
+  let error = 'node failed';
   const attempts: [string, NodeJS.ProcessEnv][] = [
     [process.execPath, { ...process.env, ELECTRON_RUN_AS_NODE: '1' }],
     ['node', process.env],
@@ -36,7 +36,7 @@ function runChild(js: string, args: string[], maxBuffer: number): { ok: true; st
 let inProcess: any | null | undefined;
 function sqliteModule(): any | null {
   if (inProcess === undefined) {
-    // module.require evita que esbuild intente resolver 'node:sqlite' al empaquetar.
+    // module.require stops esbuild from trying to resolve 'node:sqlite' when bundling.
     try { inProcess = module.require('node:sqlite'); } catch { inProcess = null; }
   }
   return inProcess;
@@ -48,12 +48,12 @@ export let lastError = '';
 function parse(rows: { turnId: string; usage: string }[]): TurnUsageRow[] {
   const out: TurnUsageRow[] = [];
   for (const r of rows) {
-    try { out.push({ turnId: r.turnId, usage: JSON.parse(r.usage) }); } catch { /* fila corrupta */ }
+    try { out.push({ turnId: r.turnId, usage: JSON.parse(r.usage) }); } catch { /* corrupt row */ }
   }
   return out;
 }
 
-/** Lee turn_usage de un session.db. Devuelve [] si la tabla no existe. Lanza si no hay forma de abrir SQLite. */
+/** Reads turn_usage from a session.db. Returns [] if the table does not exist. Throws if SQLite cannot be opened at all. */
 export function readTurnUsage(dbPath: string): TurnUsageRow[] {
   const mod = sqliteModule();
   if (mod) {
@@ -65,13 +65,13 @@ export function readTurnUsage(dbPath: string): TurnUsageRow[] {
   if (!r.ok) {
     lastBackend = 'none';
     lastError = r.error;
-    throw new Error('SQLite no disponible (ni node:sqlite en VS Code ni `node` >=22.5 en el PATH): ' + lastError);
+    throw new Error('SQLite not available (neither node:sqlite in VS Code nor `node` >=22.5 on the PATH): ' + lastError);
   }
   lastBackend = 'child-node';
   return parse(JSON.parse(r.stdout || '[]'));
 }
 
-/** session_uri → modified_time de agent-host.db (para fechar el histórico previo a la instalación). */
+/** session_uri → modified_time from agent-host.db (to date the history from before the installation). */
 export function readSessionTimes(hostDb: string): Map<string, number> {
   const out = new Map<string, number>();
   try {
@@ -87,11 +87,11 @@ export function readSessionTimes(hostDb: string): Map<string, number> {
       rows = r.ok ? JSON.parse(r.stdout) : [];
     }
     for (const r of rows) { out.set(String(r.session_uri).replace(/^.*:\//, ''), Number(r.modified_time)); }
-  } catch { /* sin fechas: se usa el mtime del archivo */ }
+  } catch { /* no dates: the file's mtime is used */ }
   return out;
 }
 
-/** Valor de una clave de la tabla ItemTable de un state.vscdb de VS Code (donde las extensiones guardan su globalState). */
+/** Value of a key in the ItemTable of a VS Code state.vscdb (where extensions keep their globalState). */
 export function readItemValue(dbPath: string, key: string): string | undefined {
   const sql = 'select value from ItemTable where key = ?';
   const mod = sqliteModule();
@@ -101,6 +101,6 @@ export function readItemValue(dbPath: string, key: string): string | undefined {
   }
   const js = `const {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(process.argv[1],{readOnly:true});const r=d.prepare('${sql}').get(process.argv[2]);process.stdout.write(JSON.stringify(r?String(r.value):null))`;
   const r = runChild(js, [dbPath, key], 64 * 1024 * 1024);
-  if (!r.ok) { throw new Error('SQLite no disponible para leer ' + dbPath); }
+  if (!r.ok) { throw new Error('SQLite not available to read ' + dbPath); }
   return JSON.parse(r.stdout || 'null') ?? undefined;
 }

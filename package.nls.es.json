@@ -1,0 +1,23 @@
+{
+  "extension.description": "Tokens de Copilot Chat convertidos en sobres de cartas Pokémon TCG que evolucionan, con % de cuota mensual.",
+  "view.companion": "Compañero",
+  "command.open": "Abrir panel",
+  "command.openAlbum": "Abrir álbum",
+  "command.setQuota": "Configurar cupo mensual",
+  "command.openSettings": "Abrir ajustes",
+  "command.refresh": "Recalcular uso",
+  "command.exportProgress": "Exportar progreso",
+  "command.importProgress": "Importar progreso",
+  "command.resetProgress": "Reiniciar progreso",
+  "config.quota.unit": "Unidad del cupo mensual.",
+  "config.quota.monthlyLimit": "Cupo mensual asignado (en la unidad elegida).",
+  "config.quota.resetDay": "Día del mes (UTC) en que se reinicia el cupo.",
+  "config.alerts.thresholds": "Porcentajes que disparan una alerta.",
+  "config.packs.everyTokens": "Cada cuántos tokens usados ganas un sobre de cartas.",
+  "config.growth.multiplier": "Multiplica los tokens que necesita cada carta para evolucionar.",
+  "config.storageRoots": "Carpetas 'User' de VS Code a leer (por defecto la carpeta User de Code, Code - Insiders y VSCodium de tu sistema operativo).",
+  "config.language.auto": "Seguir el idioma de VS Code (español si es español, inglés en otro caso).",
+  "config.language.en": "Inglés",
+  "config.language.es": "Español",
+  "config.language": "Idioma de la interfaz de TokenBinder."
+}

@@ -7,7 +7,7 @@ export class BinderViewProvider implements vscode.WebviewViewProvider {
   private view?: vscode.WebviewView;
   private last?: unknown;
 
-  /** `cacheRoot` es la carpeta (en globalStorage) con las imágenes de cartas que el panel puede cargar. */
+  /** `cacheRoot` is the folder (in globalStorage) with the card images the panel is allowed to load. */
   constructor(
     private ext: vscode.Uri,
     private cacheRoot: vscode.Uri,
@@ -28,13 +28,13 @@ export class BinderViewProvider implements vscode.WebviewViewProvider {
     });
   }
 
-  /** Convierte una ruta local de la caché en una URI que el panel puede cargar. */
+  /** Turns a local cache path into a URI the panel can load. */
   uri(fsPath: string): string | undefined {
     return this.view?.webview.asWebviewUri(vscode.Uri.file(fsPath)).toString();
   }
 
   post(snapshot: unknown): void {
-    // Al recargar el panel se reenvía el último estado; sin los avisos (events) para no repetirlos.
+    // When the panel reloads the last state is resent, without the notices (events) so they are not repeated.
     this.last = { ...(snapshot as object), events: [] };
     this.send({ type: 'state', data: snapshot });
   }
@@ -48,6 +48,6 @@ export class BinderViewProvider implements vscode.WebviewViewProvider {
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${w.cspSource}; style-src ${w.cspSource}; script-src 'nonce-${nonce}';">
 <link rel="stylesheet" href="${uri('main.css')}"></head>
 <body><div id="app"></div><div id="overlay"></div>
-<script nonce="${nonce}" src="${uri('common.js')}"></script><script nonce="${nonce}" src="${uri('main.js')}"></script></body></html>`;
+<script nonce="${nonce}" src="${uri('i18n.js')}"></script><script nonce="${nonce}" src="${uri('common.js')}"></script><script nonce="${nonce}" src="${uri('main.js')}"></script></body></html>`;
   }
 }

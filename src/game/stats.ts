@@ -1,10 +1,10 @@
-// Stats de combate y valor de mercado de una carta. Puro: sin red ni VS Code, para poder testearlo.
+// Combat stats and market value of a card. Pure: no network or VS Code, so it can be tested.
 import type { Card, Era } from './engine';
 import { levelOf } from './engine';
 
 export interface Stats { hp: number; atk: number; def: number; spd: number; level: number }
 
-/** Referencia por era: un VMAX de 320 PS no debe aplastar a una holo vintage de 80, así que se normaliza contra lo típico de su era. */
+/** Per-era reference: a 320 HP VMAX must not crush an 80 HP vintage holo, so values are normalized against what is typical of the era. */
 const ERA_REF: Record<Era, { hp: number; dmg: number }> = {
   vintage: { hp: 80, dmg: 50 },
   classic: { hp: 100, dmg: 70 },
@@ -15,20 +15,20 @@ const ERA_REF: Record<Era, { hp: number; dmg: number }> = {
 
 const STAGE_MULT: Record<string, number> = { Stage1: 1.08, Stage2: 1.15, MEGA: 1.15, VMAX: 1.15, VSTAR: 1.15, BREAK: 1.15, 'LEVEL-UP': 1.15 };
 
-/** «20+», «30×», «120» → número base; los ataques que solo tienen efecto valen 0. */
+/** "20+", "30×", "120" → base number; attacks that only have an effect are worth 0. */
 export function parseDamage(raw: unknown): number {
   if (typeof raw === 'number') { return Math.max(0, raw); }
   const m = /\d+/.exec(String(raw ?? ''));
   return m ? Number(m[0]) : 0;
 }
 
-/** Stats de una carta con su nivel (por XP). Si faltan datos (caché antigua, sin red) se estiman por la rareza. */
+/** Stats of a card at its level (from XP). When data is missing (old cache, offline) they are estimated from the rarity. */
 export function statsOf(card: Card, xp = 0): Stats {
   const ref = ERA_REF[card.era ?? 'classic'];
   const level = levelOf(xp);
   const maxDmg = Math.max(0, ...(card.attacks ?? []).map(a => a.damage));
   const hpBase = card.hp ?? ref.hp;
-  // Los ataques «20+» de las cartas modernas escalan con efectos que aquí no se ven: se les da un suelo según la rareza.
+  // "20+" attacks of modern cards scale with effects we cannot see here, so they get a floor based on the rarity.
   const floor = ref.dmg * (0.25 + 0.05 * card.tier);
   const dmgBase = card.attacks?.length ? Math.max(maxDmg, floor) : ref.dmg * (0.45 + 0.07 * card.tier);
   const retreat = card.retreat ?? 1;
@@ -42,9 +42,9 @@ export function statsOf(card: Card, xp = 0): Stats {
   };
 }
 
-/* ───────── Valor de mercado ───────── */
+/* ───────── Market value ───────── */
 
-/** Valor aproximado en euros (Cardmarket; si no hay, TCGplayer en dólares). undefined si no hay precio. */
+/** Approximate value in euros (Cardmarket; otherwise TCGplayer dollars). undefined when there is no price. */
 export function marketValue(card: Pick<Card, 'price'>): number | undefined {
   const p = card.price;
   if (p?.eur !== undefined) { return p.eur; }
@@ -52,16 +52,17 @@ export function marketValue(card: Pick<Card, 'price'>): number | undefined {
   return undefined;
 }
 
-const COLLECTOR: [max: number, label: string][] = [
-  [1, 'Común de mercado'], [5, 'Popular'], [25, 'Valiosa'], [100, 'Muy cotizada'], [500, 'Chase'], [Infinity, 'Grail'],
+export type Collector = 'common' | 'popular' | 'valuable' | 'sought' | 'chase' | 'grail';
+const COLLECTOR: [max: number, id: Collector][] = [
+  [1, 'common'], [5, 'popular'], [25, 'valuable'], [100, 'sought'], [500, 'chase'], [Infinity, 'grail'],
 ];
-/** Etiqueta de coleccionismo según su valor en el mercado. */
-export function collectorLabel(card: Pick<Card, 'price'>): string | undefined {
+/** Collectibility id according to market value (the label is translated in the UI as `collector.<id>`). */
+export function collectorLabel(card: Pick<Card, 'price'>): Collector | undefined {
   const v = marketValue(card);
   return v === undefined ? undefined : COLLECTOR.find(([max]) => v < max)![1];
 }
 
-/** Extrae el precio del campo `pricing` de TCGdex: tendencia de Cardmarket (EUR) y precio de mercado de TCGplayer (USD). */
+/** Extracts the price from TCGdex's `pricing` field: Cardmarket trend (EUR) and the highest TCGplayer market price (USD). */
 export function parsePricing(pricing: any): { eur?: number; usd?: number } {
   const num = (x: unknown) => (typeof x === 'number' && x > 0 ? Math.round(x * 100) / 100 : undefined);
   const cm = pricing?.cardmarket;

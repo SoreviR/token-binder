@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import type { WebviewMessage } from './provider';
 
-/** Pestaña del editor con el álbum completo (cuadrícula grande, búsqueda, filtros y visor de carta). */
+/** Editor tab with the full album (large grid, search, filters and card viewer). */
 export class AlbumPanel {
   private panel?: vscode.WebviewPanel;
   private last?: unknown;
@@ -19,7 +19,7 @@ export class AlbumPanel {
     if (this.panel) { this.panel.reveal(this.panel.viewColumn ?? vscode.ViewColumn.Active); return; }
     const panel = vscode.window.createWebviewPanel('tokenBinder.album', 'Álbum TokenBinder', vscode.ViewColumn.Active, {
       enableScripts: true,
-      retainContextWhenHidden: true, // conserva filtro y búsqueda al cambiar de pestaña
+      retainContextWhenHidden: true, // keeps the filter and search when switching tabs
       localResourceRoots: [vscode.Uri.joinPath(this.ext, 'media'), this.cacheRoot],
     });
     this.panel = panel;
@@ -49,6 +49,6 @@ export class AlbumPanel {
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${w.cspSource}; style-src ${w.cspSource}; script-src 'nonce-${nonce}';">
 <link rel="stylesheet" href="${uri('main.css')}"></head>
 <body class="album"><div id="app"></div><div id="overlay"></div>
-<script nonce="${nonce}" src="${uri('common.js')}"></script><script nonce="${nonce}" src="${uri('album.js')}"></script></body></html>`;
+<script nonce="${nonce}" src="${uri('i18n.js')}"></script><script nonce="${nonce}" src="${uri('common.js')}"></script><script nonce="${nonce}" src="${uri('album.js')}"></script></body></html>`;
   }
 }

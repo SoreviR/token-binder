@@ -1,0 +1,23 @@
+{
+  "extension.description": "Turns your Copilot Chat tokens into Pokémon TCG booster packs whose cards level up and evolve, with your monthly quota % in the status bar.",
+  "view.companion": "Companion",
+  "command.open": "Open panel",
+  "command.openAlbum": "Open album",
+  "command.setQuota": "Set monthly quota",
+  "command.openSettings": "Open settings",
+  "command.refresh": "Recalculate usage",
+  "command.exportProgress": "Export progress",
+  "command.importProgress": "Import progress",
+  "command.resetProgress": "Reset progress",
+  "config.quota.unit": "Unit of the monthly quota.",
+  "config.quota.monthlyLimit": "Assigned monthly quota (in the chosen unit).",
+  "config.quota.resetDay": "Day of the month (UTC) on which the quota resets.",
+  "config.alerts.thresholds": "Percentages that trigger an alert.",
+  "config.packs.everyTokens": "Every how many tokens used you earn a card pack.",
+  "config.growth.multiplier": "Multiplies the tokens each card needs to evolve.",
+  "config.storageRoots": "VS Code 'User' folders to read (by default the User folder of Code, Code - Insiders and VSCodium for your operating system).",
+  "config.language.auto": "Follow the VS Code display language (Spanish if it is Spanish, English otherwise).",
+  "config.language.en": "English",
+  "config.language.es": "Spanish",
+  "config.language": "Language of the TokenBinder interface."
+}

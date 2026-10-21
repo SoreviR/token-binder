@@ -1,9 +1,9 @@
 export interface UsageRecord {
-  key: string;      // sessionId:requestId (dedupe entre .json y .jsonl)
+  key: string;      // sessionId:requestId (dedupe between .json and .jsonl)
   ts: number;       // ms epoch
   model: string;
   mode: string;     // agent | ask | plan | edit | ?
-  input: number;    // tokens de entrada NO cacheados
+  input: number;    // NON-cached input tokens
   cached: number;
   output: number;
   credits: number;
@@ -23,9 +23,9 @@ function modelOf(session: any, req: any): string {
 }
 
 /**
- * VS Code >= 1.14x (agent host): agentSessionData/<id>/session.db, tabla turn_usage.
- * `_meta.turnTokenTotals` suma todas las rondas del turno (el nivel superior solo trae la última llamada);
- * su inputTokens incluye los cacheados. No hay hora ni modo por fila: ts=0 y la fecha la asigna el store.
+ * VS Code >= 1.14x (agent host): agentSessionData/<id>/session.db, turn_usage table.
+ * `_meta.turnTokenTotals` adds up all the rounds of the turn (the top level only has the last call);
+ * its inputTokens includes the cached ones. There is no time or mode per row: ts=0 and the store assigns the date.
  */
 export function extractTurnUsage(sessionId: string, rows: { turnId: string; usage: any }[]): UsageRecord[] {
   const out: UsageRecord[] = [];
@@ -56,7 +56,7 @@ export function extractSession(session: any, fallbackId: string, fileMtime: numb
     const credits = num(req?.copilotCredits) || num(req?.result?.metadata?.copilotCredits);
     const totals = req?.modelTotals;
     if (totals && typeof totals === 'object' && Object.keys(totals).length) {
-      // Suma todas las rondas del agente; una fila por modelo.
+      // Adds up all the agent rounds; one row per model.
       for (const [model, t] of Object.entries<any>(totals)) {
         const inp = num(t?.inputTokens), cached = Math.min(num(t?.cachedTokens), inp);
         out.push({ key: `${key}:${model}`, ts, model: model.replace(/^copilot\//, ''), mode,
@@ -67,7 +67,7 @@ export function extractSession(session: any, fallbackId: string, fileMtime: numb
     }
     const output = num(req?.completionTokens) || num(req?.result?.metadata?.outputTokens) || num(req?.result?.metadata?.completionTokens);
     const input = num(req?.result?.metadata?.promptTokens) || num(req?.promptTokens);
-    if (!input && !output && !credits) { return; } // request aún sin respuesta
+    if (!input && !output && !credits) { return; } // request without a response yet
     out.push({ key, ts, model: modelOf(session, req), mode, input, cached: 0, output, credits });
   });
   return out;

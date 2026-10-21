@@ -4,7 +4,7 @@ import * as path from 'path';
 
 const APP_NAMES = ['Code', 'Code - Insiders', 'VSCodium'];
 
-/** Carpetas «User» de VS Code según el sistema operativo (Windows: %APPDATA%, macOS: Application Support, Linux: ~/.config). */
+/** VS Code "User" folders per operating system (Windows: %APPDATA%, macOS: Application Support, Linux: ~/.config). */
 export function defaultRoots(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): string[] {
   const p = platform === 'win32' ? path.win32 : path.posix;
   const base = platform === 'win32' ? env.APPDATA ?? p.join(env.USERPROFILE ?? home, 'AppData', 'Roaming')
@@ -13,12 +13,12 @@ export function defaultRoots(platform: NodeJS.Platform = process.platform, env: 
   return APP_NAMES.map(n => p.join(base, n, 'User'));
 }
 
-/** Carpeta User de la instalación que ejecuta la extensión (…/User/globalStorage/<ext> → …/User); cubre instalaciones portables. */
+/** User folder of the installation running the extension (…/User/globalStorage/<ext> → …/User); covers portable installs. */
 export function runningUserRoot(globalStoragePath: string): string {
   return path.dirname(path.dirname(globalStoragePath));
 }
 
-/** Quita rutas repetidas (en Windows y macOS sin distinguir mayúsculas, p. ej. `c:\` frente a `C:\`). */
+/** Removes duplicate paths (case-insensitive on Windows and macOS, e.g. `c:\` vs `C:\`). */
 export function uniqueRoots(roots: string[], platform: NodeJS.Platform = process.platform): string[] {
   const seen = new Set<string>();
   return roots.filter(r => {
@@ -32,7 +32,7 @@ function listDir(dir: string): fs.Dirent[] {
   try { return fs.readdirSync(dir, { withFileTypes: true }); } catch { return []; }
 }
 
-/** session.db del agent host (VS Code reciente): <Code>\agentSessionData\<id>\session.db, junto a la carpeta User. */
+/** The agent host's session.db (recent VS Code): <Code>\agentSessionData\<id>\session.db, next to the User folder. */
 export function findAgentDbs(roots: string[]): string[] {
   const out: string[] = [];
   for (const root of roots) {
@@ -47,7 +47,7 @@ export function findAgentDbs(roots: string[]): string[] {
 
 export const hostDbOf = (root: string) => path.join(root, 'globalStorage', 'agent-host.db');
 
-/** Todos los archivos de sesión (.jsonl y .json legado) bajo las raíces User. */
+/** All session files (.jsonl and legacy .json) under the User roots. */
 export function findSessionFiles(roots: string[]): string[] {
   const dirs: string[] = [];
   for (const root of roots) {

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Instala la última versión de TokenBinder en VS Code (macOS y Linux).
+# Installs the latest version of TokenBinder in VS Code (macOS and Linux).
 #   curl -fsSL https://raw.githubusercontent.com/SoreviR/token-binder/main/install.sh | bash
-# Descarga el .vsix del último Release de GitHub y lo instala con `code --install-extension`.
+# Downloads the .vsix of the latest GitHub Release and installs it with `code --install-extension`.
 set -euo pipefail
 repo='SoreviR/token-binder'
 
@@ -21,21 +21,21 @@ find_code() {
 }
 
 code_bin="$(find_code)" || {
-  echo "No encontré el comando 'code'. Abre VS Code y ejecuta 'Shell Command: Install 'code' command in PATH' (Cmd/Ctrl+Shift+P)." >&2
+  echo "Could not find the 'code' command. Open VS Code and run 'Shell Command: Install 'code' command in PATH' (Cmd/Ctrl+Shift+P)." >&2
   exit 1
 }
 
-echo "Buscando la última versión de $repo ..."
+echo "Looking for the latest version of $repo ..."
 release="$(curl -fsSL -H 'User-Agent: tokenbinder-installer' "https://api.github.com/repos/$repo/releases/latest")"
 url="$(printf '%s' "$release" | grep -o '"browser_download_url": *"[^"]*\.vsix"' | head -n1 | sed 's/.*"\(https[^"]*\)"/\1/')"
-[ -n "$url" ] || { echo "El último release no tiene archivo .vsix." >&2; exit 1; }
+[ -n "$url" ] || { echo "The latest release has no .vsix file." >&2; exit 1; }
 
 file="$(mktemp -d)/$(basename "$url")"
-echo "Descargando $(basename "$url") ..."
+echo "Downloading $(basename "$url") ..."
 curl -fsSL "$url" -o "$file"
 
 "$code_bin" --install-extension "$file" --force
 rm -f "$file"
 
 echo
-echo "Listo. Cierra y vuelve a abrir VS Code, y configura 'tokenBinder.quota.monthlyLimit' con tu cupo."
+echo "Done. Close and reopen VS Code, and set 'tokenBinder.quota.monthlyLimit' to your quota."

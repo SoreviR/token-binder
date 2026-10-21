@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { parseLegacyState } from '../src/legacy';
 
-// legacy.ts es la parte pura (sin vscode); migrate.ts, que sí usa la API de VS Code, se verifica a mano.
-test('parseLegacyState: extrae el juego v2 y las fechas de la versión antigua', () => {
+// legacy.ts is the pure part (no vscode); migrate.ts, which does use the VS Code API, is verified by hand.
+test('parseLegacyState: extracts the v2 game and the dates from the old version', () => {
   const stored = JSON.stringify({
     'pokeToken.game.v1': { egg: true },
     'pokeToken.game.v2': { v: 2, collection: { a: { count: 1 } }, coins: 12, slots: [null] },
@@ -16,7 +16,7 @@ test('parseLegacyState: extrae el juego v2 y las fechas de la versión antigua',
   assert.deepEqual(s.alerts.fired, [50]);
 });
 
-test('parseLegacyState: ignora el juego de sprites (v1), JSON roto y valores ausentes', () => {
+test('parseLegacyState: ignores the sprites game (v1), broken JSON and missing values', () => {
   assert.equal(parseLegacyState(JSON.stringify({ 'pokeToken.game.v1': { egg: true } })).game, undefined);
   assert.deepEqual(parseLegacyState('{no es json'), {});
   assert.deepEqual(parseLegacyState(undefined), {});

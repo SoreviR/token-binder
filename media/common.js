@@ -1,14 +1,23 @@
-// Piezas compartidas por el panel lateral (main.js) y la pestaña del álbum (album.js).
+// Pieces shared by the side panel (main.js) and the album tab (album.js).
 window.PT = (function () {
-  const TIERS = ['Común', 'Poco común', 'Rara', 'Holo', 'Ultra', 'Ilustración', 'Secreta'];
   const TCOLOR = ['--t0', '--t1', '--t2', '--t3', '--t4', '--t5', '--t6'];
   const fmt = n => n >= 1e9 ? (n / 1e9).toFixed(2) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'K' : String(Math.round(n * 100) / 100);
+
+  /* ───── language ───── */
+  let lang = 'en';
+  /** Switches the language; the host sends it with every state message. Unknown values fall back to English. */
+  function setLang(l) { lang = window.I18N[l] ? l : 'en'; }
+  /** Looks up a string and fills in {0}, {1}… An unknown key shows the key itself. */
+  function t(key, ...args) {
+    const text = window.I18N[lang][key] ?? window.I18N.en[key] ?? key;
+    return text.replace(/\{(\d+)\}/g, (m, i) => (args[Number(i)] !== undefined ? String(args[Number(i)]) : m));
+  }
 
   function el(tag, props, ...kids) {
     const e = document.createElement(tag);
     for (const [k, v] of Object.entries(props || {})) {
       if (k === 'class') e.className = v; else if (k === 'text') e.textContent = v;
-      else if (k === 'style') e.style.cssText = v; // CSSOM: permitido por el CSP (setAttribute('style') no)
+      else if (k === 'style') e.style.cssText = v; // CSSOM: allowed by the CSP (setAttribute('style') is not)
       else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
       else e.setAttribute(k, v);
     }
@@ -16,13 +25,13 @@ window.PT = (function () {
     return e;
   }
 
-  const badge = t => el('span', { class: 'badge b' + t, text: TIERS[t] });
+  const badge = tier => el('span', { class: 'badge b' + tier, text: t('tier.' + tier) });
 
-  /** Carta con inclinación 3D que sigue al ratón y brillo holográfico según la rareza. */
+  /** Card with a 3D tilt that follows the mouse and a holographic shine depending on the rarity. */
   function cardEl(c, width) {
     const face = c.src ? el('img', { src: c.src, alt: c.name, draggable: 'false' }) : el('div', { class: 'missing', text: c.name });
     const root = el('div', { class: 'card3d t' + c.tier + (c.variant ? ' v-' + c.variant : ''), style: '--w:' + (width || 150) + 'px' },
-      el('div', { class: 'inner' }, face, el('div', { class: 'foil' }), el('div', { class: 'glare' }), c.variant ? el('div', { class: 'vtag', text: c.variant === 'first' ? '1.ª ED.' : 'SHADOWLESS' }) : null));
+      el('div', { class: 'inner' }, face, el('div', { class: 'foil' }), el('div', { class: 'glare' }), c.variant ? el('div', { class: 'vtag', text: t('variant.tag.' + c.variant) }) : null));
     root.addEventListener('pointermove', e => {
       const r = root.getBoundingClientRect();
       const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
@@ -40,7 +49,7 @@ window.PT = (function () {
     return root;
   }
 
-  /** Hace que un elemento clicable también funcione con teclado (Tab, Enter, Espacio). */
+  /** Makes a clickable element work with the keyboard too (Tab, Enter, Space). */
   function press(node, fn, label) {
     node.setAttribute('tabindex', '0');
     node.setAttribute('role', 'button');
@@ -50,37 +59,40 @@ window.PT = (function () {
     return node;
   }
 
-  /** Línea de datos de una carta: era, variante, rareza, etapa, PS y set. */
-  const info = c => [c.era, c.variantLabel, c.rarity, c.stage, c.hp ? c.hp + ' PS' : '', c.set].filter(Boolean).join(' · ');
+  const eraName = c => (c.era ? t('era.' + c.era) : '');
+  const variantName = c => (c.variant ? t('variant.' + c.variant) : '');
 
-  /** «≈ 3 días» a partir de los tokens que faltan y el ritmo diario. Vacío si no hay ritmo. */
+  /** Data line of a card: era, variant, rarity, stage, HP and set. */
+  const info = c => [eraName(c), variantName(c), c.rarity, c.stage, c.hp ? t('info.hp', c.hp) : '', c.set].filter(Boolean).join(' · ');
+
+  /** "≈ 3 days" from the tokens left and the daily pace. Empty when there is no pace. */
   function eta(remaining, perDay) {
     if (!(perDay > 0) || !(remaining > 0)) return '';
     const d = remaining / perDay;
-    return d < 1 ? '≈ menos de 1 día' : d < 60 ? '≈ ' + (d < 10 ? d.toFixed(1) : Math.round(d)) + ' días' : '≈ ' + Math.round(d / 30) + ' meses';
+    return d < 1 ? t('eta.lt1') : d < 60 ? t('eta.days', d < 10 ? d.toFixed(1) : Math.round(d)) : t('eta.months', Math.round(d / 30));
   }
 
-  /** Nivel, barra de XP y stats de combate de una carta. */
+  /** Level, XP bar and combat stats of a card. */
   function statsEl(c) {
     const s = c.stats;
     const cell = (k, v) => el('div', { class: 'stat' }, el('span', { class: 'k', text: k }), el('b', { text: String(v) }));
     return el('div', { class: 'stats' },
-      el('div', { class: 'row' }, el('b', { text: 'Nv. ' + s.level + (s.level >= 50 ? ' (máx.)' : '') }), c.mastered ? el('span', { class: 'master', text: '★ Maestra' }) : null),
+      el('div', { class: 'row' }, el('b', { text: t('stats.level', s.level) + (s.level >= 50 ? t('stats.max') : '') }), c.mastered ? el('span', { class: 'master', text: t('stats.master') }) : null),
       el('div', { class: 'barwrap lv' }, el('i', { style: 'width:' + Math.max(0, Math.min(100, c.lvPct)).toFixed(1) + '%' })),
-      el('div', { class: 'statgrid' }, cell('PS', s.hp), cell('ATQ', s.atk), cell('DEF', s.def), cell('VEL', s.spd)),
-      c.basic ? el('div', { class: 'sub', text: 'Stats estimadas: faltan datos de la carta (se completan con conexión).' }) : null);
+      el('div', { class: 'statgrid' }, cell(t('stats.hp'), s.hp), cell(t('stats.atk'), s.atk), cell(t('stats.def'), s.def), cell(t('stats.spd'), s.spd)),
+      c.basic ? el('div', { class: 'sub', text: t('stats.basic') }) : null);
   }
 
-  /** Valor de mercado aproximado y etiqueta de coleccionismo. */
+  /** Approximate market value and collectibility label. */
   function marketEl(c) {
-    if (c.market === undefined) return el('div', { class: 'sub center', text: 'Sin precio de mercado' });
+    if (c.market === undefined) return el('div', { class: 'sub center', text: t('market.none') });
     const parts = [];
     if (c.eur !== undefined) parts.push('€' + c.eur.toFixed(2) + ' Cardmarket');
     if (c.usd !== undefined) parts.push('$' + c.usd.toFixed(2) + ' TCGplayer');
     return el('div', { class: 'market' },
-      el('span', { class: 'coll', text: c.collector }),
-      el('span', { class: 'sub', text: parts.join(' · ') + (c.priceAt ? ' · ' + new Date(c.priceAt).toLocaleDateString() : '') }));
+      el('span', { class: 'coll', text: c.collector ? t('collector.' + c.collector) : '' }),
+      el('span', { class: 'sub', text: parts.join(' · ') + (c.priceAt ? ' · ' + new Date(c.priceAt).toLocaleDateString(lang) : '') }));
   }
 
-  return { TIERS, TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl };
+  return { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName };
 })();

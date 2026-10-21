@@ -5,16 +5,16 @@ import { parseDamage, parsePricing } from './stats';
 
 const BASE = 'https://api.tcgdex.net/v2/en';
 const TIMEOUT = 12_000;
-const PRICE_TTL = 7 * 864e5;  // el precio se vuelve a consultar al ver una carta si tiene más de 7 días
-const MAX_ATTEMPTS = 14; // intentos (set, rareza) por carta antes de bajar a otra era
+const PRICE_TTL = 7 * 864e5;  // the price is fetched again when viewing a card if it is more than 7 days old
+const MAX_ATTEMPTS = 14; // (set, rarity) attempts per card before falling back to another era
 
 interface ListItem { id: string; name: string; image?: string }
 
-/** Cliente mínimo de TCGdex (https://tcgdex.dev, sin clave). Todo lo descargado queda en disco. */
+/** Minimal TCGdex client (https://tcgdex.dev, no key). Everything downloaded is kept on disk. */
 export class Tcgdex {
   private lists = new Map<string, ListItem[]>();
-  private eraSets?: Map<Era, string[]>;       // era → ids de sets
-  private setEra = new Map<string, Era>();    // id de set → era
+  private eraSets?: Map<Era, string[]>;       // era → set ids
+  private setEra = new Map<string, Era>();    // set id → era
 
   constructor(private dir: string, private rng: () => number = Math.random) {
     fs.mkdirSync(path.join(dir, 'img'), { recursive: true });
@@ -32,12 +32,12 @@ export class Tcgdex {
     } catch { return undefined; }
   }
 
-  /** Qué sets pertenecen a cada era (se baja una vez y se guarda en disco). undefined si no hay red ni caché. */
+  /** Which sets belong to each era (downloaded once and saved on disk). undefined when there is neither network nor cache. */
   private async loadEras(): Promise<Map<Era, string[]> | undefined> {
     if (this.eraSets) { return this.eraSets; }
     const file = path.join(this.dir, 'eras.json');
     let data: Record<string, string[]> | undefined;
-    try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* sin caché */ }
+    try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* no cache */ }
     if (!data) {
       data = {};
       const series = ERAS.flatMap(e => e.series);
@@ -57,7 +57,7 @@ export class Tcgdex {
     return map;
   }
 
-  /** Lista cartas con imagen que cumplen el filtro; undefined si la red falló (distinto de lista vacía). */
+  /** Lists cards with an image that match the filter; undefined if the network failed (different from an empty list). */
   private async list(filter: Record<string, string>): Promise<ListItem[] | undefined> {
     const qs = new URLSearchParams({ ...filter, 'pagination:itemsPerPage': '500' }).toString();
     const hit = this.lists.get(qs);
@@ -69,12 +69,12 @@ export class Tcgdex {
     return items;
   }
 
-  /** Convierte la respuesta de TCGdex en una carta (undefined si no es una carta de Pokémon con imagen). */
+  /** Turns a TCGdex response into a card (undefined if it is not a Pokémon card with an image). */
   private parseCard(c: any): Card | undefined {
     if (!c || c.category !== 'Pokemon' || !c.image || !c.name) { return undefined; }
     const holo = !!c.variants?.holo;
     let tier = tierOf(c.rarity);
-    if (holo && tier < 3) { tier = 3; } // en lo vintage una holo figura como «Rare»
+    if (holo && tier < 3) { tier = 3; } // in vintage a holo is listed as "Rare"
     const types = (list: any): string[] | undefined => (Array.isArray(list) && list.length ? list.map((x: any) => String(x.type)) : undefined);
     return {
       id: c.id, name: c.name, rarity: c.rarity ?? 'Common', tier, stage: c.stage, evolveFrom: c.evolveFrom,
@@ -90,7 +90,7 @@ export class Tcgdex {
 
   private cardFile(id: string): string { return path.join(this.dir, 'cards', `${this.safe(id)}.json`); }
 
-  /** Baja la carta de la red y la guarda en disco. undefined si falla. */
+  /** Downloads the card and saves it on disk. undefined on failure. */
   private async fetchCard(id: string): Promise<Card | undefined> {
     const card = this.parseCard(await this.getJson(`${BASE}/cards/${encodeURIComponent(id)}`));
     if (card) { fs.writeFileSync(this.cardFile(id), JSON.stringify(card)); }
@@ -99,18 +99,18 @@ export class Tcgdex {
 
   async detail(id: string): Promise<Card | undefined> {
     let card: Card | undefined;
-    try { card = JSON.parse(fs.readFileSync(this.cardFile(id), 'utf8')); } catch { /* no está en caché */ }
-    // Una caché anterior a los ataques y precios se completa cuando hay red; sin red se sigue con lo que hay.
+    try { card = JSON.parse(fs.readFileSync(this.cardFile(id), 'utf8')); } catch { /* not cached */ }
+    // A cache from before attacks and prices is completed when there is a network; offline we carry on with what we have.
     if (!card || card.cv !== CARD_DATA_VERSION) { card = (await this.fetchCard(id)) ?? card; }
     if (!card) { return undefined; }
-    // La era se calcula siempre (no se guarda): así una caché antigua sin era también se actualiza.
+    // The era is always computed (not stored), so an old cache without an era is updated too.
     if (card.setId && !card.era) { await this.loadEras(); card.era = this.setEra.get(card.setId); }
     return card;
   }
 
   /**
-   * Completa una carta del álbum con ataques y precio actuales. Si ya está al día (y el precio es reciente, salvo
-   * `force`) la devuelve igual; si no hay red devuelve undefined. El resultado conserva la variante del ejemplar.
+   * Fills in an album card with current attacks and price. If it is already up to date (and the price is recent,
+   * unless `force`) it is returned as is; with no network it returns undefined. The result keeps the copy's variant.
    */
   async enrich(card: Card, force = false): Promise<Card | undefined> {
     const stale = card.cv !== CARD_DATA_VERSION || (force && Date.now() - (card.priceAt ?? 0) > PRICE_TTL);
@@ -121,7 +121,7 @@ export class Tcgdex {
     return { ...fresh, era: fresh.era ?? card.era, variant: card.variant };
   }
 
-  /** Ruta local de la imagen (la descarga si hace falta). undefined sin red. */
+  /** Local path of the image (downloaded if needed). undefined when offline. */
   async image(card: Card, quality: 'low' | 'high'): Promise<string | undefined> {
     const file = path.join(this.dir, 'img', `${this.safe(card.id)}-${quality}.webp`);
     if (fs.existsSync(file)) { return file; }
@@ -140,7 +140,7 @@ export class Tcgdex {
     return fs.existsSync(file) ? file : undefined;
   }
 
-  /** Una carta de la era pedida que cumpla su filtro premium; si no encuentra, prueba otras eras. undefined solo sin red. */
+  /** A card of the requested era that passes its premium filter; if none is found, other eras are tried. undefined only when offline. */
   private async rollCard(era: Era, luck: number): Promise<Card | undefined> {
     const eras = await this.loadEras();
     if (!eras) { return undefined; }
@@ -169,7 +169,7 @@ export class Tcgdex {
     return cards.filter((c): c is Card => !!c);
   }
 
-  /** Siguiente carta de la línea (evolveFrom = nombre actual): prefiere las del filtro premium y la rareza más parecida. */
+  /** Next card in the line (evolveFrom = current name): prefers those passing the premium filter and the most similar rarity. */
   findNext: FindNext = async card => {
     const all = await this.list({ 'evolveFrom': `eq:${card.name}` });
     if (!all) { return { ok: false }; }
@@ -180,7 +180,7 @@ export class Tcgdex {
     const score = (c: Card) => (isPremium(c) ? 0 : 100) + Math.abs(c.tier - card.tier) * 3 - (c.tier > card.tier ? 1 : 0);
     cards.sort((a, b) => score(a) - score(b));
     const best = cards[0];
-    // La variante Shadowless no se hereda: es un ejemplar concreto, no una línea.
+    // The Shadowless variant is not inherited: it is a specific copy, not a line.
     return { ok: true, card: { ...best, variant: undefined } };
   };
 }

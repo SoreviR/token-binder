@@ -1,190 +1,198 @@
 # TokenBinder
 
-Extensión de VS Code que mide los tokens que consumes en **GitHub Copilot Chat** mientras trabajas y los convierte en **sobres de cartas del Pokémon TCG**: abres sobres, coleccionas cartas de distintas rarezas (con efecto holográfico 3D) y las pones a entrenar para que evolucionen con tus tokens. En la barra de estado ves cuánto llevas gastado y qué **porcentaje de tu cupo mensual** representa.
+**English** · [Español](README.es.md)
 
-Proyecto personal no oficial, sin relación con GitHub, Microsoft, Nintendo ni The Pokémon Company.
+A VS Code extension that measures the tokens you spend in **GitHub Copilot Chat** while you work and turns them into **Pokémon TCG booster packs**: you open packs, collect cards of different rarities (with a 3D holographic effect) and put them to train so they evolve with your tokens. The status bar shows how much you have spent and what **percentage of your monthly quota** that represents.
+
+Unofficial personal project, not affiliated with GitHub, Microsoft, Nintendo or The Pokémon Company.
 
 ```
-🔥 1.24M · 42%        ← barra de estado (amarilla desde 80 %, roja al 100 %)
+🔥 1.24M · 42%        ← status bar (yellow from 80%, red at 100%)
 ```
 
-## Qué hace
+## What it does
 
-- **Contador en vivo** en la barra de estado: tokens usados en el periodo y % del cupo. Se actualiza en pocos segundos tras cada respuesta del chat.
-- **Aviso de sobres**: junto al contador aparece `🎁 N` cuando tienes sobres o Pokébolas sin abrir; al pulsarlo se abre el panel.
-- **Tooltip con desglose** de hoy, del mes y por modelo.
-- **Panel lateral** (ícono de TokenBinder en la barra de actividad): sobres, carta en entrenamiento, álbum, cuota, gráfico por día y uso por modelo.
-- **Alertas** al cruzar el 50 %, 80 % y 100 % del cupo.
-- **Funciona con cualquier modelo** que tengas habilitado en Copilot (se cuenta por modelo) y con los modos de chat que uses.
+- **Live counter** in the status bar: tokens used in the period and % of the quota. It updates a few seconds after every chat response.
+- **Pack notice**: next to the counter `🎁 N` appears when you have unopened packs or Poké Balls; click it to open the panel.
+- **Tooltip with a breakdown** for today, the month and per model.
+- **Side panel** (TokenBinder icon in the activity bar): packs, card in training, album, quota, per-day chart and usage per model.
+- **Alerts** when you cross 50%, 80% and 100% of the quota.
+- **Works with any model** enabled in Copilot (counted per model) and with any chat mode you use.
+- **English and Spanish**: the interface follows VS Code's language by default, or pick one with the `tokenBinder.language` setting.
 
-## Si venías de PokeToken
+## Coming from PokeToken
 
-TokenBinder es el nuevo nombre de **PokeToken** (la misma extensión, ahora centrada en cartas). Al instalar TokenBinder y abrir VS Code por primera vez se **migra solo** tu progreso (álbum, monedas, cartas en entrenamiento), tus ajustes `pokeToken.*` (que pasan a `tokenBinder.*`) y las imágenes ya descargadas, y se te ofrece desinstalar PokeToken para no tener dos extensiones iguales. Si no quieres conservar las cartas antiguas, usa `F1` → **TokenBinder: Reiniciar progreso**.
+TokenBinder is the new name of **PokeToken** (the same extension, now focused on cards). When you install TokenBinder and open VS Code for the first time, your progress (album, coins, cards in training), your `pokeToken.*` settings (which become `tokenBinder.*`) and the images already downloaded are **migrated automatically**, and you are offered to uninstall PokeToken so you do not have two identical extensions. If you do not want to keep the old cards, use `F1` → **TokenBinder: Reset progress**.
 
-## Instalación
+## Installation
 
-Requisitos: **Windows, macOS o Linux**, VS Code 1.90 o superior con el comando `code` en el PATH, y Copilot Chat. (El soporte de macOS y Linux llegó en la 1.2.0; hasta la 1.1 solo se leía la carpeta de datos de Windows.)
+Requirements: **Windows, macOS or Linux**, VS Code 1.90 or newer with the `code` command on the PATH, and Copilot Chat. (macOS and Linux support arrived in 1.2.0; up to 1.1 only the Windows data folder was read.)
 
-### Opción 1: un comando (recomendada)
+### Option 1: one command (recommended)
 
-En **Windows** (PowerShell):
+On **Windows** (PowerShell):
 
 ```powershell
 irm https://raw.githubusercontent.com/SoreviR/token-binder/main/install.ps1 | iex
 ```
 
-En **macOS / Linux** (Terminal):
+On **macOS / Linux** (Terminal):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/SoreviR/token-binder/main/install.sh | bash
 ```
 
-Descarga el `.vsix` del último [Release](https://github.com/SoreviR/token-binder/releases/latest) y lo instala. Puedes leer los scripts antes de ejecutarlos: [`install.ps1`](install.ps1) e [`install.sh`](install.sh). En Mac, si dice que no encuentra `code`, abre VS Code y ejecuta `Cmd+Shift+P` → *Shell Command: Install 'code' command in PATH*; el script también prueba la ruta de `/Applications` por su cuenta.
+It downloads the `.vsix` from the latest [Release](https://github.com/SoreviR/token-binder/releases/latest) and installs it. You can read the scripts before running them: [`install.ps1`](install.ps1) and [`install.sh`](install.sh). On a Mac, if it says it cannot find `code`, open VS Code and run `Cmd+Shift+P` → *Shell Command: Install 'code' command in PATH*; the script also tries the `/Applications` path on its own.
 
-### Opción 2: a mano
+### Option 2: by hand
 
-1. Descarga `token-binder-X.Y.Z.vsix` desde [Releases](https://github.com/SoreviR/token-binder/releases/latest).
-2. En VS Code: `Ctrl+Shift+P` → **Extensions: Install from VSIX…** → elige el archivo. O por terminal:
+1. Download `token-binder-X.Y.Z.vsix` from [Releases](https://github.com/SoreviR/token-binder/releases/latest).
+2. In VS Code: `Ctrl+Shift+P` → **Extensions: Install from VSIX…** → pick the file. Or from a terminal:
    ```powershell
    code --install-extension token-binder-X.Y.Z.vsix
    ```
 
-Después **reinicia VS Code**. Para actualizar, repite cualquiera de las dos opciones.
+Then **restart VS Code**. To update, repeat either option.
 
-## Configuración
+## Configuration
 
-Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porcentaje como *tu uso local ÷ el límite que tú configures*. Pregunta a tu administrador cuál es tu cupo.
+This extension **does not query GitHub or your organization**: it computes the percentage as *your local usage ÷ the limit you configure*. Ask your administrator what your quota is.
 
-**Forma rápida:** pulsa `F1`, escribe **TokenBinder: Configurar cupo mensual**, elige la unidad y escribe el número (acepta `5M`, `750k`, `5000000`). También puedes pasar el ratón sobre el contador de la barra de estado y pulsar *Configurar cupo*.
+**Quick way:** press `F1`, type **TokenBinder: Set monthly quota**, choose the unit and enter the number (accepts `5M`, `750k`, `5000000`). You can also hover the status bar counter and click *Set quota*.
 
-**Forma manual:** `F1` → **TokenBinder: Abrir ajustes** (o `Ctrl+,` y busca `tokenBinder`). Los ajustes disponibles:
+**Manual way:** `F1` → **TokenBinder: Open settings** (or `Ctrl+,` and search for `tokenBinder`). Available settings:
 
-| Ajuste | Por defecto | Descripción |
+| Setting | Default | Description |
 |---|---|---|
-| `tokenBinder.quota.monthlyLimit` | `5000000` | Tu cupo mensual, en la unidad elegida. **Cámbialo**: el valor por defecto es solo un marcador. |
-| `tokenBinder.quota.unit` | `tokens` | `tokens` o `credits` (créditos de IA de Copilot). |
-| `tokenBinder.quota.resetDay` | `1` | Día del mes (UTC) en que se reinicia el cupo. |
-| `tokenBinder.alerts.thresholds` | `[50, 80, 100]` | Porcentajes que disparan un aviso. |
-| `tokenBinder.packs.everyTokens` | `750000` | Cada cuántos tokens usados ganas un sobre. |
-| `tokenBinder.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
-| `tokenBinder.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
+| `tokenBinder.language` | `auto` | Interface language: `auto` (follows VS Code: Spanish if it is Spanish, English otherwise), `en` or `es`. Changes live, no restart needed. |
+| `tokenBinder.quota.monthlyLimit` | `5000000` | Your monthly quota, in the chosen unit. **Change it**: the default is only a placeholder. |
+| `tokenBinder.quota.unit` | `tokens` | `tokens` or `credits` (Copilot AI credits). |
+| `tokenBinder.quota.resetDay` | `1` | Day of the month (UTC) on which the quota resets. |
+| `tokenBinder.alerts.thresholds` | `[50, 80, 100]` | Percentages that trigger a warning. |
+| `tokenBinder.packs.everyTokens` | `750000` | Every how many tokens used you earn a pack. |
+| `tokenBinder.growth.multiplier` | `1` | Scales the tokens each card needs to evolve (0.1–2). |
+| `tokenBinder.storageRoots` | `[]` | VS Code `User` folders to read, if you use a non-standard installation. |
 
-Comandos (`F1`): **TokenBinder: Abrir álbum**, **TokenBinder: Exportar progreso**, **TokenBinder: Importar progreso**, **TokenBinder: Reiniciar progreso**, **TokenBinder: Configurar cupo mensual**, **TokenBinder: Abrir ajustes**, **TokenBinder: Abrir panel** y **TokenBinder: Recalcular uso**.
+Command titles and the setting descriptions in VS Code's Settings editor follow VS Code's display language; everything else (panel, album, notices, dialogs) follows `tokenBinder.language`.
 
-## Cómo se juega
+Commands (`F1`): **TokenBinder: Open album**, **TokenBinder: Export progress**, **TokenBinder: Import progress**, **TokenBinder: Reset progress**, **TokenBinder: Set monthly quota**, **TokenBinder: Open settings**, **TokenBinder: Open panel** and **TokenBinder: Recalculate usage**.
 
-1. **Ganas sobres con tus tokens.** Empiezas con uno de bienvenida y recibes otro cada 750 K tokens usados (`packs.everyTokens`). Si llegas al **100 % del cupo** en un periodo, ganas un sobre extra de regalo.
-2. **Abres el sobre** (botón *Abrir sobre*): salen 2 cartas reales del Pokémon TCG, **solo cartas de colección**. No hay comunes ni rarezas normales: cuanto más moderna es la era, más alta es la rareza mínima exigida.
+## How to play
 
-   | Era | Series | Qué puede salir |
+1. **You earn packs with your tokens.** You start with a welcome pack and get another every 750K tokens used (`packs.everyTokens`). If you reach **100% of the quota** in a period, you earn an extra gift pack.
+2. **Open the pack** (*Open pack* button): 2 real Pokémon TCG cards come out, **collector cards only**. There are no commons or plain rarities: the more modern the era, the higher the minimum rarity required.
+
+   | Era | Series | What can come out |
    |---|---|---|
-   | **Vintage** | Base, Gym, Neo, Legendary Collection, e-Card | Solo holográficas (Base Set, Jungle, Fossil, Neo, Aquapolis, Skyridge…) |
-   | **Clásica** | EX, Diamond & Pearl, Platinum, HeartGold SoulSilver, Call of Legends | Solo holográficas, incluidas LV.X, Prime y LEGEND, y Ultra Rare |
-   | **Black & White / XY** | BW, XY | Ultra Rare (EX y full art) y Secret Rare |
-   | **Moderna** | Sun & Moon, Sword & Shield | V, VMAX, VSTAR, Ultra, Secret, Radiant, Amazing, Shiny V… |
-   | **Actual** | Scarlet & Violet y posteriores | Illustration rare, Special illustration rare, Hyper rare, Ultra y Secret |
+   | **Vintage** | Base, Gym, Neo, Legendary Collection, e-Card | Holographic cards only (Base Set, Jungle, Fossil, Neo, Aquapolis, Skyridge…) |
+   | **Classic** | EX, Diamond & Pearl, Platinum, HeartGold SoulSilver, Call of Legends | Holographic only, including LV.X, Prime and LEGEND, and Ultra Rare |
+   | **Black & White / XY** | BW, XY | Ultra Rare (EX and full art) and Secret Rare |
+   | **Modern** | Sun & Moon, Sword & Shield | V, VMAX, VSTAR, Ultra, Secret, Radiant, Amazing, Shiny V… |
+   | **Current** | Scarlet & Violet and later | Illustration rare, Special illustration rare, Hyper rare, Ultra and Secret |
 
-   Cada carta de un sobre normal viene de una era según estas probabilidades aproximadas: Vintage 34 %, Clásica 28 %, BW/XY 16 %, Moderna 14 %, Actual 8 %. La **última carta** del sobre es la «estrella» y favorece las eras modernas (Moderna 26 %, Actual 20 %). El **sobre premium** trae 2 cartas de ese tipo, con la última aún más moderna, y la **Pokébola** es una sola carta de reparto normal.
+   Each card of a regular pack comes from an era with these approximate probabilities: Vintage 34%, Classic 28%, BW/XY 16%, Modern 14%, Current 8%. The **last card** of the pack is the "star" and favors the modern eras (Modern 26%, Current 20%). The **premium pack** has 2 cards of that kind, with the last one even more modern, and the **Poké Ball** is a single card with the normal distribution.
 
-   **Shadowless:** las cartas del Set Base pueden salir en su variante **Shadowless** (24 %) o **1.ª edición Shadowless** (6 %). Son ejemplares distintos en el álbum, con etiqueta y brillo dorado, y se venden más caras.
-3. **Pon una carta a entrenar** (*Entrenar*, en el sobre o desde el álbum). Mientras usas tokens, su barra avanza y el panel estima cuántos días faltan según tu ritmo de los últimos 7 días. A los ~1.5 M tokens **evoluciona** a la carta siguiente de su línea (por ejemplo Charmander → Charmeleon → Charizard), prefiriendo cartas que cumplan el filtro de arriba y una rareza parecida; las siguientes etapas duran ~4.5 M, ~6 M y ~8 M tokens. Cuando ya no tiene más evoluciones **completa su línea**, te da **un sobre** (una sola vez por carta) y se queda en el hueco como **Maestra**, sin dejar de ganar nivel. `growth.multiplier` escala estas duraciones. Como en las eras antiguas muchas holográficas son ya la forma final, es normal que algunas cartas se gradúen sin evolucionar. Con *Retirar* liberas el hueco sin perder nada.
-4. **Coleccionas** todo en el álbum. En el panel lateral ves un resumen y las 3 últimas cartas; el botón **Abrir álbum** (o `F1` → *TokenBinder: Abrir álbum*) lo abre en una pestaña grande del editor, con búsqueda por nombre, set o rareza, filtro por rareza y por era, orden (rareza, recientes, nombre, repetidas) y visor de carta en grande desde donde puedes entrenarla o **vender las copias repetidas**. Todo se puede usar con el teclado (Tab, Enter, Espacio, Esc).
+   **Shadowless:** Base Set cards can come out as their **Shadowless** variant (24%) or **1st Edition Shadowless** (6%). They are different copies in the album, with a tag and a golden glow, and they sell for more.
+3. **Put a card to train** (*Train*, on the pack screen or from the album). While you use tokens, its bar advances and the panel estimates how many days are left based on your pace over the last 7 days. After ~1.5M tokens it **evolves** into the next card of its line (for example Charmander → Charmeleon → Charizard), preferring cards that pass the filter above and a similar rarity; the following stages last ~4.5M, ~6M and ~8M tokens. When it has no more evolutions it **completes its line**, gives you **a pack** (once per card) and stays in the slot as a **Master**, still gaining levels. `growth.multiplier` scales these durations. Since many holographic cards from the old eras are already a final form, it is normal for some cards to graduate without evolving. With *Retire* you free the slot without losing anything.
+4. **You collect** everything in the album. The side panel shows a summary and your 3 latest cards; the **Open album** button (or `F1` → *TokenBinder: Open album*) opens it in a large editor tab, with search by name, set or rarity, filters by rarity and era, sorting (rarity, recent, name, duplicates) and a large card viewer from which you can train the card or **sell duplicate copies**. Everything can be used with the keyboard (Tab, Enter, Space, Esc).
 
-Las cartas muestran una inclinación 3D que sigue al ratón, y las de rareza Holo o superior añaden brillo holográfico (las Ilustración y Secretas tienen efectos propios).
+Cards show a 3D tilt that follows the mouse, and cards of Holo rarity or higher add a holographic shine (Illustration and Secret ones have their own effects).
 
-## Nivel, stats y valor de mercado
+## Level, stats and market value
 
-- **Nivel (1-50):** cada carta suma como XP los tokens que usas mientras está en un hueco de entrenamiento: un nivel cada 400 K tokens (unos 20 M para el 50). Al evolucionar, la carta nueva **hereda el nivel**; las Maestras (como Zapdos, que no evoluciona) siguen subiendo. Retirarla no le quita el nivel.
-- **Stats (PS, ATQ, DEF, VEL):** salen de los datos reales de la carta (PS, daño de sus ataques, coste de retirada), normalizados por era para que una vintage y una VMAX sean comparables, y mejoran con el nivel, la etapa y la rareza. Por ahora solo se muestran; se usarán en los combates. Las cartas que ya tenías se completan solas al abrir el álbum (hace falta conexión).
-- **Valor de mercado:** el visor del álbum muestra un precio aproximado (tendencia de Cardmarket en € y precio de TCGplayer en $), una etiqueta de coleccionismo (*Común de mercado* → *Grail*) y el valor aproximado de toda tu colección. Se actualiza al mirar una carta si tiene más de 7 días. Es el precio de la carta normal (no distingue Shadowless) y es solo informativo: **no cambia** lo que te dan las monedas.
+- **Level (1-50):** each card earns as XP the tokens you use while it is in a training slot: one level per 400K tokens (about 20M for level 50). When it evolves, the new card **inherits the level**; Masters (like Zapdos, which does not evolve) keep growing. Retiring a card does not take its level away.
+- **Stats (HP, ATK, DEF, SPD):** they come from the real card data (HP, damage of its attacks, retreat cost), normalized per era so that a vintage card and a VMAX are comparable, and they improve with level, stage and rarity. For now they are only displayed; they will be used in battles. Cards you already had are completed automatically when you open the album (an internet connection is needed).
+- **Market value:** the album viewer shows an approximate price (Cardmarket trend in € and TCGplayer price in $), a collectibility label (*Market common* → *Grail*) and the approximate value of your whole collection. It is refreshed when you look at a card if it is more than 7 days old. It is the price of the regular card (it does not distinguish Shadowless) and it is informational only: it **does not change** what coins give you.
 
-## Monedas y tienda
+## Coins and shop
 
-Además de los sobres gratis, ganas **1 moneda cada 10 K tokens** usados. Hay un **bonus del +20 %** mientras tu uso del cupo vaya por debajo del ritmo del mes (por ejemplo, llevar un 40 % del cupo a mitad de mes). No se dan monedas por tokens usados antes de instalar la versión 0.3.
+Besides the free packs, you earn **1 coin per 10K tokens** used. There is a **+20% bonus** while your quota usage is below the pace of the month (for example, being at 40% of the quota halfway through the month). No coins are given for tokens used before installing version 0.3.
 
-**Vender repetidas:** cada copia repetida da monedas según su categoría (3 · 6 · 12 · 30 · 70 · 160 · 400, de Común a Secreta), ×2 si es Shadowless y ×5 si es 1.ª edición. Siempre te quedas con una copia. El botón *Vender repetidas* del álbum las vende todas de una vez (pide confirmación).
+**Selling duplicates:** each duplicate copy gives coins according to its tier (3 · 6 · 12 · 30 · 70 · 160 · 400, from Common to Secret), ×2 if Shadowless and ×5 if 1st Edition. You always keep one copy. The *Sell duplicates* button in the album sells them all at once (it asks for confirmation).
 
-| Artículo | Precio | Qué da |
+| Item | Price | What it gives |
 |---|---|---|
-| Sobre | 80 | 2 cartas |
-| Sobre premium | 250 | 2 cartas sin comunes y con mejores probabilidades de Holo o superior |
-| Pokébola | 15 | 1 carta |
-| Hueco de entrenamiento | 400 · 900 · 1 600 · 2 600 · 4 000 | Una carta más creciendo a la vez (hasta 6 huecos) |
-| Mejora de suerte | 300 · 600 · 1 200 · 2 400 · 4 800 | +20 % por nivel al peso de las eras Moderna y Actual en los sobres, y a la probabilidad de variantes Shadowless (5 niveles) |
+| Pack | 80 | 2 cards |
+| Premium pack | 250 | 2 cards with no commons and better odds of Holo or higher |
+| Poké Ball | 15 | 1 card |
+| Training slot | 400 · 900 · 1,600 · 2,600 · 4,000 | One more card growing at a time (up to 6 slots) |
+| Luck upgrade | 300 · 600 · 1,200 · 2,400 · 4,800 | +20% per level to the weight of the Modern and Current eras in packs, and to the probability of Shadowless variants (5 levels) |
 
-Los precios son fijos en esta versión; si te parecen caros o baratos dímelo y se ajustan.
+Prices are fixed in this version; if they seem expensive or cheap, let me know and they will be adjusted.
 
-## Copia de seguridad y cambio de equipo
+## Backup and changing computers
 
-Tu progreso (álbum, monedas, cartas en entrenamiento, compras) vive dentro de VS Code en este equipo. Para guardarlo o llevarlo a otro: `F1` → **TokenBinder: Exportar progreso** crea un archivo `.json`, y en el otro equipo `F1` → **TokenBinder: Importar progreso**. Importar **reemplaza** el progreso actual (pide confirmación).
+Your progress (album, coins, cards in training, purchases) lives inside VS Code on this computer. To save it or take it to another: `F1` → **TokenBinder: Export progress** creates a `.json` file, and on the other computer `F1` → **TokenBinder: Import progress**. Importing **replaces** the current progress (it asks for confirmation).
 
-**Empezar de cero:** `F1` → **TokenBinder: Reiniciar progreso**. Borra álbum, monedas, cartas en entrenamiento y mejoras, y te da un sobre de bienvenida; tus tokens y la configuración del cupo no se tocan. Te ofrece guardar antes una copia con *Exportar y reiniciar*. Los tokens que ya hayas usado en el equipo nuevo no dan monedas ni sobres retroactivos.
+**Start from scratch:** `F1` → **TokenBinder: Reset progress**. It deletes the album, coins, cards in training and upgrades, and gives you a welcome pack; your tokens and quota settings are not touched. It offers to save a copy first with *Export and reset*. Tokens you already used on the new computer give no retroactive coins or packs.
 
-## Privacidad
+## Privacy
 
-Todo es local. La extensión **solo lee** archivos de VS Code en tu equipo y **no envía nada** a ningún servidor. Nunca lee el contenido de tus preguntas ni respuestas: solo los contadores de tokens. Las únicas peticiones de red son **descargas** de datos e imágenes de cartas desde `api.tcgdex.net` y `assets.tcgdex.net` (no se envía ningún dato tuyo); todo lo descargado queda en disco y no se vuelve a pedir. Si tu red corporativa bloquea esos dominios no podrás abrir sobres, pero el contador de tokens y la cuota seguirán funcionando.
+Everything is local. The extension **only reads** VS Code files on your computer and **sends nothing** to any server. It never reads the content of your questions or answers: only the token counters. The only network requests are **downloads** of card data and images from `api.tcgdex.net` and `assets.tcgdex.net` (none of your data is sent); everything downloaded stays on disk and is not requested again. If your corporate network blocks those domains you will not be able to open packs, but the token counter and the quota keep working.
 
-## Cómo funciona
+## How it works
 
-VS Code guarda cada turno del chat con sus tokens en archivos locales; TokenBinder los lee y los suma:
+VS Code stores each chat turn with its tokens in local files; TokenBinder reads and adds them up:
 
-| Versión de VS Code | Dónde está el uso | Formato |
+| VS Code version | Where the usage is | Format |
 |---|---|---|
-| Reciente (probado en 1.142) | `<datos>/Code/agentSessionData/<sesión>/session.db`, tabla `turn_usage` | SQLite |
-| Anterior | `<datos>/Code/User/workspaceStorage/<hash>/chatSessions/*.jsonl` | JSON lines |
+| Recent (tested on 1.142) | `<data>/Code/agentSessionData/<session>/session.db`, table `turn_usage` | SQLite |
+| Earlier | `<data>/Code/User/workspaceStorage/<hash>/chatSessions/*.jsonl` | JSON lines |
 
-`<datos>` es `%APPDATA%` en Windows, `~/Library/Application Support` en macOS y `~/.config` (o `$XDG_CONFIG_HOME`) en Linux. También revisa `Code - Insiders` y `VSCodium`, y siempre la carpeta de la instalación de VS Code que está ejecutando la extensión (así funcionan también las instalaciones portables). Leer SQLite requiere el módulo `node:sqlite`: TokenBinder usa el de VS Code y, si no está disponible, ejecuta un proceso con el propio VS Code como Node y, como último recurso, el `node` (22.5 o superior) que tengas en el PATH.
+`<data>` is `%APPDATA%` on Windows, `~/Library/Application Support` on macOS and `~/.config` (or `$XDG_CONFIG_HOME`) on Linux. It also checks `Code - Insiders` and `VSCodium`, and always the folder of the VS Code installation that is running the extension (so portable installs work too). Reading SQLite requires the `node:sqlite` module: TokenBinder uses VS Code's and, if it is not available, runs a process with VS Code itself as Node and, as a last resort, the `node` (22.5 or newer) on your PATH.
 
-Un turno de agente que encadena varias llamadas al modelo se cuenta completo (suma de todas las rondas). Los tokens servidos desde caché se cuentan en el total, igual que el uso que factura el proveedor.
+An agent turn that chains several model calls is counted in full (sum of all rounds). Tokens served from cache count toward the total, just like the usage the provider bills.
 
-## Limitaciones conocidas
+## Known limitations
 
-- **El cupo es manual.** No hay forma de leer el consumo real de la organización desde el equipo; si la empresa mide distinto (por ejemplo, ponderando por modelo), el % puede diferir.
-- **Solo ve este equipo.** Si trabajas en dos máquinas, cada una cuenta lo suyo.
-- **La fecha de cada turno es aproximada.** Las bases de datos no guardan la hora por turno: TokenBinder anota cuándo ve cada turno por primera vez. El histórico previo a instalar la extensión se fecha con la última modificación de su sesión.
-- **Los créditos son una estimación** derivada de un campo interno de VS Code cuya semántica no está documentada. Si usas `quota.unit: credits`, contrástalo con lo que muestre GitHub.
-- **El formato interno de VS Code puede cambiar** entre versiones, ya que no es una API pública.
+- **The quota is manual.** There is no way to read the real consumption of the organization from the computer; if the company measures differently (for example, weighting by model), the % may differ.
+- **It only sees this computer.** If you work on two machines, each one counts its own.
+- **The date of each turn is approximate.** The databases do not store the time per turn: TokenBinder records when it first sees each turn. History from before installing the extension is dated with the last modification of its session.
+- **Credits are an estimate** derived from an internal VS Code field whose semantics are not documented. If you use `quota.unit: credits`, compare it with what GitHub shows.
+- **VS Code's internal format may change** between versions, since it is not a public API.
 
-## Solución de problemas
+## Troubleshooting
 
-**El contador se queda en 0**
-1. Abre `Ver > Salida` y elige **TokenBinder** en el desplegable: ahí aparece el error exacto.
-2. Si dice que SQLite no está disponible, instala [Node.js](https://nodejs.org) 22.5 o superior y reinicia VS Code.
-3. Comprueba que existen archivos en `agentSessionData/` o en `User/workspaceStorage/*/chatSessions/` dentro de la carpeta de datos de VS Code (Windows: `%APPDATA%\Code\`; macOS: `~/Library/Application Support/Code/`; Linux: `~/.config/Code/`). Si tu VS Code guarda el chat en otra parte (instalación portable, otra carpeta de datos), indícala en `tokenBinder.storageRoots`.
-4. Ejecuta **TokenBinder: Recalcular uso**.
+**The counter stays at 0**
+1. Open `View > Output` and pick **TokenBinder** in the dropdown: the exact error appears there.
+2. If it says SQLite is not available, install [Node.js](https://nodejs.org) 22.5 or newer and restart VS Code.
+3. Check that files exist in `agentSessionData/` or in `User/workspaceStorage/*/chatSessions/` inside VS Code's data folder (Windows: `%APPDATA%\Code\`; macOS: `~/Library/Application Support/Code/`; Linux: `~/.config/Code/`). If your VS Code keeps the chat somewhere else (portable install, another data folder), set it in `tokenBinder.storageRoots`.
+4. Run **TokenBinder: Recalculate usage**.
 
-**No se pueden abrir sobres** (aparece «sin conexión»): comprueba que tu red permite `api.tcgdex.net` y `assets.tcgdex.net`. El sobre no se gasta si falla.
+**Packs cannot be opened** ("offline" appears): check that your network allows `api.tcgdex.net` and `assets.tcgdex.net`. The pack is not spent if it fails.
 
-**No sale el ícono en la barra de actividad**: reinicia VS Code por completo (no basta recargar la ventana).
+**The icon does not appear in the activity bar**: restart VS Code completely (reloading the window is not enough).
 
-**`code` no se reconoce**: en VS Code, `Ctrl+Shift+P` (`Cmd+Shift+P` en Mac) → *Shell Command: Install 'code' command in PATH*.
+**`code` is not recognized**: in VS Code, `Ctrl+Shift+P` (`Cmd+Shift+P` on a Mac) → *Shell Command: Install 'code' command in PATH*.
 
-**macOS: la instalación falla o el contador se queda en 0**: si el script no funciona, instala a mano (Opción 2: `Cmd+Shift+P` → *Extensions: Install from VSIX…*) y reinicia VS Code con `Cmd+Q` (cerrar la ventana no basta). Si el contador sigue en 0, mira `Ver > Salida > TokenBinder`; con la 1.2.0 ya no hace falta tener Node en el PATH.
+**macOS: the installation fails or the counter stays at 0**: if the script does not work, install by hand (Option 2: `Cmd+Shift+P` → *Extensions: Install from VSIX…*) and restart VS Code with `Cmd+Q` (closing the window is not enough). If the counter is still at 0, look at `View > Output > TokenBinder`; with 1.2.0 you no longer need Node on the PATH.
 
-Si el contador sigue sin moverse, abre un *issue* con la versión de VS Code y las **claves** (sin contenido) de una fila de `turn_usage`; el formato es lo más probable que haya cambiado.
+If the counter still does not move, open an *issue* with the VS Code version and the **keys** (no content) of a `turn_usage` row; the format is the most likely thing to have changed.
 
-## Desarrollo
+## Development
 
 ```powershell
 git clone https://github.com/SoreviR/token-binder.git
 cd token-binder
 npm install
-npm test            # pruebas del lector, la cuota y el motor del juego
-npm run build       # compila a dist/
-npm run package     # genera token-binder-X.Y.Z.vsix
+npm test            # tests for the reader, the quota, the game engine and the languages
+npm run build       # compiles to dist/
+npm run package     # produces token-binder-X.Y.Z.vsix
 ```
 
-Pulsa **F5** en VS Code para abrir una ventana de desarrollo con la extensión cargada.
+Press **F5** in VS Code to open a development window with the extension loaded.
 
-Estructura: `src/usage/` (lectura de sesiones: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (cuota), `src/game/` (motor de sobres/entrenamiento y cliente de TCGdex), `src/webview/` y `media/` (panel lateral y pestaña del álbum).
+Layout: `src/usage/` (session reading: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (quota), `src/game/` (pack/training engine and TCGdex client), `src/i18n/` and `media/i18n.js` (English and Spanish texts), `src/webview/` and `media/` (side panel and album tab).
 
-### Publicar una versión
+Adding a language: add its keys to `src/i18n/` (the compiler complains about any key that is missing), to `media/i18n.js` and to `package.nls.<lang>.json`; `npm test` checks that all dictionaries match.
 
-1. Sube la versión en `package.json` y haz commit.
+### Publishing a version
+
+1. Bump the version in `package.json` and commit.
 2. `git tag vX.Y.Z && git push --tags`.
 
-GitHub Actions ejecuta las pruebas, empaqueta el `.vsix` y lo adjunta al Release; el instalador siempre baja el último.
+GitHub Actions runs the tests, packages the `.vsix` and attaches it to the Release; the installer always downloads the latest.
 
-## Créditos y licencia
+## Credits and license
 
-Código bajo licencia [MIT](LICENSE). Pokémon, el Pokémon TCG y los nombres e imágenes de las cartas son propiedad de Nintendo, Creatures, Game Freak y The Pokémon Company; este es un proyecto de aficionados, sin fines comerciales, y **no incluye ninguna imagen de cartas en el repositorio**: se descargan en tiempo de ejecución de [TCGdex](https://tcgdex.dev), una base de datos comunitaria y gratuita.
+Code under the [MIT](LICENSE) license. Pokémon, the Pokémon TCG and the names and images of the cards are the property of Nintendo, Creatures, Game Freak and The Pokémon Company; this is a hobby project with no commercial purpose, and it **does not include any card image in the repository**: they are downloaded at runtime from [TCGdex](https://tcgdex.dev), a free community database.

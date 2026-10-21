@@ -1,10 +1,10 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl } = window.PT;
+  const { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, t, setLang, eraName, variantName } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
 
-  let S = null;            // último estado recibido
+  let S = null;            // last state received
   let warned = 0;
   const row = (a, b) => el('div', { class: 'row' }, el('span', { text: a }), el('span', { text: b }));
   const box = (title, ...kids) => el('div', { class: 'card-box' }, title && el('h4', { text: title }), ...kids);
@@ -12,50 +12,50 @@
   const send = (type, extra) => vscode.postMessage(Object.assign({ type }, extra));
   const freeSlot = () => !!S && S.slots.some(s => s === null);
 
-  /* ───── panel principal ───── */
+  /* ───── main panel ───── */
   function render() {
     const d = S;
     const q = d.pct;
-    const unit = d.unit === 'credits' ? ' créditos' : ' tokens';
+    const unit = d.unit === 'credits' ? t('unit.credits') : t('unit.tokens');
 
     const openBtn = (kind, n, label) => el('button', { class: 'btn' + (kind === 'pack' ? '' : ' ghost'), ...(n ? {} : { disabled: '' }), text: label + ' (' + n + ')', onclick: () => send('openPack', { kind }) });
-    const packBox = box('Sobres',
+    const packBox = box(t('packs.title'),
       el('div', { class: 'packrow' },
         el('div', { class: 'pack' }, el('div', { class: 'ball' }), el('b', { text: 'BOOSTER' })),
         el('div', { class: 'packinfo' },
           bar(d.nextPack.pct),
-          el('div', { class: 'sub', text: fmt(d.nextPack.into) + ' / ' + fmt(d.nextPack.span) + ' tokens al próximo sobre gratis ' + eta(d.nextPack.span - d.nextPack.into, d.perDay) }),
-          el('div', { class: 'btns' }, openBtn('pack', d.packs, 'Sobre'), openBtn('premium', d.premium, 'Premium'), openBtn('ball', d.balls, 'Pokébola')))));
+          el('div', { class: 'sub', text: t('packs.next', fmt(d.nextPack.into), fmt(d.nextPack.span), eta(d.nextPack.span - d.nextPack.into, d.perDay)) }),
+          el('div', { class: 'btns' }, openBtn('pack', d.packs, t('packs.pack')), openBtn('premium', d.premium, t('packs.premium')), openBtn('ball', d.balls, t('packs.ball'))))));
 
-    const shopBox = box('Tienda',
-      el('div', { class: 'row' }, el('b', { text: '🪙 ' + d.coins + ' monedas' }),
-        el('span', { class: d.pace ? 'pace on' : 'pace', title: 'Ganas +20 % de monedas mientras tu uso del cupo vaya por debajo del ritmo del mes', text: d.pace ? '+20 % por ir bajo el ritmo' : 'sin bonus de ritmo' })),
+    const shopBox = box(t('shop.title'),
+      el('div', { class: 'row' }, el('b', { text: t('shop.coins', d.coins) }),
+        el('span', { class: d.pace ? 'pace on' : 'pace', title: t('shop.paceTip'), text: d.pace ? t('shop.paceOn') : t('shop.paceOff') })),
       ...d.shop.map(i => el('div', { class: 'shopitem' },
         el('div', { class: 'si' }, el('div', { text: i.name }), el('div', { class: 'sub', text: i.desc })),
-        el('button', { class: 'btn', ...(i.price !== null && d.coins >= i.price ? {} : { disabled: '' }), text: i.price === null ? 'Máximo' : '🪙 ' + i.price, onclick: () => send('buy', { item: i.id }) }))));
+        el('button', { class: 'btn', ...(i.price !== null && d.coins >= i.price ? {} : { disabled: '' }), text: i.price === null ? t('shop.max') : '🪙 ' + i.price, onclick: () => send('buy', { item: i.id }) }))));
 
-    const slots = d.slots.map(s => s ? slotView(s, d.perDay) : el('div', { class: 'empty-slot', text: d.albumUnique ? 'Hueco libre: abre el álbum, elige una carta y pulsa «Entrenar».' : 'Abre tu primer sobre para conseguir cartas.' }));
+    const slots = d.slots.map(s => s ? slotView(s, d.perDay) : el('div', { class: 'empty-slot', text: d.albumUnique ? t('slot.freeAlbum') : t('slot.freeEmpty') }));
 
     const max = Math.max(1, ...d.daily.map(x => d.unit === 'credits' ? x.credits : x.total));
     const chart = el('div', { class: 'chart' }, d.daily.map(x => {
       const v = d.unit === 'credits' ? x.credits : x.total;
       return el('div', { style: 'height:' + Math.max(2, (v / max) * 100) + '%', title: x.date + ': ' + fmt(v) });
     }));
-    const list = arr => arr.length ? arr.map(m => row(m.name, fmt(m.total))) : [el('div', { class: 'sub', text: 'Sin datos todavía' })];
+    const list = arr => arr.length ? arr.map(m => row(m.name, fmt(m.total))) : [el('div', { class: 'sub', text: t('nodata') })];
 
     app.replaceChildren(
-      box('Cuota mensual', row(fmt(d.used) + unit, q.toFixed(1) + '% de ' + fmt(d.limit)),
-        bar(q, q >= 100 ? 'err' : q >= 80 ? 'warn' : ''), row('Hoy', fmt(d.today.total)), row('Mes', fmt(d.month.total))),
+      box(t('quota.title'), row(fmt(d.used) + unit, t('quota.of', q.toFixed(1), fmt(d.limit))),
+        bar(q, q >= 100 ? 'err' : q >= 80 ? 'warn' : ''), row(t('quota.today'), fmt(d.today.total)), row(t('quota.month'), fmt(d.month.total))),
       packBox,
-      box('Entrenando (' + d.slots.filter(Boolean).length + '/' + d.slots.length + ')', ...slots),
+      box(t('training.title', d.slots.filter(Boolean).length, d.slots.length), ...slots),
       shopBox,
       albumBox(),
-      box('Por día (mes)', chart),
-      box('Por modelo', ...list(d.byModel)));
+      box(t('daily.title'), chart),
+      box(t('models.title'), ...list(d.byModel)));
 
     announce(d.events || []);
-    if (q >= 80 && q < 100 && warned < 80) { warned = 80; toast('Cuidado: ' + q.toFixed(0) + '% del cupo mensual'); }
-    if (q >= 100 && warned < 100) { warned = 100; toast('Cupo mensual agotado'); }
+    if (q >= 80 && q < 100 && warned < 80) { warned = 80; toast(t('toast.warn', q.toFixed(0))); }
+    if (q >= 100 && warned < 100) { warned = 100; toast(t('toast.quotaOut')); }
     if (q < 80) warned = 0;
   }
 
@@ -66,84 +66,84 @@
       el('div', { class: 'row', style: 'justify-content:center;margin-top:6px' }, el('b', { text: c.name }), badge(c.tier)),
       el('div', { class: 'sub', text: info(c) }),
       statsEl(c),
-      s.mastered ? el('div', { class: 'sub', text: 'Línea completa: sigue ganando nivel con tus tokens.' }) : bar(s.pct),
-      s.mastered ? null : el('div', { class: 'sub', text: fmt(s.into) + ' / ' + fmt(s.span) + ' tokens para evolucionar ' + eta(s.span - s.into, perDay) + (s.evolved ? ' · evoluciones: ' + s.evolved : '') }),
-      el('button', { class: 'btn ghost', style: 'margin-top:6px', text: 'Retirar', title: 'Libera el hueco; la carta conserva su nivel', onclick: () => send('untrain', { id: s.id }) }));
+      s.mastered ? el('div', { class: 'sub', text: t('slot.mastered') }) : bar(s.pct),
+      s.mastered ? null : el('div', { class: 'sub', text: t('slot.progress', fmt(s.into), fmt(s.span), eta(s.span - s.into, perDay)) + (s.evolved ? t('slot.evolutions', s.evolved) : '') }),
+      el('button', { class: 'btn ghost', style: 'margin-top:6px', text: t('slot.retire'), title: t('slot.retireTip'), onclick: () => send('untrain', { id: s.id }) }));
   }
 
-  /** Resumen del álbum: el álbum completo vive en una pestaña del editor. */
+  /** Album summary: the full album lives in an editor tab. */
   function albumBox() {
     const d = S;
     const recent = d.recent.length
       ? el('div', { class: 'recent' }, d.recent.map(c => press(el('div', { class: 'thumb', style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name + ' · ' + c.rarity },
-        c.src ? el('img', { src: c.src, alt: '' }) : el('div', { class: 'nm', text: c.name })), () => send('openAlbum', { id: c.id }), 'Abrir álbum: ' + c.name)))
-      : el('div', { class: 'sub', text: 'Tu álbum está vacío.' });
-    return box('Álbum',
-      row(d.albumUnique + ' cartas distintas', d.albumTotal + ' en total'),
-      row('Líneas completadas', String(d.mastered)),
+        c.src ? el('img', { src: c.src, alt: '' }) : el('div', { class: 'nm', text: c.name })), () => send('openAlbum', { id: c.id }), t('album.openAria', c.name))))
+      : el('div', { class: 'sub', text: t('album.empty') });
+    return box(t('album.title'),
+      row(t('album.distinct', d.albumUnique), t('album.total', d.albumTotal)),
+      row(t('album.lines'), String(d.mastered)),
       recent,
-      el('button', { class: 'btn', style: 'width:100%;margin-top:8px', text: 'Abrir álbum', onclick: () => send('openAlbum') }));
+      el('button', { class: 'btn', style: 'width:100%;margin-top:8px', text: t('album.open'), onclick: () => send('openAlbum') }));
   }
 
   function closeOverlay() { overlay.replaceChildren(); }
 
-  /* ───── apertura de sobre ───── */
+  /* ───── opening a pack ───── */
   function showOpening(kind) {
     overlay.replaceChildren(
-      el('div', { class: 'hint', text: kind === 'ball' ? 'Lanzando Pokébola…' : 'Abriendo sobre…' }),
+      el('div', { class: 'hint', text: kind === 'ball' ? t('open.ball') : t('open.pack') }),
       el('div', { class: 'pack big shake' }, el('div', { class: 'ball' }), el('b', { text: 'BOOSTER' })));
   }
 
   function showReveal(cards) {
     let left = cards.length;
-    const done = el('button', { class: 'btn', text: 'Listo', style: 'display:none', onclick: closeOverlay });
-    const hint = el('div', { class: 'hint', text: 'Toca cada carta para darle la vuelta' });
+    const done = el('button', { class: 'btn', text: t('reveal.done'), style: 'display:none', onclick: closeOverlay });
+    const hint = el('div', { class: 'hint', text: t('reveal.hint') });
     const cells = cards.map(c => {
       const cell = el('div', { class: 'cell' });
-      const back = press(el('div', { class: 'back', style: '--w:130px' }, el('div', { class: 'ball' })), () => flip(), 'Dar la vuelta a la carta');
+      const back = press(el('div', { class: 'back', style: '--w:130px' }, el('div', { class: 'ball' })), () => flip(), t('reveal.flip'));
       function flip() {
         if (!back.isConnected) return;
         const face = cardEl(c, 130); face.classList.add('reveal-in');
         back.replaceWith(face);
         cell.append(
-          el('div', { class: 'nm' }, el('b', { text: c.name }), document.createTextNode(' '), badge(c.tier), c.isNew ? el('span', { class: 'newtag', text: ' NUEVA' }) : null),
-          el('div', { class: 'sub center', text: [c.era, c.variantLabel, c.set].filter(Boolean).join(' · ') }),
-          freeSlot() ? el('button', { class: 'btn ghost', text: 'Entrenar', onclick: e => { send('train', { id: c.id }); e.target.disabled = true; e.target.textContent = 'Entrenando'; } }) : null);
-        if (--left === 0) { hint.textContent = '¡Sobre completo!'; done.style.display = ''; }
+          el('div', { class: 'nm' }, el('b', { text: c.name }), document.createTextNode(' '), badge(c.tier), c.isNew ? el('span', { class: 'newtag', text: t('reveal.new') }) : null),
+          el('div', { class: 'sub center', text: [eraName(c), variantName(c), c.set].filter(Boolean).join(' · ') }),
+          freeSlot() ? el('button', { class: 'btn ghost', text: t('reveal.train'), onclick: e => { send('train', { id: c.id }); e.target.disabled = true; e.target.textContent = t('reveal.training'); } }) : null);
+        if (--left === 0) { hint.textContent = t('reveal.complete'); done.style.display = ''; }
       }
       cell._flip = flip;
       cell.append(back);
       return cell;
     });
-    const all = el('button', { class: 'btn ghost', text: 'Revelar todas', onclick: () => cells.forEach(c => c._flip()) });
+    const all = el('button', { class: 'btn ghost', text: t('reveal.all'), onclick: () => cells.forEach(c => c._flip()) });
     overlay.replaceChildren(hint, el('div', { class: 'revgrid' }, cells), el('div', { class: 'row', style: 'gap:8px' }, all, done));
   }
 
-  /* ───── avisos ───── */
+  /* ───── notices ───── */
   let toastTimer;
   function toast(text) {
-    document.querySelectorAll('.toast').forEach(t => t.remove());
-    const t = el('div', { class: 'toast', text });
-    document.body.append(t);
+    document.querySelectorAll('.toast').forEach(x => x.remove());
+    const node = el('div', { class: 'toast', text });
+    document.body.append(node);
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.remove(), 4500);
+    toastTimer = setTimeout(() => node.remove(), 4500);
   }
   function announce(events) {
     for (const e of events) {
-      if (e.startsWith('packs:')) toast('¡Ganaste ' + e.slice(6) + (e === 'packs:1' ? ' sobre nuevo!' : ' sobres nuevos!'));
-      else if (e === 'bonusPack') toast('Cupo al 100%: sobre de regalo');
-      else if (e.startsWith('evolve:')) toast('¡Tu carta evolucionó a ' + e.slice(7) + '!');
-      else if (e.startsWith('graduate:')) toast(e.slice(9) + ' completó su línea · +1 sobre');
-      else if (e.startsWith('level:')) { const [, name, lv] = e.split(':'); toast(name + ' subió al nivel ' + lv); }
+      if (e.startsWith('packs:')) toast(e === 'packs:1' ? t('toast.packsOne') : t('toast.packsMany', e.slice(6)));
+      else if (e === 'bonusPack') toast(t('toast.bonus'));
+      else if (e.startsWith('evolve:')) toast(t('toast.evolved', e.slice(7)));
+      else if (e.startsWith('graduate:')) toast(t('toast.graduated', e.slice(9)));
+      else if (e.startsWith('level:')) { const [, name, lv] = e.split(':'); toast(t('toast.level', name, lv)); }
     }
   }
 
   window.addEventListener('message', ev => {
     const m = ev.data || {};
-    if (m.type === 'state') { S = m.data; render(); }
+    if (m.type === 'state') { S = m.data; setLang(S.lang); render(); }
     else if (m.type === 'opening') showOpening(m.kind);
     else if (m.type === 'reveal') showReveal(m.cards);
-    else if (m.type === 'openFailed') { closeOverlay(); toast('No se pudo abrir el sobre (sin conexión)'); }
+    else if (m.type === 'openFailed') { closeOverlay(); toast(t('toast.openFailed')); }
   });
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); });
   vscode.postMessage({ type: 'ready' });

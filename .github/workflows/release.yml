@@ -1,5 +1,5 @@
 name: Release
-# Al subir un tag vX.Y.Z se compila, se prueba y se publica el .vsix en GitHub Releases.
+# Pushing a vX.Y.Z tag builds, tests and publishes the .vsix to GitHub Releases.
 on:
   push:
     tags: ['v*']
@@ -18,7 +18,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
-      - name: Verificar que el tag coincide con package.json
+      - name: Check that the tag matches package.json
         shell: bash
         run: |
           v=$(node -p "require('./package.json').version")

@@ -9,3 +9,4 @@ tsconfig.json
 install.ps1
 *.vsix
 .gitignore
+install.sh

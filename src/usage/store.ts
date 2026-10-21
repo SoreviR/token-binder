@@ -7,13 +7,13 @@ import { readSessionTimes, readTurnUsage } from './sqlite';
 
 interface FileEntry { mtime: number; size: number; records: UsageRecord[] }
 
-/** Fechas de primera aparición de cada turno (persistidas por la extensión). */
+/** First-seen dates of each turn (persisted by the extension). */
 export interface Stamps { baselined: boolean; firstSeen: Record<string, number> }
 
 const statSig = (f: string): { mtime: number; size: number } => {
   let mtime = 0, size = 0;
-  for (const p of [f, f + '-wal']) { // SQLite en modo WAL escribe primero en -wal
-    try { const s = fs.statSync(p); mtime = Math.max(mtime, s.mtimeMs); size += s.size; } catch { /* no existe */ }
+  for (const p of [f, f + '-wal']) { // SQLite in WAL mode writes to -wal first
+    try { const s = fs.statSync(p); mtime = Math.max(mtime, s.mtimeMs); size += s.size; } catch { /* does not exist */ }
   }
   return { mtime, size };
 };
@@ -35,7 +35,7 @@ export class UsageStore {
   lastError = '';
   constructor(private roots: () => string[]) {}
 
-  /** Asigna fecha a registros sin hora: la de primera aparición, o (primer escaneo) la de la sesión. */
+  /** Assigns a date to records without a time: the first-seen one, or (on the first scan) the session's. */
   private stamp(records: UsageRecord[], fallbackTs: number): void {
     for (const r of records) {
       if (r.ts) { continue; }
@@ -49,7 +49,7 @@ export class UsageStore {
     }
   }
 
-  /** Lee los session.db del agent host (turn_usage). */
+  /** Reads the agent host's session.db files (turn_usage). */
   private refreshAgentDbs(seen: Set<string>): boolean {
     let changed = false;
     const roots = this.roots();
@@ -73,7 +73,7 @@ export class UsageStore {
     return changed;
   }
 
-  /** Reparsea solo los archivos cuyo mtime/size cambió. Devuelve true si algo cambió. */
+  /** Re-parses only the files whose mtime/size changed. Returns true if anything changed. */
   refresh(): boolean {
     let changed = false;
     const seen = new Set<string>();
@@ -91,13 +91,13 @@ export class UsageStore {
         const records = session ? extractSession(session, path.basename(f).replace(/\.jsonl?$/, ''), st.mtimeMs) : [];
         this.files.set(f, { mtime: st.mtimeMs, size: st.size, records });
         changed = true;
-      } catch { /* archivo en escritura: se reintenta en el próximo ciclo */ }
+      } catch { /* file being written: retried on the next cycle */ }
     }
     for (const f of [...this.files.keys()]) { if (!seen.has(f)) { this.files.delete(f); changed = true; } }
     return changed;
   }
 
-  /** Registros únicos; si .json y .jsonl comparten clave gana el de mayor mtime. */
+  /** Unique records; if .json and .jsonl share a key, the one with the greater mtime wins. */
   records(): UsageRecord[] {
     const byKey = new Map<string, { r: UsageRecord; m: number }>();
     for (const e of this.files.values()) {
@@ -128,9 +128,9 @@ export class UsageStore {
     return agg;
   }
 
-  /** Tokens usados desde `ts` (ms). */
+  /** Tokens used since `ts` (ms). */
   tokensSince(ts: number): number { return this.records().reduce((n, r) => (r.ts >= ts ? n + r.input + r.cached + r.output : n), 0); }
 
-  /** Total de todos los tiempos (alimenta el crecimiento del Pokémon). */
+  /** All-time total (feeds the growth of the cards). */
   lifetimeTokens(): number { return this.records().reduce((s, r) => s + r.input + r.cached + r.output, 0); }
 }

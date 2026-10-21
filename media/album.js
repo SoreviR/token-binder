@@ -1,72 +1,85 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TIERS, TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl } = window.PT;
+  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
   const send = (type, extra) => vscode.postMessage(Object.assign({ type }, extra));
 
-  let D = null;            // { album, trainingIds, freeSlots, unique, total, mastered }
-  let tier = null;         // categoría de rareza elegida
-  let era = '';            // era elegida ('' = todas)
+  let D = null;            // { album, trainingIds, freeSlots, unique, total, mastered, value, lang }
+  let tier = null;         // chosen rarity tier
+  let era = '';            // chosen era id ('' = all)
   let query = '';
   let sort = 'tier';
   let viewing = null;
 
   const SORTS = {
-    tier: ['Rareza', (a, b) => b.tier - a.tier || a.name.localeCompare(b.name)],
-    recent: ['Más recientes', (a, b) => b.firstAt - a.firstAt],
-    name: ['Nombre', (a, b) => a.name.localeCompare(b.name)],
-    count: ['Repetidas', (a, b) => b.count - a.count || b.tier - a.tier],
+    tier: (a, b) => b.tier - a.tier || a.name.localeCompare(b.name),
+    recent: (a, b) => b.firstAt - a.firstAt,
+    name: (a, b) => a.name.localeCompare(b.name),
+    count: (a, b) => b.count - a.count || b.tier - a.tier,
   };
 
-  // Barra de herramientas: se crea una sola vez para no perder el foco al escribir.
-  const title = el('h2', { text: 'Álbum' });
+  // Toolbar: created once so typing does not lose focus. `labelToolbar` re-applies the texts when the language changes.
+  const title = el('h2');
   const summary = el('div', { class: 'sub' });
-  const sellAll = el('button', { class: 'btn ghost', text: 'Vender repetidas', title: 'Vende todas las copias repetidas y conserva una de cada carta', onclick: () => send('sellAll') });
-  const search = el('input', { class: 'search', type: 'search', placeholder: 'Buscar por nombre, set o rareza…', 'aria-label': 'Buscar cartas', oninput: e => { query = e.target.value.trim().toLowerCase(); renderGrid(); } });
-  const eraSel = el('select', { class: 'sorter', 'aria-label': 'Filtrar por era', onchange: e => { era = e.target.value; renderGrid(); } });
-  const sorter = el('select', { class: 'sorter', 'aria-label': 'Ordenar', onchange: e => { sort = e.target.value; renderGrid(); } },
-    Object.entries(SORTS).map(([k, [label]]) => el('option', { value: k, text: label })));
+  const sellAll = el('button', { class: 'btn ghost', onclick: () => send('sellAll') });
+  const search = el('input', { class: 'search', type: 'search', oninput: e => { query = e.target.value.trim().toLowerCase(); renderGrid(); } });
+  const eraSel = el('select', { class: 'sorter', onchange: e => { era = e.target.value; renderGrid(); } });
+  const sorter = el('select', { class: 'sorter', onchange: e => { sort = e.target.value; renderGrid(); } });
   const chips = el('div', { class: 'chips' });
   const grid = el('div', { class: 'agrid' });
   app.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), sellAll), el('div', { class: 'toolbar' }, search, eraSel, sorter), chips, grid);
 
+  function labelToolbar() {
+    title.textContent = t('album.title');
+    sellAll.textContent = t('album.sellAll');
+    sellAll.title = t('album.sellAllTip');
+    search.placeholder = t('album.searchPlaceholder');
+    search.setAttribute('aria-label', t('album.searchAria'));
+    eraSel.setAttribute('aria-label', t('album.eraAria'));
+    sorter.setAttribute('aria-label', t('album.sortAria'));
+    sorter.replaceChildren(...Object.keys(SORTS).map(k => el('option', { value: k, text: t('sort.' + k) })));
+    sorter.value = sort;
+  }
+
   function renderEras() {
     const eras = [...new Set(D.album.map(c => c.era).filter(Boolean))];
     if (era && !eras.includes(era)) era = '';
-    eraSel.replaceChildren(el('option', { value: '', text: 'Todas las eras' }), ...eras.map(e => el('option', { value: e, text: e })));
+    eraSel.replaceChildren(el('option', { value: '', text: t('album.allEras') }), ...eras.map(e => el('option', { value: e, text: t('era.' + e) })));
     eraSel.value = era;
   }
 
   function renderChips() {
-    const counts = TIERS.map((_, i) => D.album.filter(c => c.tier === i).length);
+    const tiers = [0, 1, 2, 3, 4, 5, 6];
+    const counts = tiers.map(i => D.album.filter(c => c.tier === i).length);
     chips.replaceChildren(
-      el('button', { class: 'chip' + (tier === null ? ' on' : ''), text: 'Todas (' + D.album.length + ')', onclick: () => { tier = null; renderChips(); renderGrid(); } }),
-      ...TIERS.map((n, i) => el('button', { class: 'chip' + (tier === i ? ' on' : ''), style: counts[i] ? '' : 'opacity:.45', text: n + ' (' + counts[i] + ')', onclick: () => { tier = i; renderChips(); renderGrid(); } })));
+      el('button', { class: 'chip' + (tier === null ? ' on' : ''), text: t('album.allChip', D.album.length), onclick: () => { tier = null; renderChips(); renderGrid(); } }),
+      ...tiers.map(i => el('button', { class: 'chip' + (tier === i ? ' on' : ''), style: counts[i] ? '' : 'opacity:.45', text: t('tier.' + i) + ' (' + counts[i] + ')', onclick: () => { tier = i; renderChips(); renderGrid(); } })));
   }
 
   function renderGrid() {
     if (!D) return;
     const cards = D.album
       .filter(c => (tier === null || c.tier === tier) && (!era || c.era === era)
-        && (!query || (c.name + ' ' + (c.set || '') + ' ' + c.rarity + ' ' + (c.variantLabel || '')).toLowerCase().includes(query)))
-      .sort(SORTS[sort][1]);
+        && (!query || (c.name + ' ' + (c.set || '') + ' ' + c.rarity + ' ' + variantName(c)).toLowerCase().includes(query)))
+      .sort(SORTS[sort]);
     if (!cards.length) {
-      grid.replaceChildren(el('div', { class: 'sub', style: 'grid-column:1/-1', text: D.album.length ? 'Ninguna carta coincide con el filtro.' : 'Tu álbum está vacío: abre un sobre desde el panel lateral.' }));
+      grid.replaceChildren(el('div', { class: 'sub', style: 'grid-column:1/-1', text: D.album.length ? t('album.noMatch') : t('album.emptyHint') }));
       return;
     }
     grid.replaceChildren(...cards.map(c => press(el('div', { class: 'thumb' + (D.trainingIds.includes(c.id) ? ' training' : '') + (c.variant ? ' v-' + c.variant : ''), style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name + ' · ' + c.rarity },
       c.src ? el('img', { src: c.src, alt: '', loading: 'lazy' }) : el('div', { class: 'nm', text: c.name }),
       c.count > 1 ? el('span', { class: 'n', text: '×' + c.count }) : null,
-      c.variant ? el('span', { class: 'vt', text: c.variant === 'first' ? '1.ª ED.' : 'SHADOWLESS' }) : null,
-      D.trainingIds.includes(c.id) ? el('span', { class: 'tr', text: 'Entrenando' }) : null,
-      c.stats.level > 1 || c.mastered ? el('span', { class: 'lvl', text: (c.mastered ? '★ ' : '') + 'Nv.' + c.stats.level }) : null),
-      () => openViewer(c.id), c.name + ', ' + c.rarity + (c.variantLabel ? ', ' + c.variantLabel : ''))));
+      c.variant ? el('span', { class: 'vt', text: t('variant.tag.' + c.variant) }) : null,
+      D.trainingIds.includes(c.id) ? el('span', { class: 'tr', text: t('album.training') }) : null,
+      c.stats.level > 1 || c.mastered ? el('span', { class: 'lvl', text: (c.mastered ? '★ ' : '') + t('stats.level', c.stats.level) }) : null),
+      () => openViewer(c.id), c.name + ', ' + c.rarity + (c.variant ? ', ' + variantName(c) : ''))));
   }
 
   function render() {
-    summary.textContent = D.unique + ' cartas distintas · ' + D.total + ' en total · ' + D.mastered + ' líneas completadas'
-      + (D.value ? ' · valor aprox. €' + D.value.toLocaleString() : '');
+    setLang(D.lang);
+    labelToolbar();
+    summary.textContent = t('album.summary', D.unique, D.total, D.mastered) + (D.value ? t('album.value', D.value.toLocaleString(D.lang)) : '');
     sellAll.style.display = D.total > D.unique ? '' : 'none';
     renderEras();
     renderChips();
@@ -74,17 +87,17 @@
     if (viewing) { if (D.album.find(c => c.id === viewing)) openViewer(viewing, true); else closeViewer(); }
   }
 
-  /* ───── visor de una carta ───── */
+  /* ───── single card viewer ───── */
   function openViewer(id, keepHigh) {
     const c = D.album.find(x => x.id === id);
     if (!c) return;
     const prevSrc = keepHigh ? (overlay.querySelector('.card3d img') || {}).src : null;
     viewing = id;
     const training = D.trainingIds.includes(id);
-    const label = training ? 'Entrenando' : D.freeSlots ? 'Entrenar' : 'Sin huecos libres';
+    const label = training ? t('album.training') : D.freeSlots ? t('reveal.train') : t('viewer.noSlots');
     const card = cardEl(c, 300);
     const img = card.querySelector('img');
-    if (prevSrc && img) img.src = prevSrc; // no parpadear a baja resolución al refrescar
+    if (prevSrc && img) img.src = prevSrc; // do not flicker to low resolution on refresh
     overlay.replaceChildren(
       el('div', { class: 'viewer', onclick: e => e.stopPropagation() },
         card,
@@ -92,13 +105,13 @@
         el('div', { class: 'sub center', text: info(c) }),
         statsEl(c),
         marketEl(c),
-        c.count > 1 ? el('div', { class: 'sub center', text: 'Tienes ' + c.count + ' copias' }) : null,
+        c.count > 1 ? el('div', { class: 'sub center', text: t('viewer.copies', c.count) }) : null,
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap' },
           training
-            ? el('button', { class: 'btn ghost', text: 'Retirar del entrenamiento', onclick: () => { send('untrain', { id }); closeViewer(); } })
+            ? el('button', { class: 'btn ghost', text: t('viewer.untrain'), onclick: () => { send('untrain', { id }); closeViewer(); } })
             : el('button', { class: 'btn', ...(D.freeSlots ? {} : { disabled: '' }), text: label, onclick: () => { send('train', { id }); closeViewer(); } }),
-          c.count > 1 ? el('button', { class: 'btn ghost', text: 'Vender repetida · 🪙 ' + c.sell, onclick: () => send('sell', { id }) }) : null,
-          el('button', { class: 'btn ghost', text: 'Cerrar', onclick: closeViewer }))));
+          c.count > 1 ? el('button', { class: 'btn ghost', text: t('viewer.sell', c.sell), onclick: () => send('sell', { id }) }) : null,
+          el('button', { class: 'btn ghost', text: t('viewer.close'), onclick: closeViewer }))));
     if (!keepHigh) send('high', { id });
     overlay.querySelector('.viewer .btn')?.focus();
   }

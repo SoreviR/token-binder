@@ -12,7 +12,7 @@ button.btn:hover:not(:disabled) { background: var(--vscode-button-hoverBackgroun
 button.btn:disabled { opacity: .45; cursor: default; }
 button.btn.ghost { background: transparent; color: var(--vscode-foreground); border: 1px solid var(--vscode-widget-border, #555); }
 
-/* barras */
+/* bars */
 .barwrap { position: relative; height: 8px; margin: 6px 0; background: color-mix(in srgb, var(--vscode-foreground) 15%, transparent); border-radius: 4px; overflow: hidden; }
 .barwrap > i { display: block; height: 100%; background: var(--vscode-progressBar-background); transition: width .6s; }
 .barwrap.warn > i { background: var(--vscode-editorWarning-foreground); }
@@ -20,7 +20,7 @@ button.btn.ghost { background: transparent; color: var(--vscode-foreground); bor
 .chart { display: flex; align-items: flex-end; gap: 2px; height: 56px; }
 .chart div { flex: 1; background: var(--vscode-charts-blue, #3794ff); min-height: 2px; border-radius: 2px 2px 0 0; }
 
-/* sobre */
+/* pack */
 .packrow { display: flex; gap: 12px; align-items: center; }
 .pack { position: relative; width: 62px; height: 86px; flex: none; border-radius: 6px; background: linear-gradient(160deg, #ff5f6d, #ffc371 55%, #ff5f6d); box-shadow: 0 3px 8px rgba(0,0,0,.45); overflow: hidden; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 9px; letter-spacing: .08em; text-shadow: 0 1px 2px rgba(0,0,0,.6); }
 .pack::before, .pack::after { content: ""; position: absolute; left: 0; right: 0; height: 7px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.55) 0 3px, rgba(255,255,255,.15) 3px 6px); }
@@ -38,7 +38,7 @@ button.btn.ghost { background: transparent; color: var(--vscode-foreground); bor
 .pace { font-size: 10px; opacity: .6; }
 .pace.on { opacity: 1; color: var(--t1); font-weight: 600; }
 
-/* carta 3D con efecto holográfico */
+/* 3D card with holographic effect */
 .card3d { --rx: 0deg; --ry: 0deg; --mx: 50%; --my: 50%; position: relative; width: var(--w, 150px); aspect-ratio: 63 / 88; perspective: 650px; margin: 0 auto; }
 .card3d .inner { position: relative; width: 100%; height: 100%; border-radius: 5% / 3.6%; overflow: hidden; transform: rotateX(var(--rx)) rotateY(var(--ry)); transform-style: preserve-3d; transition: transform .18s ease-out, box-shadow .18s; box-shadow: 0 4px 10px rgba(0,0,0,.45); background: #222; }
 .card3d.active .inner { transition: transform .05s linear; box-shadow: 0 10px 22px rgba(0,0,0,.55); }
@@ -65,7 +65,7 @@ button.btn.ghost { background: transparent; color: var(--vscode-foreground); bor
 .back .ball { width: 42%; aspect-ratio: 1; border-radius: 50%; background: linear-gradient(#e33 0 46%, #222 46% 54%, #fff 54%); border: 3px solid #222; }
 .reveal-in { animation: flipin .45s ease-out; }
 
-/* etiquetas y miniaturas */
+/* badges and thumbnails */
 .badge { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; color: #111; font-weight: 700; }
 .b0 { background: var(--t0); } .b1 { background: var(--t1); } .b2 { background: var(--t2); } .b3 { background: var(--t3); }
 .b4 { background: var(--t4); } .b5 { background: var(--t5); } .b6 { background: var(--t6); }
@@ -99,10 +99,10 @@ button.btn.ghost { background: transparent; color: var(--vscode-foreground); bor
   .pack.shake, .reveal-in, .card3d .foil, .toast { animation: none !important; }
 }
 
-/* resumen del álbum en el panel lateral */
+/* album summary in the side panel */
 .recent { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px; }
 
-/* pestaña del álbum (album.js) */
+/* album tab (album.js) */
 body.album { padding: 16px 20px 40px; max-width: 1200px; margin: 0 auto; }
 .albumhead h2 { margin: 0 0 2px; font-size: 20px; font-weight: 600; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 8px; }
@@ -116,7 +116,7 @@ body.album .chip { font-size: 12px; padding: 3px 10px; }
 body.album #overlay { justify-content: center; cursor: pointer; }
 .viewer { cursor: default; display: flex; flex-direction: column; align-items: center; max-width: 100%; }
 
-/* variantes Shadowless / 1.ª edición */
+/* Shadowless / 1st Edition variants */
 .card3d .vtag { position: absolute; top: 3%; left: 4%; z-index: 2; font-size: 8px; font-weight: 800; letter-spacing: .06em; padding: 1px 5px; border-radius: 3px; color: #3a2a00; background: linear-gradient(135deg, #fff3b0, #e0a800); box-shadow: 0 1px 3px rgba(0,0,0,.5); pointer-events: none; }
 .card3d.v-shadowless .inner { box-shadow: 0 0 10px rgba(255,200,40,.55), 0 4px 10px rgba(0,0,0,.45); }
 .card3d.v-first .inner { box-shadow: 0 0 16px rgba(255,215,74,.9), 0 0 4px #fff3b0, 0 6px 14px rgba(0,0,0,.5); }
@@ -125,13 +125,13 @@ body.album #overlay { justify-content: center; cursor: pointer; }
 .thumb.v-shadowless { box-shadow: 0 0 7px rgba(255,200,40,.5); }
 .thumb .vt { position: absolute; left: 2px; bottom: 2px; font-size: 8px; font-weight: 800; padding: 0 4px; border-radius: 3px; color: #3a2a00; background: linear-gradient(135deg, #fff3b0, #e0a800); }
 
-/* teclado */
+/* keyboard */
 [role="button"]:focus-visible, .chip:focus-visible, .btn:focus-visible, .back:focus-visible { outline: 2px solid var(--vscode-focusBorder, #3794ff); outline-offset: 2px; }
 
-/* cabecera del álbum con botón de vender */
+/* album header with the sell button */
 .albumhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 
-/* nivel, stats y mercado */
+/* level, stats and market */
 .stats { margin: 6px 0; text-align: left; }
 .barwrap.lv { height: 4px; margin: 3px 0 6px; }
 .statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
