@@ -1,6 +1,6 @@
 // The ladder: eight gym leaders with one ace card each, the badges and rewards for beating them, and the battle record.
 // Pure (the ace card itself is looked up elsewhere, see Tcgdex.leaderCard). No VS Code, no network.
-import { BattleEntry, BattleRecord, Card, GameState, XP_PER_LEVEL, keyOf, newBattleRecord } from './engine';
+import { BattleEntry, BattleRecord, Card, GameState, XP_PER_LEVEL, keyOf, levelOf, newBattleRecord } from './engine';
 import { Fighter, makeFighter } from './battle';
 import { tokensBonus } from './strength';
 
@@ -16,19 +16,23 @@ export interface LeaderDef {
 
 /** The Kanto ladder, easiest first. Levels and demand grow so each leader asks a bit more of the player's card. */
 export const LEADERS: LeaderDef[] = [
-  { id: 'brock', name: 'Brock', species: 'Onix', level: 3, demand: 1, reward: 150, rematch: 20 },
-  { id: 'misty', name: 'Misty', species: 'Starmie', level: 9, demand: 1, reward: 200, rematch: 20 },
-  { id: 'surge', name: 'Lt. Surge', species: 'Raichu', level: 15, demand: 2, reward: 250, rematch: 20 },
-  { id: 'erika', name: 'Erika', species: 'Vileplume', level: 21, demand: 2, reward: 300, rematch: 20 },
-  { id: 'koga', name: 'Koga', species: 'Weezing', level: 27, demand: 3, reward: 400, rematch: 20 },
-  { id: 'sabrina', name: 'Sabrina', species: 'Alakazam', level: 33, demand: 3, reward: 500, rematch: 20 },
-  { id: 'blaine', name: 'Blaine', species: 'Arcanine', level: 39, demand: 4, reward: 700, rematch: 20 },
-  { id: 'giovanni', name: 'Giovanni', species: 'Rhydon', level: 45, demand: 4, reward: 1000, rematch: 20 },
+  { id: 'brock', name: 'Brock', species: 'Onix', level: 3, demand: 1, reward: 150, rematch: 3 },
+  { id: 'misty', name: 'Misty', species: 'Starmie', level: 9, demand: 1, reward: 200, rematch: 3 },
+  { id: 'surge', name: 'Lt. Surge', species: 'Raichu', level: 15, demand: 2, reward: 250, rematch: 3 },
+  { id: 'erika', name: 'Erika', species: 'Vileplume', level: 21, demand: 2, reward: 300, rematch: 3 },
+  { id: 'koga', name: 'Koga', species: 'Weezing', level: 27, demand: 3, reward: 400, rematch: 3 },
+  { id: 'sabrina', name: 'Sabrina', species: 'Alakazam', level: 33, demand: 3, reward: 500, rematch: 3 },
+  { id: 'blaine', name: 'Blaine', species: 'Arcanine', level: 39, demand: 4, reward: 700, rematch: 3 },
+  { id: 'giovanni', name: 'Giovanni', species: 'Rhydon', level: 45, demand: 4, reward: 1000, rematch: 3 },
 ];
 export const LEADER_BY_ID = Object.fromEntries(LEADERS.map(l => [l.id, l])) as Record<string, LeaderDef>;
 
 /** Rematch victories that still pay out in one day, so the ladder cannot be farmed. */
 export const REMATCH_DAILY_CAP = 5;
+/** XP the card that fought earns (a victory, a defeat) and how many fights a day give it: about an eighth of a level at most. */
+export const WIN_XP = 10_000;
+export const LOSS_XP = 4_000;
+export const XP_FIGHTS_PER_DAY = 5;
 /** Against the leaders the token-usage bonus compares you with a typical player who has used 75% of the quota. */
 export const LADDER_REFERENCE_PCT = 75;
 export const HISTORY_SIZE = 20;
@@ -59,7 +63,7 @@ export function playerFighter(s: GameState, quotaPct: number): FighterCheck {
   const o = s.fighter ? s.collection[s.fighter] : undefined;
   if (!o || !s.fighter) { return { ok: false, reason: 'none' }; }
   if (o.grading) { return { ok: false, reason: 'grading' }; }
-  return { ok: true, fighter: makeFighter(keyOf(o.card), o.card, o.xp, { grade: o.grade, tokensBonus: tokensBonus(quotaPct, LADDER_REFERENCE_PCT) }) };
+  return { ok: true, fighter: makeFighter(keyOf(o.card), o.card, o.xp, { grade: o.grade, tokensBonus: tokensBonus(quotaPct, LADDER_REFERENCE_PCT), held: o.held }) };
 }
 
 /** Chooses the card taken to battles. false if you do not own it. */
@@ -69,7 +73,7 @@ export function setFighter(s: GameState, key: string): boolean {
   return true;
 }
 
-export interface BattleOutcome { coins: number; firstWin: boolean; capped: boolean }
+export interface BattleOutcome { coins: number; firstWin: boolean; capped: boolean; xp: number; levelUp?: number }
 
 /**
  * Records a finished battle against a leader: record, streak, history, and the reward. The first victory gives the badge
@@ -78,7 +82,8 @@ export interface BattleOutcome { coins: number; firstWin: boolean; capped: boole
 export function recordBattle(s: GameState, def: LeaderDef, cardName: string, won: boolean, rounds: number, now = Date.now()): BattleOutcome {
   const b = battleOf(s);
   const today = dayKey(now);
-  if (b.daily.day !== today) { b.daily = { day: today, rewarded: 0 }; }
+  if (b.daily.day !== today) { b.daily = { day: today, rewarded: 0, xpFights: 0 }; }
+  b.daily.xpFights ??= 0;
   let coins = 0, firstWin = false, capped = false;
   if (won) {
     b.wins++; b.streak++; b.best = Math.max(b.best, b.streak);
@@ -87,7 +92,17 @@ export function recordBattle(s: GameState, def: LeaderDef, cardName: string, won
     else { capped = true; }
   } else { b.losses++; b.streak = 0; }
   s.coins += coins;
+  // The card that fought learns from it, a little, for the first few fights of the day.
+  let xp = 0, levelUp: number | undefined;
+  const fighter = s.fighter ? s.collection[s.fighter] : undefined;
+  if (fighter && b.daily.xpFights < XP_FIGHTS_PER_DAY) {
+    const before = levelOf(fighter.xp);
+    xp = won ? WIN_XP : LOSS_XP;
+    fighter.xp += xp;
+    b.daily.xpFights++;
+    if (levelOf(fighter.xp) > before) { levelUp = levelOf(fighter.xp); }
+  }
   const entry: BattleEntry = { at: now, leader: def.id, card: cardName, won, rounds, coins };
   b.history = [entry, ...b.history].slice(0, HISTORY_SIZE);
-  return { coins, firstWin, capped };
+  return { coins, firstWin, capped, xp, ...(levelUp ? { levelUp } : {}) };
 }

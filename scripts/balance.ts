@@ -5,6 +5,7 @@ import * as path from 'path';
 import { Card } from '../src/game/engine';
 import { Fighter, makeFighter, simulate, estimateWin } from '../src/game/battle';
 import { LEVEL_STEP, stageClass } from '../src/game/strength';
+import { HELD_IDS } from '../src/game/items';
 
 export const corpus: Card[] = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'test', 'fixtures', 'battle-corpus.json'), 'utf8'));
 const XP = (level: number) => (level - 1) * 400_000;
@@ -56,6 +57,13 @@ if (require.main === module) {
   per.forEach(p => { const k = `${p.card.era}/${stageClass(p.card)}`; groups.set(k, [...(groups.get(k) ?? []), p.rate]); });
   console.log('\nby era/stage (mean win rate):');
   for (const [k, v] of [...groups].sort()) { console.log('  ', k.padEnd(18), pct(v.reduce((s, x) => s + x, 0) / v.length), `(n=${v.length})`); }
+
+  console.log('\n== Held items: win rate of a card holding the item against the same card without it ==');
+  for (const id of HELD_IDS) {
+    let sum = 0, n = 0;
+    for (let i = 0; i < cards.length; i += 6) { sum += winRate(fighterOf(cards[i], 10, true, { held: id }), fighterOf(cards[i]), 1500, 31 + i * 7); n++; }
+    console.log('  ', id.padEnd(14), pct(sum / n), `(n=${n})`);
+  }
 
   const sample = flat[0];
   console.log('\n== Mirror (same card vs itself) ==', pct(winRate(sample, sample, 4000, 99)));

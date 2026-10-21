@@ -241,3 +241,8 @@ body.album #overlay { justify-content: center; cursor: pointer; }
 .fdetail .marks { justify-content: flex-start; }
 .agrid .thumb .care { position: absolute; left: 2px; bottom: 17px; font-size: 11px; line-height: 1; filter: drop-shadow(0 1px 2px rgba(0,0,0,.9)); }
 .worn { font-size: 13px; font-weight: 600; color: #e0925a; }
+
+/* held battle items and the XP line of the battle result */
+.mark.held-mark { border-color: rgba(255,170,90,.8); background: rgba(255,170,90,.14); text-transform: none; }
+.reward.xp { color: #8ec5ff; }
+.warnline { color: #e0c05a; }

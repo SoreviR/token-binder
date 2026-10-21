@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import { Card, addCards, keyOf, newState, normalize, tierOf } from '../src/game/engine';
 import { estimateWin, makeFighter } from '../src/game/battle';
 import {
-  HISTORY_SIZE, LADDER_REFERENCE_PCT, LEADERS, LEADER_BY_ID, REMATCH_DAILY_CAP, battleOf, dayKey, leaderFighter, leaderUnlocked, playerFighter, recordBattle,
+  HISTORY_SIZE, LADDER_REFERENCE_PCT, LEADERS, LOSS_XP, WIN_XP, XP_FIGHTS_PER_DAY, LEADER_BY_ID, REMATCH_DAILY_CAP, battleOf, dayKey, leaderFighter, leaderUnlocked, playerFighter, recordBattle,
   setFighter, xpForLevel,
 } from '../src/game/leaders';
 
@@ -84,11 +84,11 @@ test('first victory over a leader gives the badge and the big reward, later ones
   const s = newState(0);
   const def = LEADER_BY_ID['brock'];
   const first = recordBattle(s, def, 'Pikachu', true, 8, NOON(1));
-  assert.deepEqual(first, { coins: def.reward, firstWin: true, capped: false });
+  assert.deepEqual(first, { coins: def.reward, firstWin: true, capped: false, xp: 0 });
   assert.deepEqual(battleOf(s).badges, ['brock']);
   assert.equal(s.coins, def.reward);
   const again = recordBattle(s, def, 'Pikachu', true, 7, NOON(1));
-  assert.deepEqual(again, { coins: def.rematch, firstWin: false, capped: false });
+  assert.deepEqual(again, { coins: def.rematch, firstWin: false, capped: false, xp: 0 });
   assert.deepEqual(battleOf(s).badges, ['brock']);                     // no second badge
   assert.equal(s.coins, def.reward + def.rematch);
 });
@@ -113,7 +113,7 @@ test('record: wins, losses, streak and best streak; a loss pays nothing and brea
   recordBattle(s, def, 'A', true, 5, NOON(1));
   const coins = s.coins;
   const lost = recordBattle(s, def, 'A', false, 9, NOON(1));
-  assert.deepEqual(lost, { coins: 0, firstWin: false, capped: false });
+  assert.deepEqual(lost, { coins: 0, firstWin: false, capped: false, xp: 0 });
   assert.equal(s.coins, coins);
   const b = battleOf(s);
   assert.deepEqual([b.wins, b.losses, b.streak, b.best], [2, 1, 0, 2]);
@@ -135,7 +135,7 @@ test('history keeps the latest 20 fights, newest first', () => {
 test('an older saved state gets an empty battle record', () => {
   const old: any = { v: 2, baseline: 0, packsGranted: 0, packs: 0, collection: {}, slots: [null], mastered: 0, bonusPeriod: 0 };
   const s = normalize(old, 0);
-  assert.deepEqual(s.battle, { wins: 0, losses: 0, streak: 0, best: 0, badges: [], daily: { day: '', rewarded: 0 }, history: [] });
+  assert.deepEqual(s.battle, { wins: 0, losses: 0, streak: 0, best: 0, badges: [], daily: { day: '', rewarded: 0, xpFights: 0 }, history: [] });
   assert.equal(s.fighter, undefined);
   assert.equal(keyOf(card('z')), 'z');
 });
@@ -155,4 +155,56 @@ test('ladder difficulty: a player of the leader level has a fair fight, ten leve
     if (def.level + 10 <= 50) { assert.ok(mean(def, def.level + 10, k) > 0.55, `${def.name} +10 levels`); }
     if (def.level > 12) { assert.ok(mean(def, def.level - 10, k) < 0.45, `${def.name} -10 levels`); }
   });
+});
+
+test('a rematch pays little: 3 coins, so a full day of rematches is worth about what a day of tokens gives', () => {
+  assert.ok(LEADERS.every(l => l.rematch === 3));
+  assert.ok(REMATCH_DAILY_CAP * LEADERS[0].rematch <= 20, 'at most ~15 coins a day from rematches');
+});
+
+test('battle XP: the card that fought earns 10K for a win and 4K for a defeat, for the first 5 fights of the day', () => {
+  const s = newState(0);
+  addCards(s, [card('a')]);
+  s.fighter = 'a';
+  const def = LEADER_BY_ID['brock'];
+  assert.equal(recordBattle(s, def, 'A', true, 5, NOON(1)).xp, WIN_XP);
+  assert.equal(recordBattle(s, def, 'A', false, 5, NOON(1)).xp, LOSS_XP);
+  assert.equal(s.collection['a'].xp, WIN_XP + LOSS_XP);
+  for (let i = 0; i < XP_FIGHTS_PER_DAY - 2; i++) { recordBattle(s, def, 'A', true, 5, NOON(1)); }
+  const before = s.collection['a'].xp;
+  assert.equal(recordBattle(s, def, 'A', true, 5, NOON(1)).xp, 0);          // the sixth fight of the day gives nothing
+  assert.equal(s.collection['a'].xp, before);
+  assert.equal(battleOf(s).daily.xpFights, XP_FIGHTS_PER_DAY);
+  assert.equal(recordBattle(s, def, 'A', true, 5, NOON(2)).xp, WIN_XP);    // a new day, a new allowance
+  assert.equal(battleOf(s).daily.xpFights, 1);
+});
+
+test('battle XP reports a level-up when the card crosses a level, and does nothing without a chosen card', () => {
+  const s = newState(0);
+  addCards(s, [card('a')]);
+  s.fighter = 'a';
+  s.collection['a'].xp = xpForLevel(2) - WIN_XP / 2;                        // 5K short of level 2
+  const out = recordBattle(s, LEADER_BY_ID['brock'], 'A', true, 5, NOON(1));
+  assert.equal(out.levelUp, 2);
+  const out2 = recordBattle(s, LEADER_BY_ID['brock'], 'A', true, 5, NOON(1));
+  assert.equal(out2.levelUp, undefined);
+  const t = newState(0);
+  assert.equal(recordBattle(t, LEADER_BY_ID['brock'], 'A', true, 5, NOON(1)).xp, 0);
+});
+
+test('an older saved record without the XP counter gets one', () => {
+  const old: any = { v: 2, baseline: 0, packsGranted: 0, packs: 0, collection: {}, slots: [null], mastered: 0, bonusPeriod: 0,
+    battle: { wins: 1, losses: 0, streak: 1, best: 1, badges: ['brock'], daily: { day: '2026-10-01', rewarded: 2 }, history: [] } };
+  const s = normalize(old, 0);
+  assert.equal(s.battle!.daily.xpFights, 0);
+  assert.deepEqual(s.battle!.badges, ['brock']);
+});
+
+test('the fighter takes its held item into battle', () => {
+  const s = newState(0);
+  addCards(s, [card('a')]);
+  s.fighter = 'a';
+  s.collection['a'].held = 'choice-band';
+  const r = playerFighter(s, 50);
+  assert.ok(r.ok && r.fighter.held === 'choice-band');
 });

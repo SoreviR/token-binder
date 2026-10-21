@@ -1,6 +1,6 @@
 // Card game engine: packs → cards with rarity → token-based training → evolution/graduation.
 // Pure, with no VS Code or network dependencies (the network comes in through injected functions) so it can be tested.
-import { BOX_PRICE, ItemId, baseName, branchItem, rollBox } from './items';
+import { BOX_PRICE, HeldId, ItemId, baseName, branchItem, isHeldId, rollBox } from './items';
 
 /** TCGdex rarities grouped by tier (0 = most common … 6 = rarest). Display names live in the i18n dictionaries (`tier.N`). */
 export const TIER_RARITIES: string[][] = [
@@ -102,6 +102,7 @@ export interface Owned {
   mastered?: boolean;   // already completed its evolutionary line
   care?: { sleeve?: boolean; toploader?: boolean };   // protection applied (improves the odds when grading)
   grade?: number;       // 1-10, from the grading service (never goes down)
+  held?: HeldId;        // the battle item this card holds (one at a time)
   wear?: number;        // 0-4 wear from battles (0 = Mint); a graded card sits in its slab and does not wear
   tries?: number;       // how many times it has been graded (re-submissions cost more)
   grading?: { since: number; cost: number };         // out for grading: lifetime tokens when it left, fee paid
@@ -120,10 +121,10 @@ export interface BattleRecord {
   streak: number;                          // current win streak
   best: number;                            // longest win streak
   badges: string[];                        // gym leaders beaten at least once
-  daily: { day: string; rewarded: number };  // rematch rewards already given today
+  daily: { day: string; rewarded: number; xpFights: number };  // rematch rewards and fights with XP already given today
   history: BattleEntry[];                  // most recent first, last 20
 }
-export const newBattleRecord = (): BattleRecord => ({ wins: 0, losses: 0, streak: 0, best: 0, badges: [], daily: { day: '', rewarded: 0 }, history: [] });
+export const newBattleRecord = (): BattleRecord => ({ wins: 0, losses: 0, streak: 0, best: 0, badges: [], daily: { day: '', rewarded: 0, xpFights: 0 }, history: [] });
 
 export interface GameState {
   v: 2;
@@ -262,7 +263,7 @@ export function newState(lifetime: number): GameState {
 
 /** Fills in the fields added in newer versions to a previously saved state (without giving retroactive coins). */
 export function normalize(s: GameState, lifetime: number): GameState {
-  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime; s.boxes ??= 0; s.items ??= {}; s.battle ??= newBattleRecord();
+  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime; s.boxes ??= 0; s.items ??= {}; s.battle ??= newBattleRecord(); s.battle.daily.xpFights ??= 0;
   for (const o of Object.values(s.collection)) { o.xp ??= 0; }
   // Cards that were already training receive the XP of everything trained so far (since they entered the slot).
   for (const t of s.slots) { if (t) { t.last ??= t.born; } }
@@ -514,3 +515,25 @@ export function branchOptions(t: Training): { name: string; item?: ItemId }[] {
   return (t.pending ?? []).map(name => ({ name, item: branchItem(t.card.name, name) }));
 }
 export { baseName };
+
+/**
+ * A card holds one battle item. Equipping takes it out of the inventory (and gives back the one it held); false if you do
+ * not have it or the card is not yours.
+ */
+export function equipHeld(s: GameState, key: string, item: string): boolean {
+  const o = s.collection[key];
+  if (!o || !isHeldId(item) || o.held === item || countOf(s, item) < 1) { return false; }
+  takeItem(s, item);
+  if (o.held) { grantItem(s, o.held); }
+  o.held = item;
+  return true;
+}
+
+/** Takes the item off a card and puts it back in the inventory. */
+export function unequipHeld(s: GameState, key: string): boolean {
+  const o = s.collection[key];
+  if (!o?.held) { return false; }
+  grantItem(s, o.held);
+  delete o.held;
+  return true;
+}

@@ -1,6 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, TRANSFORM_ITEM, slabEl, marksEl, fmt } = window.PT;
+  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM, slabEl, marksEl, fmt } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
   const send = (type, extra) => vscode.postMessage(Object.assign({ type }, extra));
@@ -130,6 +130,7 @@
         marketEl(c),
         itemButtons(c, training),
         careRow(c, training),
+        heldRow(c),
         c.id === D.fighterId
           ? el('div', { class: 'sub center', style: 'margin-top:6px', text: t('battle.isFighter') })
           : el('div', { class: 'row', style: 'justify-content:center;margin-top:6px' }, el('button', { class: 'btn ghost', text: '⚔ ' + t('battle.takeTo'), onclick: () => send('setFighter', { id: c.id }) })),
@@ -156,6 +157,18 @@
     if (!buttons.length) return null;
     return el('div', { class: 'itemrow' }, el('div', { class: 'sub center', text: t('viewer.items') }), el('div', { class: 'row', style: 'gap:6px;justify-content:center;flex-wrap:wrap' }, buttons));
   }
+  const HELD = ['sturdy-plate', 'choice-band', 'quick-claw', 'lucky-charm'];
+  /** The battle item this card holds, and the ones in the inventory that can be equipped (they replace the current one). */
+  function heldRow(c) {
+    const have = id => (D.items && D.items[id]) || 0;
+    const buttons = HELD.filter(id => id !== c.held && have(id))
+      .map(id => el('button', { class: 'btn ghost', title: itemDesc(id), text: itemIcon(id) + ' ' + t('viewer.equip', itemName(id), have(id)), onclick: () => send('equip', { id: c.id, item: id }) }));
+    if (c.held) buttons.push(el('button', { class: 'btn ghost', text: t('viewer.unequip', itemName(c.held)), onclick: () => send('unequip', { id: c.id }) }));
+    return el('div', { class: 'itemrow' },
+      el('div', { class: 'sub center', text: c.held ? t('viewer.heldTitle') + ': ' + itemIcon(c.held) + ' ' + itemName(c.held) + ' — ' + itemDesc(c.held) : t('viewer.heldNone') }),
+      buttons.length ? el('div', { class: 'row', style: 'gap:6px;justify-content:center;flex-wrap:wrap;margin-top:4px' }, buttons) : null);
+  }
+
   /** Protection (sleeve, toploader) and the grading service for this card. */
   function careRow(c, training) {
     const have = id => (D.items && D.items[id]) || 0;

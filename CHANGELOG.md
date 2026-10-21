@@ -2,6 +2,13 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.10.0 - 2026-10-21
+
+- **Combat economy:** rematch victories now pay 3 coins (up to 5 a day) instead of 20, so fighting complements the coins you earn from tokens instead of dwarfing them. First-victory rewards are unchanged.
+- **Fighting trains the card:** the card that fights earns 10,000 XP for a win and 4,000 for a defeat, for the first 5 fights of each day. The result screen shows the XP and any level gained, and the Battle tab reminds you when your fighter is not in a training slot.
+- **Held battle items** (found in mystery boxes, one per card, not used up): Sturdy Plate, Choice Band, Quick Claw and Lucky Charm. They change how a card fights, never how strong it is; balance tests keep each one at about 50% against the same card without it. Equip them from the card in the album.
+- Item descriptions now say what they are worth in battle (Rare Candy about +1.8% strength, Lucky Egg about +4.5%, and that transformations change the card's stage and demand).
+
 ## 1.9.0 - 2026-10-21
 
 - **Protection is now visible:** a sleeve is drawn over the card, a toploader as a rigid frame, and chips under the card name (with hover explanations) show what protects it and its condition. Album thumbnails get small 🛡️ / 📦 icons. Sleeves and toploaders never changed the stats; the item descriptions now say so.

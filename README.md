@@ -134,7 +134,9 @@ Take **one card** to battle: open it in the album and press **Take to battle**, 
 
 What the card prints only changes *how* it fights: a card with more HP than damage leans tanky, the opposite leans hard-hitting, with the same total power. A type weakness is worth +15% damage (resistance −8%). The fight is rolled with a seed, so it is fair and reproducible.
 
-**The ladder.** Beat a leader to unlock the next; the first victory gives a **badge** and coins (150 → 1,000), later victories give 20 coins, up to 5 paid rematches a day. The leaders' levels go 3, 9, 15 … 45, so you roughly need a card of their level. Your record, streak and last fights are saved.
+**The ladder.** Beat a leader to unlock the next; the first victory gives a **badge** and coins (150 → 1,000), later victories give 3 coins, up to 5 paid rematches a day (a month of normal use earns around 500 coins from tokens, so fighting complements the economy instead of replacing it). The leaders' levels go 3, 9, 15 … 45, so you roughly need a card of their level. Your record, streak and last fights are saved.
+
+**Fighting also trains.** The card that fights earns **10,000 XP for a win and 4,000 for a defeat** (the first 5 fights of each day, about an eighth of a level at most). It does not replace training with tokens: a card still needs a training slot to level up steadily.
 
 ## Mystery boxes, items and evolutions
 
@@ -146,6 +148,9 @@ A **mystery box** (120 coins in the shop) gives one random item. Open it from th
 | Rare Candy | Raises a card by one level |
 | Lucky Egg | A card in training earns **double XP** (levels) for the next 1M tokens; they stack |
 | Mega Stone, Dynamax Band, Star Core, Tera Orb (rare) | Transform a finished card (see below) |
+| Sturdy Plate, Choice Band, Quick Claw, Lucky Charm | **Held in battle**, one per card (equip them from the card in the album; they are not used up) |
+
+**Held items** change *how* a card fights without making it stronger: the Sturdy Plate (+10% HP, −10% ATK) makes it tankier, the Choice Band (+10% ATK, −10% HP) a glass cannon, the Quick Claw acts first more often (+30% speed, −1% ATK), and the Lucky Charm gives many more critical hits (+20%) but more misses (+9%): a swingier fight that helps the weaker side and hurts the favorite. Tests keep each one at about 50% against the same card without it.
 
 **Branching evolutions.** Some lines can evolve in several ways: Eevee (8 species), Gloom, Poliwhirl, Slowpoke, Kirlia, Snorunt, Cosmoem, Wurmple and Pikachu (Raichu or Alolan Raichu). When the training bar is full, the card **waits** and the panel asks you to choose. A species that is tied to an item (for example Umbreon needs a Moon Stone, Flareon a Fire Stone, Gallade a Dawn Stone) is only available if you have it; the item is spent. Species with no item are free to pick, and **Let it evolve naturally** picks a random branch for free. Luck upgrades make the rare items likelier.
 

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   Card, FindNext, XP_PER_LEVEL, accrueXp, addCards, applyTransform, branchOptions, buy, chooseEvolution, countOf, grantItem, keyOf, levelOf, newState, normalize,
-  openBox, resolveDue, startTraining, takeItem, tierOf, useLuckyEgg, useRareCandy, LUCKY_EGG_TOKENS,
+  openBox, resolveDue, startTraining, takeItem, tierOf, useLuckyEgg, useRareCandy, LUCKY_EGG_TOKENS, equipHeld, unequipHeld,
 } from '../src/game/engine';
 import { BOX_PRICE, ITEM_LIST, MIN_TRANSFORM_LEVEL, TRANSFORM_BY_ITEM, baseName, branchItem, canTransform, rollBox, transformNames } from '../src/game/items';
 
@@ -205,4 +205,31 @@ test('the webview copy of the transform table and the item icons match the engin
   const PT = sandbox.window.PT;
   assert.deepEqual(Object.fromEntries(Object.entries(PT.TRANSFORM_ITEM).map(([kind, item]) => [item, kind])), TRANSFORM_BY_ITEM);
   for (const { id } of ITEM_LIST) { assert.notEqual(PT.itemIcon(id), '🎁', `no icon for ${id}`); }
+});
+
+test('held items: equipping takes one from the inventory, a card holds one at a time, swapping returns the old one', () => {
+  const s = newState(0);
+  addCards(s, [card('a', 'Pikachu')]);
+  assert.equal(equipHeld(s, 'a', 'choice-band'), false);                     // none in the inventory
+  grantItem(s, 'choice-band'); grantItem(s, 'sturdy-plate');
+  assert.equal(equipHeld(s, 'a', 'rare-candy'), false);                      // not a held item
+  assert.equal(equipHeld(s, 'nope', 'choice-band'), false);
+  assert.equal(equipHeld(s, 'a', 'choice-band'), true);
+  assert.equal(s.collection['a'].held, 'choice-band');
+  assert.equal(countOf(s, 'choice-band'), 0);
+  assert.equal(equipHeld(s, 'a', 'choice-band'), false);                     // already holds it
+  assert.equal(equipHeld(s, 'a', 'sturdy-plate'), true);                     // swap
+  assert.equal(s.collection['a'].held, 'sturdy-plate');
+  assert.equal(countOf(s, 'choice-band'), 1);                                // the old one came back
+  assert.equal(countOf(s, 'sturdy-plate'), 0);
+  assert.equal(unequipHeld(s, 'a'), true);
+  assert.equal(s.collection['a'].held, undefined);
+  assert.equal(countOf(s, 'sturdy-plate'), 1);
+  assert.equal(unequipHeld(s, 'a'), false);
+});
+
+test('mystery boxes can drop the held items', () => {
+  const seen = new Set<string>();
+  for (let i = 0; i < 400; i++) { seen.add(rollBox(0, () => (i + 0.5) / 400)); }
+  for (const id of ['sturdy-plate', 'choice-band', 'quick-claw', 'lucky-charm']) { assert.ok(seen.has(id), id); }
 });

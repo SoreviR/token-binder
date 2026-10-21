@@ -1,10 +1,11 @@
 // One-versus-one battle simulator. Pure and deterministic: the same two fighters and the same seed always give the same
 // fight, so a result can be replayed (and, later, verified by a server). No VS Code, no network.
 import type { Card } from './engine';
+import { HELD_EFFECTS, HeldId } from './items';
 import { StrengthBreakdown, StrengthOptions, combatStats } from './strength';
 
 /** Version of the battle rules. Anything that compares or replays fights must check it matches. */
-export const BATTLE_VERSION = 1;
+export const BATTLE_VERSION = 2;
 
 export const MAX_ROUNDS = 40;
 export const WEAKNESS_MULT = 1.15;
@@ -27,6 +28,9 @@ export interface Fighter {
   def: number;
   spd: number;
   moves: Move[];
+  crit: number;          // chance of a critical hit
+  miss: number;          // chance of missing
+  held?: HeldId;
   strength: StrengthBreakdown;
 }
 
@@ -45,12 +49,15 @@ export function movesOf(card: Pick<Card, 'attacks'>): Move[] {
   return raw.map(m => ({ ...m, power: m.power / mean }));
 }
 
-/** Builds a fighter from a card, the XP it has trained and the optional bonuses. */
-export function makeFighter(key: string, card: Card, xp: number, opts: StrengthOptions = {}): Fighter {
+/** Builds a fighter from a card, the XP it has trained and the optional bonuses (and the item it holds). */
+export function makeFighter(key: string, card: Card, xp: number, opts: StrengthOptions & { held?: HeldId } = {}): Fighter {
   const { stats, strength } = combatStats(card, xp, opts);
+  const h = opts.held ? HELD_EFFECTS[opts.held] : undefined;
   return {
     key, name: card.name, types: card.types ?? [], weak: card.weak ?? [], resist: card.resist ?? [],
-    level: stats.level, hp: stats.hp, atk: stats.atk, def: stats.def, spd: stats.spd, moves: movesOf(card), strength,
+    level: stats.level,
+    hp: Math.round(stats.hp * (h?.hp ?? 1)), atk: Math.round(stats.atk * (h?.atk ?? 1) * 100) / 100, def: stats.def, spd: Math.round(stats.spd * (h?.spd ?? 1)),
+    moves: movesOf(card), crit: CRIT_CHANCE + (h?.crit ?? 0), miss: MISS_CHANCE + (h?.miss ?? 0), held: opts.held, strength,
   };
 }
 
@@ -116,8 +123,8 @@ export function simulate(a: Fighter, b: Fighter, seed: number): BattleResult {
     for (const side of [first, first === 'a' ? 'b' : 'a'] as Side[]) {
       const me = fighters[side], foe = fighters[side === 'a' ? 'b' : 'a'], foeSide: Side = side === 'a' ? 'b' : 'a';
       const move = pickMove(me, rng);
-      const miss = rng() < MISS_CHANCE;
-      const crit = !miss && rng() < CRIT_CHANCE;
+      const miss = rng() < me.miss;
+      const crit = !miss && rng() < me.crit;
       const variance = 0.3 + 0.7 * rng();
       const { mult, eff } = effectiveness(me, foe);
       let dmg = 0;

@@ -24,6 +24,11 @@ export const ITEM_LIST = [
   // card protection (see grading.ts)
   { id: 'sleeve', kind: 'protect', weight: 12 },
   { id: 'toploader', kind: 'protect', weight: 6 },
+  // held in battle: they shift the style of a card, never its total power
+  { id: 'sturdy-plate', kind: 'held', weight: 5 },
+  { id: 'choice-band', kind: 'held', weight: 5 },
+  { id: 'quick-claw', kind: 'held', weight: 5 },
+  { id: 'lucky-charm', kind: 'held', weight: 5 },
 ] as const;
 
 export type ItemId = (typeof ITEM_LIST)[number]['id'];
@@ -32,6 +37,22 @@ export type ItemKind = (typeof ITEM_LIST)[number]['kind'];
 export const ITEM_IDS: ItemId[] = ITEM_LIST.map(i => i.id);
 export const isItemId = (s: unknown): s is ItemId => typeof s === 'string' && (ITEM_IDS as string[]).includes(s);
 export const kindOf = (id: ItemId): ItemKind => ITEM_LIST.find(i => i.id === id)!.kind;
+
+export type HeldId = Extract<(typeof ITEM_LIST)[number], { kind: 'held' }>['id'];
+export const HELD_IDS: HeldId[] = ITEM_LIST.filter(i => i.kind === 'held').map(i => i.id as HeldId);
+export const isHeldId = (s: unknown): s is HeldId => (HELD_IDS as string[]).includes(String(s));
+
+/**
+ * What each held item does to a fighter. Every entry keeps the total power the same (HP × ATK, or the expected damage
+ * per round): they change how a card fights, not how strong it is. test/balance.test.ts enforces it on the real corpus.
+ */
+export interface HeldEffect { hp?: number; atk?: number; spd?: number; crit?: number; miss?: number }
+export const HELD_EFFECTS: Record<HeldId, HeldEffect> = {
+  'sturdy-plate': { hp: 1.1, atk: 1 / 1.1 },        // tankier, hits softer
+  'choice-band': { hp: 1 / 1.1, atk: 1.1 },         // glass cannon
+  'quick-claw': { spd: 1.3, atk: 0.99 },            // acts first more often, a little less damage
+  'lucky-charm': { crit: 0.2, miss: 0.09 },         // many more critical hits and more misses: a much swingier fight
+};
 
 /** Price of a mystery box in coins. */
 export const BOX_PRICE = 120;

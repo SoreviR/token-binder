@@ -133,7 +133,9 @@ Lleva **una carta** a combatir: ábrela en el álbum y pulsa **Llevar a combatir
 
 Lo que imprime la carta solo cambia *cómo* pelea: una con más PS que daño es más aguantadora, al revés pega más fuerte, con la misma potencia total. Una debilidad de tipo vale +15 % de daño (resistencia −8 %). El combate se tira con una semilla, así que es justo y reproducible.
 
-**La escalera.** Vence a un líder para desbloquear al siguiente; la primera victoria da una **medalla** y monedas (150 → 1 000), las siguientes dan 20 monedas, con hasta 5 revanchas pagadas al día. Los niveles de los líderes son 3, 9, 15 … 45, así que más o menos necesitas una carta de su nivel. Se guardan tu récord, tu racha y los últimos combates.
+**La escalera.** Vence a un líder para desbloquear al siguiente; la primera victoria da una **medalla** y monedas (150 → 1 000), las siguientes dan 3 monedas, con hasta 5 revanchas pagadas al día (un mes de uso normal da unas 500 monedas por tokens, así que combatir complementa la economía sin sustituirla). Los niveles de los líderes son 3, 9, 15 … 45, así que más o menos necesitas una carta de su nivel. Se guardan tu récord, tu racha y los últimos combates.
+
+**Combatir también entrena.** La carta que pelea gana **10 000 de XP por victoria y 4 000 por derrota** (los 5 primeros combates de cada día, como mucho un octavo de nivel). No sustituye al entrenamiento por tokens: una carta sigue necesitando un hueco de entrenamiento para subir de nivel con regularidad.
 
 ## Cajas misteriosas, objetos y evoluciones
 
@@ -145,6 +147,9 @@ Una **caja misteriosa** (120 monedas en la tienda) da un objeto al azar. Se abre
 | Caramelo Raro | Sube una carta un nivel |
 | Huevo Suerte | Una carta en entrenamiento gana **el doble de XP** (niveles) durante los próximos 1 M de tokens; se acumulan |
 | Megapiedra, Banda Dynamax, Núcleo Astral, Orbe Teracristal (raros) | Transforman una carta terminada (ver abajo) |
+| Placa Robusta, Cinta Elección, Garra Rápida, Amuleto de la Suerte | **Equipados en combate**, uno por carta (se equipan desde la carta en el álbum; no se gastan) |
+
+**Los objetos equipados** cambian *cómo* pelea una carta sin hacerla más fuerte: la Placa Robusta (+10 % PS, −10 % ATQ) la hace más aguantadora, la Cinta Elección (+10 % ATQ, −10 % PS) un cañón de cristal, la Garra Rápida actúa antes con más frecuencia (+30 % de velocidad, −1 % de ATQ), y el Amuleto de la Suerte da muchos más golpes críticos (+20 %) pero más fallos (+9 %): un combate más impredecible que ayuda al menos fuerte y perjudica al favorito. Los tests mantienen cada uno en torno al 50 % contra la misma carta sin él.
 
 **Evoluciones ramificadas.** Algunas líneas pueden evolucionar de varias formas: Eevee (8 especies), Gloom, Poliwhirl, Slowpoke, Kirlia, Snorunt, Cosmoem, Wurmple y Pikachu (Raichu o Raichu de Alola). Cuando la barra de entrenamiento se llena, la carta **espera** y el panel te pide elegir. Una especie ligada a un objeto (por ejemplo Umbreon necesita una Piedra Lunar, Flareon una Piedra Fuego, Gallade una Piedra Alba) solo está disponible si lo tienes, y el objeto se gasta. Las especies sin objeto se pueden elegir gratis, y **Dejar que evolucione sola** elige una rama al azar sin coste. Las mejoras de suerte hacen más probables los objetos raros.
 

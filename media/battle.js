@@ -1,7 +1,7 @@
 // The "Battle" tab of the album: your fighter, the gym ladder, the animated 1v1 arena and the result explained.
 // The extension host simulates the fight and sends the whole log; this file only plays it back.
 window.PTBattle = (function () {
-  const { el, t, cardEl, marksEl } = window.PT;
+  const { el, t, cardEl, marksEl, itemDesc } = window.PT;
   const FACTORS = ['level', 'demand', 'rarity', 'stage', 'grade', 'tokens'];
   const TYPE_ICON = { Fire: '🔥', Water: '💧', Grass: '🍃', Lightning: '⚡', Psychic: '🔮', Fighting: '🥊', Darkness: '🌑', Metal: '⚙️', Dragon: '🐉', Fairy: '✨', Colorless: '⚪' };
   const typeIcons = types => (types || []).map(x => TYPE_ICON[x] || '').join(' ');
@@ -43,9 +43,11 @@ window.PTBattle = (function () {
         el('div', { class: 'fdetail' },
           el('div', { class: 'row', style: 'justify-content:flex-start;gap:8px' }, el('b', { text: f.name }), el('span', { class: 'sub', text: t('stats.level', f.level) + ' ' + typeIcons(f.types) })),
           marksEl(f),
+          f.held ? el('div', { class: 'sub', text: itemDesc(f.held) }) : null,
           f.grade ? null : el('div', { class: 'sub', text: f.wearRisk > 0 ? t('battle.wearRisk', Math.round(f.wearRisk * 100)) : t('battle.noWearRisk') }),
           el('div', { class: 'sub', text: t('stats.hp') + ' ' + f.hp + ' · ' + t('stats.atk') + ' ' + Math.round(f.atk) }),
           breakdown(f),
+          d.fighterTraining ? null : el('div', { class: 'sub warnline', text: t('battle.trainHint') }),
           el('div', { class: 'sub', text: t('battle.changeHint') }))));
   }
 
@@ -164,6 +166,7 @@ window.PTBattle = (function () {
     const lines = [];
     if (o.coins) lines.push(el('div', { class: 'reward', text: t('battle.reward', o.coins) }));
     if (o.firstWin) lines.push(el('div', { class: 'reward', text: t('battle.badgeEarned', r.leader.name) }));
+    if (o.xp) lines.push(el('div', { class: 'reward xp', text: t('battle.xp', o.xp.toLocaleString()) + (o.levelUp ? ' · ' + t('battle.levelUp', r.me.name, o.levelUp) : '') }));
     if (o.capped) lines.push(el('div', { class: 'sub', text: t('battle.capped') }));
     if (r.worn) lines.push(el('div', { class: 'worn', text: t('battle.worn', r.me.name, t('condition.' + r.worn)) }));
     return [

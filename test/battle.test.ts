@@ -176,3 +176,31 @@ test('factorGaps names the factors in which two fighters differ most, biggest fi
   assert.ok(gaps.every(g => g.ratio !== 1));
   assert.deepEqual(factorGaps(poor, poor), []);
 });
+
+test('held items shift the fighter as described and leave the total power alone', () => {
+  const c = card('Holder');
+  const none = makeFighter('n', c, XP(10), { flat: true });
+  const plate = makeFighter('p', c, XP(10), { flat: true, held: 'sturdy-plate' });
+  const band = makeFighter('b', c, XP(10), { flat: true, held: 'choice-band' });
+  const claw = makeFighter('c', c, XP(10), { flat: true, held: 'quick-claw' });
+  const charm = makeFighter('l', c, XP(10), { flat: true, held: 'lucky-charm' });
+  assert.ok(plate.hp > none.hp && plate.atk < none.atk);
+  assert.ok(band.hp < none.hp && band.atk > none.atk);
+  for (const f of [plate, band]) { assert.ok(Math.abs(f.hp * f.atk - none.hp * none.atk) / (none.hp * none.atk) < 0.02, f.held); }
+  assert.ok(claw.spd > none.spd * 1.25);
+  assert.ok(charm.crit > none.crit && charm.miss > none.miss && charm.hp === none.hp && charm.atk === none.atk);
+  assert.equal(none.held, undefined);
+  assert.equal(BATTLE_VERSION, 2);
+});
+
+test('a Lucky Charm really produces more critical hits and more misses in the log', () => {
+  const a = fighter('Alpha'), b = fighter('Beta');
+  const charm = { ...a, crit: a.crit + 0.1, miss: a.miss + 0.05 };
+  const count = (f: Fighter) => {
+    let hits = 0, crits = 0, misses = 0;
+    for (let s = 0; s < 400; s++) { for (const ev of simulate(f, b, s).log) { if (ev.t === 'attack' && ev.side === 'a') { hits++; if (ev.crit) { crits++; } if (ev.miss) { misses++; } } } }
+    return { crit: crits / hits, miss: misses / hits };
+  };
+  const base = count(a), lucky = count(charm);
+  assert.ok(lucky.crit > base.crit + 0.04 && lucky.miss > base.miss + 0.02, JSON.stringify({ base, lucky }));
+});

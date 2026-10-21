@@ -7,6 +7,7 @@ import * as path from 'node:path';
 import { Card } from '../src/game/engine';
 import { Fighter, MAX_ROUNDS, makeFighter, simulate } from '../src/game/battle';
 import { LEVEL_STEP, stageClass } from '../src/game/strength';
+import { HELD_IDS } from '../src/game/items';
 
 const corpus: Card[] = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'battle-corpus.json'), 'utf8'));
 const XP = (level: number) => (level - 1) * 400_000;
@@ -142,4 +143,24 @@ test('robustness: every corpus card, at any level, gives finite stats and a fini
     const r = simulate(makeFighter('a', c, XP(1)), makeFighter('b', corpus[(i + 1) % corpus.length], XP(50)), i);
     assert.ok(r.rounds >= 1 && r.rounds <= MAX_ROUNDS && (r.winner === 'a' || r.winner === 'b'));
   }
+});
+
+test('held items change HOW a card fights, not how strong it is: each one stays near 50% against the same card without it', () => {
+  for (const id of HELD_IDS) {
+    let sum = 0, n = 0;
+    for (let i = 0; i < corpus.length; i += 6) {
+      sum += winRate(makeFighter('a', corpus[i], XP(10), { flat: true, held: id }), flatFighter(corpus[i]), 1200, 40 + i);
+      n++;
+    }
+    const mean = sum / n;
+    assert.ok(mean > 0.47 && mean < 0.53, `${id} -> ${mean}`);
+  }
+});
+
+test('the Lucky Charm makes fights swingier: it helps the weaker side and hurts the stronger one', () => {
+  const f = flatFighter(corpus[4]);
+  const charm = makeFighter('u', corpus[4], XP(10), { flat: true, held: 'lucky-charm' });
+  const weak = scaled(f, 1 / 1.25), strong = scaled(f, 1.25);
+  assert.ok(winRate({ ...weak, crit: charm.crit, miss: charm.miss }, strong, 6000, 51) > winRate(weak, strong, 6000, 51) + 0.01, 'the underdog gains');
+  assert.ok(winRate({ ...strong, crit: charm.crit, miss: charm.miss }, weak, 6000, 52) < winRate(strong, weak, 6000, 52) - 0.01, 'the favorite loses');
 });

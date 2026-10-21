@@ -5,7 +5,7 @@ import { defaultRoots, runningUserRoot, uniqueRoots } from './usage/paths';
 import { fmt, parseLimit, percent, periodEnd, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
 import {
-  accrueXp, addCards, applyTransform, branchOptions, buy, CARD_DATA_VERSION, Card, chooseEvolution, consume, countOf, earnCoins, GameState, levelOf, openBox,
+  accrueXp, addCards, applyTransform, branchOptions, buy, CARD_DATA_VERSION, Card, chooseEvolution, consume, countOf, earnCoins, equipHeld, GameState, levelOf, openBox, unequipHeld,
   useLuckyEgg, useRareCandy, grantPacks, Item, keyOf, levelProgress, MAX_LUCK, MAX_SLOTS,
   newState, nextPackProgress, normalize, PackKind, priceOf, resolveDue, sellDuplicates, sellValue, startTraining, trainingProgress, underPace,
   untrain,
@@ -154,6 +154,10 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (ok) { await game.save(state); await tick(true); }
     } else if (m.type === 'transform' && typeof m.id === 'string' && isItemId(m.item)) {
       await transform(m.id, m.item);
+    } else if (m.type === 'equip' && typeof m.id === 'string' && typeof m.item === 'string') {
+      if (equipHeld(state, m.id, m.item)) { await game.save(state); await tick(true); }
+    } else if (m.type === 'unequip' && typeof m.id === 'string') {
+      if (unequipHeld(state, m.id)) { await game.save(state); await tick(true); }
     } else if (m.type === 'setFighter' && typeof m.id === 'string') {
       if (setFighter(state, m.id)) { await game.save(state); await tick(true); }
     } else if (m.type === 'startBattle' && typeof m.leader === 'string') {
@@ -193,10 +197,13 @@ export function activate(ctx: vscode.ExtensionContext): void {
   }
 
   /** The fighter as the battle screen needs it: names, stats, the strength breakdown and the card art. */
-  async function fighterView(f: Fighter, card: Card) {
-    const view = await cardView(card, 'high', true, p => album.uri(p));
+  async function fighterView(f: Fighter, card: Card, download: boolean) {
+    // The panel refreshes constantly, so it only uses art that is already on disk (large if there, otherwise the thumbnail);
+    // the fight itself, started by the player, is allowed to download the large one.
+    const quality = download || tcg.cachedImage(card, 'high') ? 'high' : 'low';
+    const view = await cardView(card, quality, download, p => album.uri(p));
     return {
-      care: view.care, wear: view.wear, wearRisk: view.wearRisk, grade: view.grade,
+      care: view.care, wear: view.wear, wearRisk: view.wearRisk, grade: view.grade, held: view.held,
       name: f.name, key: f.key, level: f.level, hp: f.hp, atk: f.atk, def: f.def, spd: f.spd, types: f.types, strength: f.strength, moves: f.moves.map(m => m.name),
       src: view.src, tier: card.tier, variant: card.variant, rarity: card.rarity,
     };
@@ -238,8 +245,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
     }));
     const today = dayKey(Date.now());
     return {
-      fighter: own && me.ok ? await fighterView(me.fighter, own.card) : null,
+      fighter: own && me.ok ? await fighterView(me.fighter, own.card, false) : null,
       fighterBlocked: me.ok ? undefined : me.reason,
+      fighterTraining: !!s.fighter && s.slots.some(t => t && keyOf(t.card) === s.fighter),
       record: { wins: rec.wins, losses: rec.losses, streak: rec.streak, best: rec.best, badges: rec.badges },
       rewardsLeft: rec.daily.day === today ? Math.max(0, REMATCH_DAILY_CAP - rec.daily.rewarded) : REMATCH_DAILY_CAP,
       history: rec.history,
@@ -268,7 +276,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       type: 'battleResult',
       data: {
         leader: { id: def.id, name: def.name, level: def.level },
-        me: await fighterView(me.fighter, state.collection[state.fighter!].card), foe: await fighterView(foe, card),
+        me: await fighterView(me.fighter, state.collection[state.fighter!].card, true), foe: await fighterView(foe, card, true),
         odds, won, rounds: result.rounds, reason: result.reason, log: result.log, outcome, worn,
         gaps: factorGaps(me.fighter, foe).slice(0, 3),
         typeEdge: effectiveness(me.fighter, foe).eff === 'weak' ? 'me' : effectiveness(foe, me.fighter).eff === 'weak' ? 'foe' : undefined,
@@ -338,7 +346,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const lv = levelProgress(xp);
     const rawValue = marketValue(c);
     return {
-      grade: owned?.grade, care: owned?.care ?? {}, wear: owned?.grade ? 0 : owned?.wear ?? 0, wearRisk: owned ? wearChance(owned) : 0, gradeMult: gradeMultiplier(owned?.grade), gradeCost: gradeCost(c.tier, owned?.tries ?? 0),
+      held: owned?.held, grade: owned?.grade, care: owned?.care ?? {}, wear: owned?.grade ? 0 : owned?.wear ?? 0, wearRisk: owned ? wearChance(owned) : 0, gradeMult: gradeMultiplier(owned?.grade), gradeCost: gradeCost(c.tier, owned?.tries ?? 0),
       grading: owned?.grading ? gradingProgress(owned.grading, usage.lifetimeTokens()) : undefined,
       ...(c.cv === CARD_DATA_VERSION ? {} : { basic: true }),   // no attacks or price yet: estimated stats
       stats: statsOf(c, xp), lvPct: lv ? lv.pct : 100, xp, mastered: !!owned?.mastered,
