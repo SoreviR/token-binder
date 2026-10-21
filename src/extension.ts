@@ -5,9 +5,11 @@ import { defaultRoots, runningUserRoot, uniqueRoots } from './usage/paths';
 import { fmt, parseLimit, percent, periodEnd, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
 import {
-  addCards, buy, Card, consume, earnCoins, ERA_BY_ID, GameState, grantPacks, Item, keyOf, MAX_LUCK, MAX_SLOTS, newState, nextPackProgress, normalize,
-  PackKind, priceOf, resolveDue, sellDuplicates, sellValue, startTraining, TIER_NAMES, trainingProgress, underPace, VARIANT_LABELS,
+  accrueXp, addCards, buy, CARD_DATA_VERSION, Card, consume, earnCoins, ERA_BY_ID, GameState, grantPacks, Item, keyOf, levelProgress, MAX_LUCK, MAX_SLOTS,
+  newState, nextPackProgress, normalize, PackKind, priceOf, resolveDue, sellDuplicates, sellValue, startTraining, TIER_NAMES, trainingProgress, underPace,
+  untrain, VARIANT_LABELS,
 } from './game/engine';
+import { collectorLabel, marketValue, statsOf } from './game/stats';
 import { Tcgdex } from './game/tcgdex';
 import { BinderViewProvider, WebviewMessage } from './webview/provider';
 import { AlbumPanel } from './webview/albumPanel';
@@ -43,6 +45,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
   let lastEvolveTry = 0;
   let prefetching = false;
   const failedThumbs = new Set<string>(); // no reintentar en bucle si no hay red; se limpia al recargar
+  const failedEnrich = new Set<string>();
+  let enriching = false;
 
   let rerun = false;
   async function tick(force = false): Promise<void> {
@@ -73,6 +77,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const pace = underPace(pct, now, start, periodEnd(now, resetDay));
       earnCoins(state, lifetime, pace);
       if (pct >= 100 && state.bonusPeriod !== start) { state.bonusPeriod = start; state.packs++; events.push('bonusPack'); }
+      events.push(...accrueXp(state, lifetime));
       // Evolución/graduación: necesita red; si falla se reintenta como mucho cada 30 s.
       const due = state.slots.some(t => t && trainingProgress(t, lifetime, mult).due);
       if (due && now - lastEvolveTry > 30_000) {
@@ -114,11 +119,14 @@ export function activate(ctx: vscode.ExtensionContext): void {
       }
     } else if (m.type === 'train' && typeof m.id === 'string') {
       if (startTraining(state, m.id, usage.lifetimeTokens())) { await game.save(state); await tick(true); }
+    } else if (m.type === 'untrain' && typeof m.id === 'string') {
+      if (untrain(state, m.id)) { await game.save(state); await tick(true); }
     } else if (m.type === 'high' && typeof m.id === 'string') {
       const card = state.collection[m.id]?.card;
       const file = card && await tcg.image(card, 'high');
       const src = file && target.uri(file); // cada webview genera sus propias URI
       if (src) { target.send({ type: 'high', id: m.id, src }); }
+      if (card) { void refreshCard(m.id); }  // al mirar una carta se pone al día su precio de mercado
     }
   }
 
@@ -143,9 +151,48 @@ export function activate(ctx: vscode.ExtensionContext): void {
     } finally { opening = false; }
   }
 
+  /** Pone al día una carta (ataques y precio) en la colección y en los huecos de entrenamiento. */
+  function applyCard(key: string, card: Card): void {
+    const o = state?.collection[key];
+    if (o) { o.card = card; }
+    for (const t of state?.slots ?? []) { if (t && keyOf(t.card) === key) { t.card = card; } }
+  }
+
+  async function refreshCard(key: string): Promise<void> {
+    const card = state?.collection[key]?.card;
+    if (!state || !card) { return; }
+    const fresh = await tcg.enrich(card, true);
+    if (fresh && fresh !== card) { applyCard(key, fresh); await game.save(state); void tick(true); }
+  }
+
+  /** Completa en segundo plano las cartas guardadas antes de que se conocieran ataques y precios (hace falta para sus stats). */
+  function enrichMissing(cards: Card[]): void {
+    const missing = [...new Map(cards.map(c => [keyOf(c), c])).values()].filter(c => c.cv !== CARD_DATA_VERSION && !failedEnrich.has(c.id));
+    if (!missing.length || enriching) { return; }
+    enriching = true;
+    void (async () => {
+      let changed = false;
+      try {
+        for (let i = 0; i < missing.length; i += 4) {
+          await Promise.all(missing.slice(i, i + 4).map(async c => {
+            const fresh = await tcg.enrich(c);
+            if (fresh) { applyCard(keyOf(c), fresh); changed = true; } else { failedEnrich.add(c.id); }
+          }));
+        }
+      } finally { enriching = false; }
+      if (changed && state) { await game.save(state); void tick(true); }
+    })();
+  }
+
   async function cardView(c: Card, q: 'low' | 'high', fetchIfMissing: boolean, toUri: (p: string) => string | undefined = p => provider.uri(p)) {
     const file = tcg.cachedImage(c, q) ?? (fetchIfMissing ? await tcg.image(c, q) : undefined);
+    const owned = state?.collection[keyOf(c)];
+    const xp = owned?.xp ?? 0;
+    const lv = levelProgress(xp);
     return {
+      ...(c.cv === CARD_DATA_VERSION ? {} : { basic: true }),   // sin ataques ni precio todavía: stats estimadas
+      stats: statsOf(c, xp), lvPct: lv ? lv.pct : 100, xp, mastered: !!owned?.mastered,
+      market: marketValue(c), eur: c.price?.eur, usd: c.price?.usd, priceAt: c.priceAt, collector: collectorLabel(c),
       id: keyOf(c), name: c.name, rarity: c.rarity, tier: c.tier, tierName: TIER_NAMES[c.tier], stage: c.stage, hp: c.hp,
       types: c.types, set: c.set, era: c.era ? ERA_BY_ID[c.era].label : undefined,
       variant: c.variant, variantLabel: c.variant ? VARIANT_LABELS[c.variant] : undefined, sell: sellValue(c),
@@ -157,11 +204,13 @@ export function activate(ctx: vscode.ExtensionContext): void {
   async function albumData(s: GameState) {
     const owned = Object.values(s.collection);
     prefetchThumbs(owned.map(o => o.card));
+    enrichMissing(owned.map(o => o.card));
     const cards = await Promise.all(owned.slice(0, 1000).map(async o => ({
       ...await cardView(o.card, 'low', false, p => album.uri(p)), count: o.count, firstAt: o.firstAt,
     })));
     return {
       album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count, 0)),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };
   }
@@ -205,8 +254,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const slots = await Promise.all(s.slots.map(async t => {
       if (!t) { return null; }
       const p = trainingProgress(t, lifetime, mult);
-      return { card: await cardView(t.card, 'high', true), pct: p.pct, into: p.into, span: p.span, evolved: t.evolved };
+      return { card: await cardView(t.card, 'high', true), id: keyOf(t.card), pct: p.pct, into: p.into, span: p.span, evolved: t.evolved, mastered: !!t.mastered };
     }));
+    enrichMissing(s.slots.flatMap(t => (t ? [t.card] : [])));
     const owned = Object.values(s.collection);
     const newest = owned.sort((a, c) => c.firstAt - a.firstAt).slice(0, 3).map(o => o.card);
     prefetchThumbs(newest);

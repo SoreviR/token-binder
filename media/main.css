@@ -130,3 +130,14 @@ body.album #overlay { justify-content: center; cursor: pointer; }
 
 /* cabecera del álbum con botón de vender */
 .albumhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+
+/* nivel, stats y mercado */
+.stats { margin: 6px 0; text-align: left; }
+.barwrap.lv { height: 4px; margin: 3px 0 6px; }
+.statgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+.stat { display: flex; flex-direction: column; align-items: center; padding: 2px 0; border-radius: 4px; background: var(--vscode-editorWidget-background, rgba(127,127,127,.12)); }
+.stat .k { font-size: 9px; opacity: .7; letter-spacing: .5px; }
+.master { font-size: 11px; font-weight: 700; color: #e0a800; }
+.market { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 4px; }
+.market .coll { font-size: 11px; font-weight: 700; padding: 0 8px; border-radius: 8px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
+.agrid .thumb .lvl { position: absolute; left: 2px; top: 17px; font-size: 9px; font-weight: 700; padding: 0 5px; border-radius: 8px; background: rgba(0,0,0,.75); color: #fff; }

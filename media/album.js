@@ -1,6 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TIERS, TCOLOR, el, badge, cardEl, press, info } = window.PT;
+  const { TIERS, TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
   const send = (type, extra) => vscode.postMessage(Object.assign({ type }, extra));
@@ -59,12 +59,14 @@
       c.src ? el('img', { src: c.src, alt: '', loading: 'lazy' }) : el('div', { class: 'nm', text: c.name }),
       c.count > 1 ? el('span', { class: 'n', text: '×' + c.count }) : null,
       c.variant ? el('span', { class: 'vt', text: c.variant === 'first' ? '1.ª ED.' : 'SHADOWLESS' }) : null,
-      D.trainingIds.includes(c.id) ? el('span', { class: 'tr', text: 'Entrenando' }) : null),
+      D.trainingIds.includes(c.id) ? el('span', { class: 'tr', text: 'Entrenando' }) : null,
+      c.stats.level > 1 || c.mastered ? el('span', { class: 'lvl', text: (c.mastered ? '★ ' : '') + 'Nv.' + c.stats.level }) : null),
       () => openViewer(c.id), c.name + ', ' + c.rarity + (c.variantLabel ? ', ' + c.variantLabel : ''))));
   }
 
   function render() {
-    summary.textContent = D.unique + ' cartas distintas · ' + D.total + ' en total · ' + D.mastered + ' líneas completadas';
+    summary.textContent = D.unique + ' cartas distintas · ' + D.total + ' en total · ' + D.mastered + ' líneas completadas'
+      + (D.value ? ' · valor aprox. €' + D.value.toLocaleString() : '');
     sellAll.style.display = D.total > D.unique ? '' : 'none';
     renderEras();
     renderChips();
@@ -88,9 +90,13 @@
         card,
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:10px' }, el('b', { text: c.name }), badge(c.tier)),
         el('div', { class: 'sub center', text: info(c) }),
+        statsEl(c),
+        marketEl(c),
         c.count > 1 ? el('div', { class: 'sub center', text: 'Tienes ' + c.count + ' copias' }) : null,
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap' },
-          el('button', { class: 'btn', ...(D.freeSlots && !training ? {} : { disabled: '' }), text: label, onclick: () => { send('train', { id }); closeViewer(); } }),
+          training
+            ? el('button', { class: 'btn ghost', text: 'Retirar del entrenamiento', onclick: () => { send('untrain', { id }); closeViewer(); } })
+            : el('button', { class: 'btn', ...(D.freeSlots ? {} : { disabled: '' }), text: label, onclick: () => { send('train', { id }); closeViewer(); } }),
           c.count > 1 ? el('button', { class: 'btn ghost', text: 'Vender repetida · 🪙 ' + c.sell, onclick: () => send('sell', { id }) }) : null,
           el('button', { class: 'btn ghost', text: 'Cerrar', onclick: closeViewer }))));
     if (!keepHigh) send('high', { id });

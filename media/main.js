@@ -1,6 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TCOLOR, fmt, el, badge, cardEl, press, info, eta } = window.PT;
+  const { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
 
@@ -65,8 +65,10 @@
       cardEl(c, 150),
       el('div', { class: 'row', style: 'justify-content:center;margin-top:6px' }, el('b', { text: c.name }), badge(c.tier)),
       el('div', { class: 'sub', text: info(c) }),
-      bar(s.pct),
-      el('div', { class: 'sub', text: fmt(s.into) + ' / ' + fmt(s.span) + ' tokens para evolucionar ' + eta(s.span - s.into, perDay) + (s.evolved ? ' · evoluciones: ' + s.evolved : '') }));
+      statsEl(c),
+      s.mastered ? el('div', { class: 'sub', text: 'Línea completa: sigue ganando nivel con tus tokens.' }) : bar(s.pct),
+      s.mastered ? null : el('div', { class: 'sub', text: fmt(s.into) + ' / ' + fmt(s.span) + ' tokens para evolucionar ' + eta(s.span - s.into, perDay) + (s.evolved ? ' · evoluciones: ' + s.evolved : '') }),
+      el('button', { class: 'btn ghost', style: 'margin-top:6px', text: 'Retirar', title: 'Libera el hueco; la carta conserva su nivel', onclick: () => send('untrain', { id: s.id }) }));
   }
 
   /** Resumen del álbum: el álbum completo vive en una pestaña del editor. */
@@ -132,6 +134,7 @@
       else if (e === 'bonusPack') toast('Cupo al 100%: sobre de regalo');
       else if (e.startsWith('evolve:')) toast('¡Tu carta evolucionó a ' + e.slice(7) + '!');
       else if (e.startsWith('graduate:')) toast(e.slice(9) + ' completó su línea · +1 sobre');
+      else if (e.startsWith('level:')) { const [, name, lv] = e.split(':'); toast(name + ' subió al nivel ' + lv); }
     }
   }
 

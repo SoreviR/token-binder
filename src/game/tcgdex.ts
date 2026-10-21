@@ -1,9 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Card, ERAS, Era, FindNext, PackKind, eraOfSerie, isPremium, rollEras, rollVariant, shuffledRarities, tierOf } from './engine';
+import { CARD_DATA_VERSION, Card, ERAS, Era, FindNext, PackKind, eraOfSerie, isPremium, rollEras, rollVariant, shuffledRarities, tierOf } from './engine';
+import { parseDamage, parsePricing } from './stats';
 
 const BASE = 'https://api.tcgdex.net/v2/en';
 const TIMEOUT = 12_000;
+const PRICE_TTL = 7 * 864e5;  // el precio se vuelve a consultar al ver una carta si tiene más de 7 días
 const MAX_ATTEMPTS = 14; // intentos (set, rareza) por carta antes de bajar a otra era
 
 interface ListItem { id: string; name: string; image?: string }
@@ -67,28 +69,56 @@ export class Tcgdex {
     return items;
   }
 
+  /** Convierte la respuesta de TCGdex en una carta (undefined si no es una carta de Pokémon con imagen). */
+  private parseCard(c: any): Card | undefined {
+    if (!c || c.category !== 'Pokemon' || !c.image || !c.name) { return undefined; }
+    const holo = !!c.variants?.holo;
+    let tier = tierOf(c.rarity);
+    if (holo && tier < 3) { tier = 3; } // en lo vintage una holo figura como «Rare»
+    const types = (list: any): string[] | undefined => (Array.isArray(list) && list.length ? list.map((x: any) => String(x.type)) : undefined);
+    return {
+      id: c.id, name: c.name, rarity: c.rarity ?? 'Common', tier, stage: c.stage, evolveFrom: c.evolveFrom,
+      dexId: Array.isArray(c.dexId) ? c.dexId[0] : undefined, hp: typeof c.hp === 'number' ? c.hp : undefined,
+      types: c.types, set: c.set?.name, setId: c.set?.id, holo,
+      shadowless: Array.isArray(c.variants_detailed) && c.variants_detailed.some((v: { subtype?: string }) => v.subtype === 'shadowless'),
+      attacks: Array.isArray(c.attacks) ? c.attacks.map((a: any) => ({ name: String(a.name), damage: parseDamage(a.damage), cost: Array.isArray(a.cost) ? a.cost.length : 0 })) : [],
+      weak: types(c.weaknesses), resist: types(c.resistances), retreat: typeof c.retreat === 'number' ? c.retreat : undefined,
+      price: parsePricing(c.pricing), priceAt: Date.now(), cv: CARD_DATA_VERSION,
+      image: c.image,
+    };
+  }
+
+  private cardFile(id: string): string { return path.join(this.dir, 'cards', `${this.safe(id)}.json`); }
+
+  /** Baja la carta de la red y la guarda en disco. undefined si falla. */
+  private async fetchCard(id: string): Promise<Card | undefined> {
+    const card = this.parseCard(await this.getJson(`${BASE}/cards/${encodeURIComponent(id)}`));
+    if (card) { fs.writeFileSync(this.cardFile(id), JSON.stringify(card)); }
+    return card;
+  }
+
   async detail(id: string): Promise<Card | undefined> {
-    const file = path.join(this.dir, 'cards', `${this.safe(id)}.json`);
     let card: Card | undefined;
-    try { card = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* no está en caché */ }
-    if (!card) {
-      const c = await this.getJson(`${BASE}/cards/${encodeURIComponent(id)}`);
-      if (!c || c.category !== 'Pokemon' || !c.image || !c.name) { return undefined; }
-      const holo = !!c.variants?.holo;
-      let tier = tierOf(c.rarity);
-      if (holo && tier < 3) { tier = 3; } // en lo vintage una holo figura como «Rare»
-      card = {
-        id: c.id, name: c.name, rarity: c.rarity ?? 'Common', tier, stage: c.stage, evolveFrom: c.evolveFrom,
-        dexId: Array.isArray(c.dexId) ? c.dexId[0] : undefined, hp: typeof c.hp === 'number' ? c.hp : undefined,
-        types: c.types, set: c.set?.name, setId: c.set?.id, holo,
-        shadowless: Array.isArray(c.variants_detailed) && c.variants_detailed.some((v: { subtype?: string }) => v.subtype === 'shadowless'),
-        image: c.image,
-      };
-      fs.writeFileSync(file, JSON.stringify(card));
-    }
+    try { card = JSON.parse(fs.readFileSync(this.cardFile(id), 'utf8')); } catch { /* no está en caché */ }
+    // Una caché anterior a los ataques y precios se completa cuando hay red; sin red se sigue con lo que hay.
+    if (!card || card.cv !== CARD_DATA_VERSION) { card = (await this.fetchCard(id)) ?? card; }
+    if (!card) { return undefined; }
     // La era se calcula siempre (no se guarda): así una caché antigua sin era también se actualiza.
     if (card.setId && !card.era) { await this.loadEras(); card.era = this.setEra.get(card.setId); }
     return card;
+  }
+
+  /**
+   * Completa una carta del álbum con ataques y precio actuales. Si ya está al día (y el precio es reciente, salvo
+   * `force`) la devuelve igual; si no hay red devuelve undefined. El resultado conserva la variante del ejemplar.
+   */
+  async enrich(card: Card, force = false): Promise<Card | undefined> {
+    const stale = card.cv !== CARD_DATA_VERSION || (force && Date.now() - (card.priceAt ?? 0) > PRICE_TTL);
+    if (!stale) { return card; }
+    const fresh = await this.fetchCard(card.id);
+    if (!fresh) { return undefined; }
+    if (fresh.setId && !fresh.era) { await this.loadEras(); fresh.era = this.setEra.get(fresh.setId); }
+    return { ...fresh, era: fresh.era ?? card.era, variant: card.variant };
   }
 
   /** Ruta local de la imagen (la descarga si hace falta). undefined sin red. */

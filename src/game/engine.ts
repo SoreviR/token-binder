@@ -79,15 +79,34 @@ export interface Card {
   era?: Era;
   holo?: boolean;
   shadowless?: boolean; // esta carta existe en versión Shadowless (solo el Set Base)
+  attacks?: Attack[];   // ataques con el daño base ya convertido a número (para las stats de combate)
+  weak?: string[];      // tipos a los que es débil
+  resist?: string[];    // tipos a los que resiste
+  retreat?: number;     // coste de retirada
+  price?: Price;        // valor de mercado aproximado
+  priceAt?: number;     // cuándo se consultó el precio
+  cv?: number;          // versión de los datos guardados (2 = incluye ataques y precio)
   variant?: Variant;    // variante sacada en este ejemplar
   image: string;        // URL base de assets.tcgdex.net (se le añade /low.webp o /high.webp)
 }
 
+export interface Attack { name: string; damage: number; cost: number }
+export interface Price { eur?: number; usd?: number }
+export const CARD_DATA_VERSION = 2;
+
 /** Clave única de un ejemplar: el mismo id con otra variante es una carta distinta en el álbum. */
 export const keyOf = (c: Pick<Card, 'id' | 'variant'>): string => (c.variant ? `${c.id}#${c.variant}` : c.id);
 
-export interface Owned { card: Card; count: number; firstAt: number }
-export interface Training { card: Card; born: number; evolved: number }
+export interface Owned {
+  card: Card; count: number; firstAt: number;
+  xp: number;           // tokens que esta carta ha entrenado en total (se hereda al evolucionar)
+  mastered?: boolean;   // ya completó su línea evolutiva
+}
+export interface Training {
+  card: Card; born: number; evolved: number;
+  last: number;         // tokens de por vida hasta los que ya se repartió XP
+  mastered?: boolean;   // línea completa: sigue en el hueco ganando XP hasta que la retires
+}
 export interface GameState {
   v: 2;
   baseline: number;       // tokens de por vida al empezar: los sobres se cuentan desde aquí
@@ -170,10 +189,41 @@ export function stageEnd(k: number, mult: number): number {
 export interface TrainingProgress { into: number; span: number; pct: number; due: boolean }
 
 export function trainingProgress(t: Training, lifetime: number, mult: number): TrainingProgress {
+  if (t.mastered) { return { into: 0, span: 1, pct: 100, due: false }; }
   const acc = Math.max(0, lifetime - t.born);
   const start = t.evolved === 0 ? 0 : stageEnd(t.evolved - 1, mult);
   const end = stageEnd(t.evolved, mult);
   return { into: Math.min(acc - start, end - start), span: end - start, pct: Math.min(100, ((acc - start) / (end - start)) * 100), due: acc >= end };
+}
+
+/* ───────── Nivel ───────── */
+
+export const XP_PER_LEVEL = 400_000;
+export const MAX_LEVEL = 50;
+/** Nivel de una carta a partir de los tokens que ha entrenado (1-50; unos 20 M tokens para el máximo). */
+export const levelOf = (xp: number): number => Math.min(MAX_LEVEL, 1 + Math.floor(Math.max(0, xp) / XP_PER_LEVEL));
+/** Progreso hacia el siguiente nivel (null en el nivel máximo). */
+export function levelProgress(xp: number): { level: number; into: number; span: number; pct: number } | null {
+  const level = levelOf(xp);
+  if (level >= MAX_LEVEL) { return null; }
+  const into = xp - (level - 1) * XP_PER_LEVEL;
+  return { level, into, span: XP_PER_LEVEL, pct: (into / XP_PER_LEVEL) * 100 };
+}
+
+/** Reparte a las cartas en entrenamiento los tokens usados desde la última vez. Devuelve los niveles subidos. */
+export function accrueXp(s: GameState, lifetime: number): string[] {
+  const events: string[] = [];
+  for (const t of s.slots) {
+    if (!t) { continue; }
+    const delta = Math.max(0, lifetime - t.last);
+    t.last = lifetime;
+    const o = s.collection[keyOf(t.card)];
+    if (!o || !delta) { continue; }
+    const before = levelOf(o.xp);
+    o.xp += delta;
+    if (levelOf(o.xp) > before) { events.push(`level:${t.card.name}:${levelOf(o.xp)}`); }
+  }
+  return events;
 }
 
 /* ───────── Estado ───────── */
@@ -189,6 +239,9 @@ export function newState(lifetime: number): GameState {
 /** Completa los campos añadidos en versiones nuevas a un estado guardado antes (sin dar monedas retroactivas). */
 export function normalize(s: GameState, lifetime: number): GameState {
   s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime;
+  for (const o of Object.values(s.collection)) { o.xp ??= 0; }
+  // Las cartas que ya entrenaban reciben la XP de todo lo entrenado hasta ahora (desde que nacieron en el hueco).
+  for (const t of s.slots) { if (t) { t.last ??= t.born; } }
   return s;
 }
 
@@ -263,7 +316,7 @@ export function addCards(s: GameState, cards: Card[], now = Date.now()): void {
   for (const c of cards) {
     const k = keyOf(c);
     const o = s.collection[k];
-    if (o) { o.count++; } else { s.collection[k] = { card: c, count: 1, firstAt: now }; }
+    if (o) { o.count++; } else { s.collection[k] = { card: c, count: 1, firstAt: now, xp: 0 }; }
   }
 }
 
@@ -290,7 +343,16 @@ export function startTraining(s: GameState, cardId: string, lifetime: number): b
   const slot = s.slots.findIndex(x => x === null);
   if (!owned || slot < 0) { return false; }
   if (s.slots.some(t => t && keyOf(t.card) === cardId)) { return false; }
-  s.slots[slot] = { card: owned.card, born: lifetime, evolved: 0 };
+  // Una carta que ya completó su línea vuelve al hueco para seguir subiendo de nivel.
+  s.slots[slot] = { card: owned.card, born: lifetime, evolved: 0, last: lifetime, mastered: owned.mastered || undefined };
+  return true;
+}
+
+/** Retira una carta del hueco (conserva su nivel y su XP). */
+export function untrain(s: GameState, key: string): boolean {
+  const i = s.slots.findIndex(t => t && keyOf(t.card) === key);
+  if (i < 0) { return false; }
+  s.slots[i] = null;
   return true;
 }
 
@@ -301,19 +363,26 @@ export type FindNext = (card: Card) => Promise<{ ok: true; card: Card | null } |
  * (+1 sobre). Si la búsqueda falla por red (ok:false) no se toca nada y se reintenta más tarde.
  */
 export async function resolveDue(s: GameState, lifetime: number, mult: number, findNext: FindNext, now = Date.now()): Promise<string[]> {
+  accrueXp(s, lifetime);   // el aviso de nivel lo da quien llama a accrueXp (tick); aquí solo asegura la XP antes de evolucionar
   const events: string[] = [];
   for (let i = 0; i < s.slots.length; i++) {
     for (let guard = 0; guard < 10; guard++) {
       const t = s.slots[i];
-      if (!t || !trainingProgress(t, lifetime, mult).due) { break; }
+      if (!t || t.mastered || !trainingProgress(t, lifetime, mult).due) { break; }
       const r = await findNext(t.card);
       if (!r.ok) { break; }
       if (r.card) {
         addCards(s, [r.card], now);
-        s.slots[i] = { card: r.card, born: t.born, evolved: t.evolved + 1 };
+        // La carta nueva hereda el nivel de la anterior.
+        const next = s.collection[keyOf(r.card)], prev = s.collection[keyOf(t.card)];
+        if (next && prev) { next.xp = Math.max(next.xp, prev.xp); }
+        s.slots[i] = { card: r.card, born: t.born, evolved: t.evolved + 1, last: t.last };
         events.push(`evolve:${r.card.name}`);
       } else {
-        s.slots[i] = null;
+        // La carta se queda en el hueco como «Maestra» y sigue ganando XP (nivel) hasta que la retires.
+        s.slots[i] = { ...t, mastered: true };
+        const own = s.collection[keyOf(t.card)];
+        if (own) { own.mastered = true; }
         s.mastered++;
         s.packs++;
         events.push(`graduate:${t.card.name}`);

@@ -60,5 +60,27 @@ window.PT = (function () {
     return d < 1 ? '≈ menos de 1 día' : d < 60 ? '≈ ' + (d < 10 ? d.toFixed(1) : Math.round(d)) + ' días' : '≈ ' + Math.round(d / 30) + ' meses';
   }
 
-  return { TIERS, TCOLOR, fmt, el, badge, cardEl, press, info, eta };
+  /** Nivel, barra de XP y stats de combate de una carta. */
+  function statsEl(c) {
+    const s = c.stats;
+    const cell = (k, v) => el('div', { class: 'stat' }, el('span', { class: 'k', text: k }), el('b', { text: String(v) }));
+    return el('div', { class: 'stats' },
+      el('div', { class: 'row' }, el('b', { text: 'Nv. ' + s.level + (s.level >= 50 ? ' (máx.)' : '') }), c.mastered ? el('span', { class: 'master', text: '★ Maestra' }) : null),
+      el('div', { class: 'barwrap lv' }, el('i', { style: 'width:' + Math.max(0, Math.min(100, c.lvPct)).toFixed(1) + '%' })),
+      el('div', { class: 'statgrid' }, cell('PS', s.hp), cell('ATQ', s.atk), cell('DEF', s.def), cell('VEL', s.spd)),
+      c.basic ? el('div', { class: 'sub', text: 'Stats estimadas: faltan datos de la carta (se completan con conexión).' }) : null);
+  }
+
+  /** Valor de mercado aproximado y etiqueta de coleccionismo. */
+  function marketEl(c) {
+    if (c.market === undefined) return el('div', { class: 'sub center', text: 'Sin precio de mercado' });
+    const parts = [];
+    if (c.eur !== undefined) parts.push('€' + c.eur.toFixed(2) + ' Cardmarket');
+    if (c.usd !== undefined) parts.push('$' + c.usd.toFixed(2) + ' TCGplayer');
+    return el('div', { class: 'market' },
+      el('span', { class: 'coll', text: c.collector }),
+      el('span', { class: 'sub', text: parts.join(' · ') + (c.priceAt ? ' · ' + new Date(c.priceAt).toLocaleDateString() : '') }));
+  }
+
+  return { TIERS, TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl };
 })();

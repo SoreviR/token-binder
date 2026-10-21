@@ -70,7 +70,7 @@ test('resolveDue: evoluciona, y al terminar la línea gradúa y da un sobre', as
   // Etapa 2 termina en 6 M, la 3 en 12 M: con 12 M se resuelven ambas de golpe.
   const ev2 = await resolveDue(s, 12_000_000, 1, next);
   assert.deepEqual(ev2, ['evolve:Charizard', 'graduate:Charizard']);
-  assert.equal(s.slots[0], null);
+  assert.equal(s.slots[0]?.mastered, true);   // se queda en el hueco como Maestra
   assert.equal(s.mastered, 1);
   assert.equal(s.packs, 1);
 });
