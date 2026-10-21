@@ -28,6 +28,12 @@ import { PROTECTORS, Protector, applyWear, conditionMultiplier, gradeCost, grade
 
 const cfg = () => vscode.workspace.getConfiguration('tokenBinder');
 
+/** Did the player set their own monthly limit? Without it, "100% of the quota" means nothing. */
+const quotaIsSet = (): boolean => {
+  const i = cfg().inspect<number>('quota.monthlyLimit');
+  return i?.globalValue !== undefined || i?.workspaceValue !== undefined || i?.workspaceFolderValue !== undefined;
+};
+
 export function activate(ctx: vscode.ExtensionContext): void {
   const roots = () => { const r = cfg().get<string[]>('storageRoots', []); return r.length ? r : uniqueRoots([runningUserRoot(ctx.globalStorageUri.fsPath), ...defaultRoots()]); };
   const applyLanguage = () => setLang(resolveLang(cfg().get<string>('language', 'auto'), vscode.env.language));
@@ -65,6 +71,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   const failedThumbs = new Set<string>(); // do not retry in a loop when offline; cleared on reload
   const failedEnrich = new Set<string>();
   let enriching = false;
+  let prevUsed: number | undefined;          // usage at the previous refresh: a mishap needs the usage to have grown
   let lastQuotaPct = 0;                      // share of the monthly quota used (feeds the token-usage bonus in battles)
   let fetchingLeaders = false;
 
@@ -98,7 +105,11 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const pace = underPace(pct, now, start, periodEnd(now, resetDay));
       earnCoins(state, lifetime, pace);
       if (pct >= 100 && state.bonusPeriod !== start) { state.bonusPeriod = start; state.packs++; events.push('bonusPack'); }
-      const mishap = cfg().get<boolean>('mishaps.enabled', true) ? overageMishap(state, pct, start) : null;
+      // Mishaps are opt-in, only count if the quota was set by the player (the default is just a placeholder), and only when
+      // the usage actually grew: changing the limit or the reset day must never trigger one.
+      const grew = prevUsed !== undefined && usedNow > prevUsed;
+      prevUsed = usedNow;
+      const mishap = grew && cfg().get<boolean>('mishaps.enabled', false) && quotaIsSet() ? overageMishap(state, pct, start) : null;
       if (mishap) { announceMishap(mishap); }
       events.push(...accrueXp(state, lifetime));
       events.push(...resolveGrading(state, lifetime));
@@ -187,7 +198,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const kind = TRANSFORM_BY_ITEM[item as keyof typeof TRANSFORM_BY_ITEM];
     const owned = state?.collection[key];
     if (!state || !kind || !owned || !isItemId(item) || countOf(state, item) < 1
-      || !canTransform(owned.card, { mastered: owned.mastered, level: levelOf(owned.xp) }, kind)) {
+      || owned.soaked || !canTransform(owned.card, { mastered: owned.mastered, level: levelOf(owned.xp) }, kind)) {
       void vscode.window.showWarningMessage(t('transform.invalid', MIN_TRANSFORM_LEVEL));
       return;
     }
@@ -283,8 +294,10 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const odds = estimateWin(me.fighter, foe, 400, 99);
     const result = simulate(me.fighter, foe, (Math.random() * 4294967296) >>> 0);
     const won = result.winner === 'a';
-    const recovered = rocket ? recordRocketBattle(state, me.fighter.name, won, result.rounds) : null;
-    const outcome = rocket ? { coins: 0, firstWin: false, capped: false, recovered: recovered?.name } : recordBattle(state, def, me.fighter.name, won, result.rounds);
+    const rocketFight = rocket ? recordRocketBattle(state, me.fighter.name, won, result.rounds) : null;
+    const outcome = rocketFight
+      ? { coins: 0, firstWin: false, capped: false, xp: rocketFight.xp, levelUp: rocketFight.levelUp, recovered: rocketFight.card?.name }
+      : recordBattle(state, def, me.fighter.name, won, result.rounds);
     const worn = applyWear(state, state.fighter!, Math.random);   // the card that fought may lose condition
     await game.save(state);
     album.send({
@@ -365,7 +378,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       grading: owned?.grading ? gradingProgress(owned.grading, usage.lifetimeTokens()) : undefined,
       ...(c.cv === CARD_DATA_VERSION ? {} : { basic: true }),   // no attacks or price yet: estimated stats
       stats: statsOf(c, xp), lvPct: lv ? lv.pct : 100, xp, mastered: !!owned?.mastered,
-      transforms: owned?.mastered
+      transforms: owned?.mastered && !owned.soaked
         ? (['mega', 'vmax', 'vstar', 'tera'] as Transform[]).filter(k => canTransform(c, { mastered: true, level: levelOf(xp) }, k))
         : [],
       market: rawValue === undefined ? undefined : Math.round(rawValue * gradeMultiplier(owned?.grade) * conditionMultiplier(owned?.wear, owned?.grade, owned?.soaked) * 100) / 100, eur: c.price?.eur, usd: c.price?.usd, priceAt: c.priceAt, collector: collectorLabel(c),

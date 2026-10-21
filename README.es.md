@@ -83,7 +83,7 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | `tokenBinder.alerts.thresholds` | `[50, 80, 100]` | Porcentajes que disparan un aviso. |
 | `tokenBinder.packs.everyTokens` | `750000` | Cada cuántos tokens usados ganas un sobre. |
 | `tokenBinder.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
-| `tokenBinder.mishaps.enabled` | `true` | Pasarte del 100 % de la cuota trae un percance por periodo (ver [Pasarse de la cuota](#pasarse-de-la-cuota-percances)). |
+| `tokenBinder.mishaps.enabled` | `false` | Percances por pasarte del 100 % de tu propia cuota mensual (mira [Pasarse de la cuota](#pasarse-de-la-cuota-percances)). Desactivado por defecto; las cartas en las que has invertido nunca se pierden. |
 | `tokenBinder.storageRoots` | `[]` | Carpetas `User` de VS Code a leer, si usas una instalación no estándar. |
 
 Los títulos de los comandos y las descripciones de los ajustes en la ventana de Ajustes de VS Code siguen el idioma de VS Code; todo lo demás (panel, álbum, avisos, diálogos) sigue a `tokenBinder.language`.
@@ -170,13 +170,13 @@ Como los coleccionistas de verdad, puedes proteger tus cartas y hacer que las **
 
 ## Pasarse de la cuota: percances
 
-Pasarse de la cuota tiene consecuencias (se desactivan con `tokenBinder.mishaps.enabled`). Cuando te pasas **del 100 %** de la cuota mensual ocurre **un** percance en ese periodo de cuota (nunca más de uno por periodo):
+Pasarse de la cuota puede tener consecuencias. Están **desactivadas por defecto** (se activan con `tokenBinder.mishaps.enabled`) y solo cuentan si **tú** has fijado tu propio límite mensual (el límite por defecto es solo un marcador). Cuando pasas del **100 %** de la cuota ocurre **un** percance en ese periodo (nunca más de uno por periodo). El **primer periodo** tras activarlos es gratis, y un percance solo ocurre cuando tu uso crece de verdad, así que cambiar el límite nunca lo dispara. **Las cartas en las que has invertido nunca se pierden:** los percances solo se llevan cartas *vírgenes* (sin nivel, sin protección, sin objeto, sin desgaste ni gradeo, que no entrenen ni sean tu carta de combate) y las **copias sobrantes** de las cartas en las que sí has invertido; la última copia de esas, con todo lo que lleva, siempre está a salvo.
 
-- 🚀 **El Team Rocket** (60 %) te roba una carta al azar. Aparece en la pestaña **Combate** mientras la tenga: gánales (Arbok, nivel 15) y la recuperas tal como estaba. Sin monedas, y si pierdes solo tienes que volver a intentarlo.
-- 🏃 **Tropiezas corriendo** (30 %) y se te cae el **10 %** de las copias del álbum (al menos una); se pierden. **Otro 10 %** de tus cartas se estropea al rozar con el suelo y sube un paso de desgaste, salvo que tenga **funda**: entonces la funda se lleva el golpe y se rompe. Las cartas gradeadas están a salvo en su slab.
-- 🌧️ **Llueve** (10 %) sobre **la mitad** del álbum. Las cartas con **funda** o en **slab** no se mojan; el resto quedan **empapadas**: no valen nada y no pueden entrenar, combatir, gradearse ni venderse. Un **Charmandryer** (40 monedas en la tienda, un secador con la llama de la cola de Charmander) seca una carta empapada, que vuelve a servir pero queda muy jugada.
+- 🚀 **El Team Rocket** (60 %) te roba una carta sobrante al azar. Aparece en la pestaña **Combate** mientras la tengan: véncelos (Arbok, nivel 15) y te la devuelven, fusionada con lo que tienes (no se pierde nada). Sin monedas, y una derrota solo significa que lo intentas otra vez; el combate entrena a tu carta como cualquier otro.
+- 🏃 **Tropiezas al correr** (30 %) y pierdes el **10 %** de tus copias sobrantes (al menos una); se pierden. **Otro 10 %** de tus cartas se rozan con el suelo y se desgastan un paso, salvo que tengan **funda**: entonces la funda recibe el golpe y se rompe. Las cartas gradeadas están a salvo en su slab.
+- 🌧️ **Llueve** (10 %) sobre **la mitad** de tu álbum, como mucho **6 cartas**. Las que están en una **funda** o en una **slab** se quedan secas; el resto queda **empapado**: no vale nada y no se puede entrenar, combatir, gradear, vender ni transformar. Un **Charmandryer** (40 monedas en la tienda, un secador con la llama de la cola de Charmander) seca una carta empapada, que vuelve a servir pero «muy jugada».
 
-La carta que está entrenando va contigo y la que está en el servicio de gradeo no está en casa, así que a ninguna de las dos se la pueden robar, caer ni mojar. Una notificación te cuenta qué pasó y abre el álbum.
+Una carta en un hueco de entrenamiento va contigo y la que está en el servicio de gradeo no está en casa, así que ninguna puede ser robada, perdida ni empapada. Una notificación te cuenta lo ocurrido y abre el álbum.
 
 ## Monedas y tienda
 

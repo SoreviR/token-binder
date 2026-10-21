@@ -76,15 +76,32 @@ export function setFighter(s: GameState, key: string): boolean {
 
 export interface BattleOutcome { coins: number; firstWin: boolean; capped: boolean; xp: number; levelUp?: number }
 
+/** Starts a new day of daily limits when the date changed. */
+export function rollDaily(b: BattleRecord, now: number): void {
+  const today = dayKey(now);
+  if (b.daily.day !== today) { b.daily = { day: today, rewarded: 0, xpFights: 0 }; }
+  b.daily.xpFights ??= 0;
+}
+
+/** The card taken to battle learns from the fight (a little, for the first few fights of the day). Shared by every kind of fight. */
+export function grantBattleXp(s: GameState, won: boolean): { xp: number; levelUp?: number } {
+  const b = battleOf(s);
+  const fighter = s.fighter ? s.collection[s.fighter] : undefined;
+  if (!fighter || b.daily.xpFights >= XP_FIGHTS_PER_DAY) { return { xp: 0 }; }
+  const before = levelOf(fighter.xp);
+  const xp = won ? WIN_XP : LOSS_XP;
+  fighter.xp += xp;
+  b.daily.xpFights++;
+  return levelOf(fighter.xp) > before ? { xp, levelUp: levelOf(fighter.xp) } : { xp };
+}
+
 /**
  * Records a finished battle against a leader: record, streak, history, and the reward. The first victory gives the badge
  * and the big reward; later ones give the small one until the daily limit is reached.
  */
 export function recordBattle(s: GameState, def: LeaderDef, cardName: string, won: boolean, rounds: number, now = Date.now()): BattleOutcome {
   const b = battleOf(s);
-  const today = dayKey(now);
-  if (b.daily.day !== today) { b.daily = { day: today, rewarded: 0, xpFights: 0 }; }
-  b.daily.xpFights ??= 0;
+  rollDaily(b, now);
   let coins = 0, firstWin = false, capped = false;
   if (won) {
     b.wins++; b.streak++; b.best = Math.max(b.best, b.streak);
@@ -93,16 +110,7 @@ export function recordBattle(s: GameState, def: LeaderDef, cardName: string, won
     else { capped = true; }
   } else { b.losses++; b.streak = 0; }
   s.coins += coins;
-  // The card that fought learns from it, a little, for the first few fights of the day.
-  let xp = 0, levelUp: number | undefined;
-  const fighter = s.fighter ? s.collection[s.fighter] : undefined;
-  if (fighter && b.daily.xpFights < XP_FIGHTS_PER_DAY) {
-    const before = levelOf(fighter.xp);
-    xp = won ? WIN_XP : LOSS_XP;
-    fighter.xp += xp;
-    b.daily.xpFights++;
-    if (levelOf(fighter.xp) > before) { levelUp = levelOf(fighter.xp); }
-  }
+  const { xp, levelUp } = grantBattleXp(s, won);
   const entry: BattleEntry = { at: now, leader: def.id, card: cardName, won, rounds, coins };
   b.history = [entry, ...b.history].slice(0, HISTORY_SIZE);
   return { coins, firstWin, capped, xp, ...(levelUp ? { levelUp } : {}) };

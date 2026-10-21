@@ -2,7 +2,7 @@
   "name": "token-binder",
   "displayName": "TokenBinder",
   "description": "%extension.description%",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "publisher": "sorevir",
   "license": "MIT",
   "engines": {
@@ -106,7 +106,7 @@
         },
         "tokenBinder.mishaps.enabled": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "markdownDescription": "%config.mishaps.enabled%"
         },
         "tokenBinder.quota.unit": {

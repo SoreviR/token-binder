@@ -84,7 +84,7 @@ This extension **does not query GitHub or your organization**: it computes the p
 | `tokenBinder.alerts.thresholds` | `[50, 80, 100]` | Percentages that trigger a warning. |
 | `tokenBinder.packs.everyTokens` | `750000` | Every how many tokens used you earn a pack. |
 | `tokenBinder.growth.multiplier` | `1` | Scales the tokens each card needs to evolve (0.1–2). |
-| `tokenBinder.mishaps.enabled` | `true` | Going over 100% of the quota brings one mishap per period (see [Going over the quota](#going-over-the-quota-mishaps)). |
+| `tokenBinder.mishaps.enabled` | `false` | Mishaps for going over 100% of your own monthly quota (see [Going over the quota](#going-over-the-quota-mishaps)). Off by default; cards you invested in are never lost. |
 | `tokenBinder.storageRoots` | `[]` | VS Code `User` folders to read, if you use a non-standard installation. |
 
 Command titles and the setting descriptions in VS Code's Settings editor follow VS Code's display language; everything else (panel, album, notices, dialogs) follows `tokenBinder.language`.
@@ -171,13 +171,13 @@ Like real collectors, you can protect your cards and have them **graded**. Open 
 
 ## Going over the quota: mishaps
 
-Going over the quota has consequences (turn them off with `tokenBinder.mishaps.enabled`). Once you go **over 100%** of the monthly quota, **one** mishap happens in that quota period (never more than one per period):
+Going over the quota can have consequences. They are **off by default** (turn them on with `tokenBinder.mishaps.enabled`) and only count if **you** set your own monthly limit (the default limit is just a placeholder). Once you go **over 100%** of the quota, **one** mishap happens in that quota period (never more than one per period). The **first period** after you turn them on is free, and a mishap only happens when your usage actually grows, so changing the limit never triggers one. **Cards you invested in are never lost:** mishaps only take *virgin* cards (no level, no protection, no held item, never worn or graded, not training, not your battle card) and the **spare copies** of cards you did invest in; the last copy of those, and everything it carries, is always safe.
 
-- 🚀 **Team Rocket** (60%) steals one random card. It appears in the **Battle** tab while they have it: beat them (Arbok, level 15) and you get it back exactly as it was. No coins, and a loss only means you try again.
-- 🏃 **You trip while running** (30%) and drop **10%** of the copies in your album (at least one); they are lost. **Another 10%** of your cards get scuffed on the ground and wear one step, unless they have a **sleeve**: then the sleeve takes the hit and is torn instead. Graded cards are safe in their slab.
-- 🌧️ **It rains** (10%) on **half** of your album. Cards in a **sleeve** or a **slab** stay dry; the rest end up **soaked**: worth nothing, and they cannot train, battle, be graded or be sold. A **Charmandryer** (40 coins in the shop, a hair dryer with the flame of Charmander's tail) dries one soaked card, which comes back usable but Heavily Played.
+- 🚀 **Team Rocket** (60%) steals one random spare card. It appears in the **Battle** tab while they have it: beat them (Arbok, level 15) and you get it back, merged with what you have (nothing is lost). No coins, and a loss only means you try again; the fight trains your card like any other.
+- 🏃 **You trip while running** (30%) and drop **10%** of your spare copies (at least one); they are lost. **Another 10%** of your cards get scuffed on the ground and wear one step, unless they have a **sleeve**: then the sleeve takes the hit and is torn instead. Graded cards are safe in their slab.
+- 🌧️ **It rains** (10%) on **half** of your album, at most **6 cards**. Cards in a **sleeve** or a **slab** stay dry; the rest end up **soaked**: worth nothing, and they cannot train, battle, be graded, be sold or be transformed. A **Charmandryer** (40 coins in the shop, a hair dryer with the flame of Charmander's tail) dries one soaked card, which comes back usable but Heavily Played.
 
-The card in a training slot goes with you and the one at the grading service is not at home, so neither of them can be stolen, dropped or soaked. A notification tells you what happened and opens the album.
+A card in a training slot goes with you and one at the grading service is not at home, so neither of them can be stolen, dropped or soaked. A notification tells you what happened and opens the album.
 
 ## Coins and shop
 

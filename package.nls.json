@@ -22,5 +22,5 @@
   "config.language": "Language of the TokenBinder interface.",
   "command.checkForUpdates": "Check for updates",
   "config.updates.check": "Check GitHub once a day for a newer TokenBinder release and offer to install it (never installs without asking). Turn off to stop these requests.",
-  "config.mishaps.enabled": "Going over 100% of the monthly quota brings one mishap per quota period: Team Rocket steals a card (60%, win it back in a battle), you trip and drop 10% of your album (30%; graded cards are safe), or the rain soaks half of it (10%; sleeves and slabs keep cards dry, a Charmandryer saves a soaked one)."
+  "config.mishaps.enabled": "Turn on the mishaps of going over your monthly quota: Team Rocket steals a spare card (60%, win it back in a battle), you trip and drop spare copies (30%), or the rain soaks some cards (10%; sleeves and slabs keep cards dry, a Charmandryer saves a soaked one). Cards you invested in are never lost. Off by default; it needs your own monthly limit set, and the first quota period after turning it on is free."
 }

@@ -2,9 +2,9 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
-## Unreleased
+## 1.11.0 - 2026-10-21
 
-- **Mishaps for going over the quota** (on by default; turn them off with `tokenBinder.mishaps.enabled`). Past 100% of the monthly quota, one mishap per quota period: **Team Rocket** steals a card (60%; win it back in the Battle tab), you **trip** and drop 10% of your album while another 10% gets scuffed one step of wear, or loses its sleeve instead (30%; graded cards are safe), or the **rain** soaks half of it (10%; sleeves and slabs keep cards dry). A soaked card is worthless and cannot train, battle, be graded or be sold until a **Charmandryer** (40 coins, new in the shop) dries it; it comes back Heavily Played.
+- **Mishaps for going over the quota** (opt-in: turn them on with `tokenBinder.mishaps.enabled`; contributed by Hector in #1). Past 100% of your own monthly quota, one mishap per quota period: **Team Rocket** steals a spare card (60%; win it back in the Battle tab), you **trip** and drop spare copies while another 10% of the cards get scuffed or lose their sleeve (30%; graded cards are safe), or the **rain** soaks up to 6 cards (10%; sleeves and slabs keep cards dry). Cards you invested in are never lost: only virgin cards and spare copies can be taken. A soaked card is worthless and cannot train, battle, be graded, sold or transformed until a **Charmandryer** (40 coins, new in the shop) dries it; it comes back Heavily Played. The first period after turning them on is free.
 
 ## 1.10.0 - 2026-10-21
 
