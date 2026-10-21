@@ -80,11 +80,15 @@ export const en = {
   'shop.sleeve.desc': 'Less wear in battles and better grading odds (no stats)',
   'shop.toploader.name': 'Toploader',
   'shop.toploader.desc': 'With a sleeve: no wear and the best grading boost (no stats)',
+  'shop.hair-dryer.name': 'Charmandryer',
+  'shop.hair-dryer.desc': 'Charmander\'s tail flame dries one card soaked by the rain (it stays Heavily Played)',
 
   // battles
   'battle.noFighter': 'TokenBinder: choose the card you take to battle first (open it in the album and press "Take to battle").',
   'battle.grading': 'TokenBinder: your battle card is at the grading service. Choose another one or wait for it to come back.',
   'battle.locked': 'TokenBinder: beat the previous gym leader first.',
+  'battle.soaked': 'TokenBinder: your battle card is soaked. Dry it with a Charmandryer or choose another one.',
+  'rocket.none': 'TokenBinder: Team Rocket has none of your cards.',
   'battle.offline': 'TokenBinder: could not find the leader\'s card (offline?). Try again with a connection.',
 
   // grading
@@ -92,6 +96,14 @@ export const en = {
   'grade.training': 'TokenBinder: retire the card from training before sending it for grading.',
   'grade.busy': 'TokenBinder: this card is already at the grading service.',
   'grade.none': 'TokenBinder: that card was not found.',
+  'grade.soaked': 'TokenBinder: the grading service does not take soaked cards. Dry it with a Charmandryer first.',
+
+  // mishaps for going over the quota
+  'mishap.rocket': 'TokenBinder: you went over the quota and Team Rocket stole {0}! Beat them in the Battle tab to get it back.',
+  'mishap.trip': 'TokenBinder: you went over the quota, tripped while running and dropped {0} cards: {1}. {2} more got scuffed (one step of wear) and {3} sleeves were torn on the ground.',
+  'mishap.rain': 'TokenBinder: you went over the quota and got caught in the rain: {0} cards are soaked (a Charmandryer saves them). {1} stayed dry in their sleeve or slab.',
+  'mishap.rainSaved': 'TokenBinder: you went over the quota and got caught in the rain, but your sleeves and slabs kept all {0} cards dry!',
+  'mishap.open': 'Open album',
 
   // items
   'branch.item': 'TokenBinder: you do not have the item for that evolution.',

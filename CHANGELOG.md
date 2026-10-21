@@ -2,6 +2,10 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## Unreleased
+
+- **Mishaps for going over the quota** (on by default; turn them off with `tokenBinder.mishaps.enabled`). Past 100% of the monthly quota, one mishap per quota period: **Team Rocket** steals a card (60%; win it back in the Battle tab), you **trip** and drop 10% of your album while another 10% gets scuffed one step of wear, or loses its sleeve instead (30%; graded cards are safe), or the **rain** soaks half of it (10%; sleeves and slabs keep cards dry). A soaked card is worthless and cannot train, battle, be graded or be sold until a **Charmandryer** (40 coins, new in the shop) dries it; it comes back Heavily Played.
+
 ## 1.10.0 - 2026-10-21
 
 - **Combat economy:** rematch victories now pay 3 coins (up to 5 a day) instead of 20, so fighting complements the coins you earn from tokens instead of dwarfing them. First-victory rewards are unchanged.

@@ -81,18 +81,30 @@ export const es: Record<Key, string> = {
   'shop.sleeve.desc': 'Menos desgaste en combates y mejores opciones al gradear (sin stats)',
   'shop.toploader.name': 'Toploader',
   'shop.toploader.desc': 'Con funda: sin desgaste y el mayor empujón al gradear (sin stats)',
+  'shop.hair-dryer.name': 'Charmandryer',
+  'shop.hair-dryer.desc': 'La llama de la cola de Charmander seca una carta empapada por la lluvia (queda muy jugada)',
 
   // battles
   'battle.noFighter': 'TokenBinder: elige primero la carta que llevas a combatir (ábrela en el álbum y pulsa «Llevar a combatir»).',
   'battle.grading': 'TokenBinder: tu carta de combate está en el servicio de gradeo. Elige otra o espera a que vuelva.',
   'battle.locked': 'TokenBinder: vence antes al líder anterior.',
   'battle.offline': 'TokenBinder: no se pudo encontrar la carta del líder (¿sin conexión?). Inténtalo de nuevo con conexión.',
+  'battle.soaked': 'TokenBinder: tu carta de combate está empapada. Sécala con un Charmandryer o elige otra.',
+  'rocket.none': 'TokenBinder: el Team Rocket no tiene ninguna carta tuya.',
 
   // grading
   'grade.coins': 'TokenBinder: no tienes monedas suficientes para enviar esta carta a gradear.',
   'grade.training': 'TokenBinder: retira la carta del entrenamiento antes de enviarla a gradear.',
   'grade.busy': 'TokenBinder: esta carta ya está en el servicio de gradeo.',
   'grade.none': 'TokenBinder: no se encontró esa carta.',
+  'grade.soaked': 'TokenBinder: el servicio de gradeo no acepta cartas empapadas. Sécala antes con un Charmandryer.',
+
+  // percances por pasarse de la cuota
+  'mishap.rocket': 'TokenBinder: te pasaste de la cuota y el Team Rocket te robó {0}. Gánales en la pestaña Combate para recuperarla.',
+  'mishap.trip': 'TokenBinder: te pasaste de la cuota, tropezaste corriendo y se te cayeron {0} cartas: {1}. Otras {2} se estropearon (un paso de desgaste) y {3} fundas se rompieron al rozar con el suelo.',
+  'mishap.rain': 'TokenBinder: te pasaste de la cuota y te pilló la lluvia: {0} cartas están empapadas (un Charmandryer las salva). {1} se libraron gracias a su funda o slab.',
+  'mishap.rainSaved': 'TokenBinder: te pasaste de la cuota y te pilló la lluvia, ¡pero tus fundas y slabs mantuvieron secas las {0} cartas!',
+  'mishap.open': 'Abrir álbum',
 
   // items
   'branch.item': 'TokenBinder: no tienes el objeto de esa evolución.',

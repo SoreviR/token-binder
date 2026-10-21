@@ -34,7 +34,7 @@ window.PTBattle = (function () {
 
   function fighterBox(d) {
     if (!d.fighter) {
-      return box(t('battle.yourFighter'), el('div', { class: 'sub', text: d.fighterBlocked === 'grading' ? t('battle.grading') : t('battle.noFighter') }));
+      return box(t('battle.yourFighter'), el('div', { class: 'sub', text: t(d.fighterBlocked === 'grading' ? 'battle.grading' : d.fighterBlocked === 'soaked' ? 'battle.soaked' : 'battle.noFighter') }));
     }
     const f = d.fighter;
     return box(t('battle.yourFighter'),
@@ -69,9 +69,23 @@ window.PTBattle = (function () {
 
   function ladderBox(d) { return box(t('battle.ladder'), ...d.leaders.map(l => leaderRow(d, l))); }
 
+  /** Team Rocket shows up only while they hold one of your cards (stolen for going over the quota). */
+  function rocketBox(d) {
+    const r = d.rocket;
+    if (!r) return null;
+    return box(null, el('div', { class: 'leader rocket' },
+      el('div', { class: 'lthumb' }, r.src ? el('img', { src: r.src, alt: '' }) : el('div', { class: 'nm', text: r.species })),
+      el('div', { class: 'linfo' },
+        el('div', { class: 'row', style: 'justify-content:flex-start;gap:8px' }, el('b', { text: t('rocket.title') }), el('span', { class: 'sub', text: t('stats.level', r.level) + ' ' + typeIcons(r.types) })),
+        el('div', { class: 'sub', text: t('rocket.desc', r.stolen.join(', ')) }),
+        r.odds !== undefined ? bar(r.odds, r.odds >= 0.5 ? '' : 'warn') : null,
+        el('div', { class: 'sub', text: !r.card ? t('battle.downloading') : r.odds === undefined ? '' : t('battle.odds', Math.round(r.odds * 100)) })),
+      el('button', { class: 'btn', ...(d.fighter && r.card ? {} : { disabled: '' }), text: t('rocket.challenge'), onclick: () => send('startBattle', { leader: r.id }) })));
+  }
+
   function historyBox(d) {
     if (!d.history.length) { return box(t('battle.history'), el('div', { class: 'sub', text: t('battle.noHistory') })); }
-    const names = Object.fromEntries(d.leaders.map(l => [l.id, l.name]));
+    const names = Object.assign({ rocket: 'Team Rocket' }, Object.fromEntries(d.leaders.map(l => [l.id, l.name])));
     return box(t('battle.history'), ...d.history.slice(0, 10).map(h => el('div', { class: 'hrow ' + (h.won ? 'won' : 'lost') },
       el('span', { text: (h.won ? '✔ ' : '✘ ') + t('battle.historyRow', names[h.leader] || h.leader, h.card) }),
       el('span', { class: 'sub', text: t('battle.rounds', h.rounds) + (h.coins ? ' · 🪙 ' + h.coins : '') }))));
@@ -79,7 +93,7 @@ window.PTBattle = (function () {
 
   function render() {
     if (!data || !root) return;
-    root.replaceChildren(recordBox(data), fighterBox(data), ladderBox(data), historyBox(data));
+    root.replaceChildren(...[recordBox(data), fighterBox(data), rocketBox(data), ladderBox(data), historyBox(data)].filter(Boolean));
   }
 
   /* ───── the arena ───── */
@@ -167,6 +181,7 @@ window.PTBattle = (function () {
     if (o.coins) lines.push(el('div', { class: 'reward', text: t('battle.reward', o.coins) }));
     if (o.firstWin) lines.push(el('div', { class: 'reward', text: t('battle.badgeEarned', r.leader.name) }));
     if (o.xp) lines.push(el('div', { class: 'reward xp', text: t('battle.xp', o.xp.toLocaleString()) + (o.levelUp ? ' · ' + t('battle.levelUp', r.me.name, o.levelUp) : '') }));
+    if (o.recovered) lines.push(el('div', { class: 'reward', text: t('battle.recovered', o.recovered) }));
     if (o.capped) lines.push(el('div', { class: 'sub', text: t('battle.capped') }));
     if (r.worn) lines.push(el('div', { class: 'worn', text: t('battle.worn', r.me.name, t('condition.' + r.worn)) }));
     return [

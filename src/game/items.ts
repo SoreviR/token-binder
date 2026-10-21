@@ -29,6 +29,8 @@ export const ITEM_LIST = [
   { id: 'choice-band', kind: 'held', weight: 5 },
   { id: 'quick-claw', kind: 'held', weight: 5 },
   { id: 'lucky-charm', kind: 'held', weight: 5 },
+  // repair (only in the shop: weight 0 never comes out of a box; see mishaps.ts)
+  { id: 'hair-dryer', kind: 'repair', weight: 0 },
 ] as const;
 
 export type ItemId = (typeof ITEM_LIST)[number]['id'];
@@ -59,7 +61,7 @@ export const BOX_PRICE = 120;
 
 /** Weighted pick of a box's content. Luck makes the rare transformation items more likely (+20% per level). */
 export function rollBox(luck = 0, rng: () => number = Math.random): ItemId {
-  const weights = ITEM_LIST.map(i => [i.id, i.weight * (i.kind === 'transform' ? 1 + 0.2 * luck : 1)] as const);
+  const weights = ITEM_LIST.filter(i => i.weight > 0).map(i => [i.id, i.weight * (i.kind === 'transform' ? 1 + 0.2 * luck : 1)] as const);
   let r = rng() * weights.reduce((sum, [, w]) => sum + w, 0);
   for (const [id, w] of weights) { if ((r -= w) < 0) { return id; } }
   return weights[weights.length - 1][0];
