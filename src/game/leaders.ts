@@ -67,9 +67,10 @@ export function playerFighter(s: GameState, quotaPct: number): FighterCheck {
   return { ok: true, fighter: makeFighter(keyOf(o.card), o.card, o.xp, { grade: o.grade, tokensBonus: tokensBonus(quotaPct, LADDER_REFERENCE_PCT), held: o.held }) };
 }
 
-/** Chooses the card taken to battles. false if you do not own it. */
+/** Chooses the card taken to battles. false if you do not own it or it cannot fight (soaked, or at the grading service). */
 export function setFighter(s: GameState, key: string): boolean {
-  if (!s.collection[key]) { return false; }
+  const o = s.collection[key];
+  if (!o || o.soaked || o.grading) { return false; }
   s.fighter = key;
   return true;
 }

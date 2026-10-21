@@ -49,6 +49,16 @@ test('setFighter only accepts cards you own', () => {
   assert.equal(s.fighter, 'a');
 });
 
+test('setFighter refuses a soaked card and one at the grading service', () => {
+  const s = newState(0);
+  addCards(s, [card('a'), card('b')]);
+  s.collection['a'].soaked = true;
+  s.collection['b'].grading = { since: 0, cost: 30 };
+  assert.equal(setFighter(s, 'a'), false);
+  assert.equal(setFighter(s, 'b'), false);
+  assert.equal(s.fighter, undefined);
+});
+
 test('playerFighter: needs a chosen card, refuses one that is out for grading, and uses level, grade and the token bonus', () => {
   const s = newState(0);
   assert.deepEqual(playerFighter(s, 10), { ok: false, reason: 'none' });

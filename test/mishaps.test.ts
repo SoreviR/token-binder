@@ -183,7 +183,8 @@ test('a soaked card is worthless and cannot be sold, trained, graded or taken to
   assert.equal(s.collection.a.count, 2);
   assert.equal(startTraining(s, 'a', 0), false);
   assert.deepEqual(sendToGrading(s, 'a', 0), { ok: false, reason: 'soaked' });
-  assert.ok(setFighter(s, 'a'));
+  assert.equal(setFighter(s, 'a'), false);
+  s.fighter = 'a';                                  // chosen before the rain
   assert.deepEqual(playerFighter(s, 50), { ok: false, reason: 'soaked' });
 });
 
