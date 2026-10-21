@@ -7,6 +7,7 @@ import { lang, resolveLang, setLang, t } from '../src/i18n';
 import { en } from '../src/i18n/en';
 import { es } from '../src/i18n/es';
 import { ERAS } from '../src/game/engine';
+import { ITEM_IDS } from '../src/game/items';
 
 const root = path.join(__dirname, '..');
 const read = (f: string) => fs.readFileSync(path.join(root, f), 'utf8');
@@ -53,7 +54,7 @@ test('webview dictionaries: es and en have exactly the same keys', () => {
   }
 });
 
-test('webview: every static PT.t / t key used in media/*.js exists, and so do the dynamic id families', () => {
+test('webview: every static PT.t / t key used in media/*.js exists, and so do the dynamic id families (including every item)', () => {
   const d = webviewDicts();
   for (const f of ['main.js', 'album.js', 'common.js']) {
     for (const m of read('media/' + f).matchAll(/\bt\('([a-zA-Z0-9.]+)'\s*[,)]/g)) {
@@ -66,6 +67,8 @@ test('webview: every static PT.t / t key used in media/*.js exists, and so do th
     ...['shadowless', 'first'].flatMap(v => ['variant.' + v, 'variant.tag.' + v]),
     ...['common', 'popular', 'valuable', 'sought', 'chase', 'grail'].map(c => 'collector.' + c),
     ...['tier', 'recent', 'name', 'count'].map(s => 'sort.' + s),
+    ...ITEM_IDS.flatMap(id => ['item.' + id + '.name', 'item.' + id + '.desc']),
+    ...['mega', 'vmax', 'vstar', 'tera'].map(k => 'transform.kind.' + k),
   ];
   for (const k of dynamic) { assert.ok(k in d.en, `missing "${k}"`); }
 });

@@ -94,5 +94,16 @@ window.PT = (function () {
       el('span', { class: 'sub', text: parts.join(' · ') + (c.priceAt ? ' · ' + new Date(c.priceAt).toLocaleDateString(lang) : '') }));
   }
 
-  return { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName };
+  const ITEM_ICON = {
+    'fire-stone': '🔥', 'water-stone': '💧', 'thunder-stone': '⚡', 'leaf-stone': '🍃', 'ice-stone': '❄️', 'sun-stone': '☀️',
+    'moon-stone': '🌙', 'shiny-stone': '✨', 'dawn-stone': '🌅', 'kings-rock': '👑', 'rare-candy': '🍬', 'lucky-egg': '🥚',
+    'mega-stone': '💎', 'dynamax-band': '🔴', 'star-core': '⭐', 'tera-orb': '🔮',
+  };
+  const itemIcon = id => ITEM_ICON[id] || '🎁';
+  const itemName = id => t('item.' + id + '.name');
+  const itemDesc = id => t('item.' + id + '.desc');
+  // Which item turns a card into which transformed form (the same table the host uses).
+  const TRANSFORM_ITEM = { mega: 'mega-stone', vmax: 'dynamax-band', vstar: 'star-core', tera: 'tera-orb' };
+
+  return { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM };
 })();

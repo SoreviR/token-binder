@@ -1,5 +1,6 @@
 // Card game engine: packs → cards with rarity → token-based training → evolution/graduation.
 // Pure, with no VS Code or network dependencies (the network comes in through injected functions) so it can be tested.
+import { BOX_PRICE, ItemId, baseName, branchItem, rollBox } from './items';
 
 /** TCGdex rarities grouped by tier (0 = most common … 6 = rarest). Display names live in the i18n dictionaries (`tier.N`). */
 export const TIER_RARITIES: string[][] = [
@@ -104,6 +105,9 @@ export interface Training {
   card: Card; born: number; evolved: number;
   last: number;         // lifetime tokens up to which XP has already been granted
   mastered?: boolean;   // line complete: stays in the slot earning XP until you retire it
+  pending?: string[];   // the line branches: species the player has to choose from (evolution waits)
+  pick?: string;        // the chosen species; applied on the next evolution step
+  boost?: number;       // tokens left at double XP (Lucky Egg)
 }
 export interface GameState {
   v: 2;
@@ -119,9 +123,11 @@ export interface GameState {
   coins: number;          // coins (with decimals; shown rounded down)
   lastLifetime: number;   // lifetime tokens at the last coin count
   luck: number;           // luck upgrade level (0-5)
+  boxes: number;          // unopened mystery boxes
+  items: Partial<Record<ItemId, number>>;   // item inventory
 }
 
-/* ───────── Sobres ───────── */
+/* ───────── Packs ───────── */
 
 export type PackKind = 'pack' | 'premium' | 'ball';
 
@@ -194,7 +200,7 @@ export function trainingProgress(t: Training, lifetime: number, mult: number): T
   return { into: Math.min(acc - start, end - start), span: end - start, pct: Math.min(100, ((acc - start) / (end - start)) * 100), due: acc >= end };
 }
 
-/* ───────── Nivel ───────── */
+/* ───────── Level ───────── */
 
 export const XP_PER_LEVEL = 400_000;
 export const MAX_LEVEL = 50;
@@ -218,32 +224,34 @@ export function accrueXp(s: GameState, lifetime: number): string[] {
     const o = s.collection[keyOf(t.card)];
     if (!o || !delta) { continue; }
     const before = levelOf(o.xp);
-    o.xp += delta;
+    const doubled = Math.min(delta, t.boost ?? 0);   // Lucky Egg: those tokens count twice
+    if (doubled > 0) { t.boost = (t.boost ?? 0) - doubled; if (t.boost <= 0) { delete t.boost; } }
+    o.xp += delta + doubled;
     if (levelOf(o.xp) > before) { events.push(`level:${t.card.name}:${levelOf(o.xp)}`); }
   }
   return events;
 }
 
-/* ───────── Estado ───────── */
+/* ───────── State ───────── */
 
 export function newState(lifetime: number): GameState {
   // A welcome pack so there is something to open from the very first moment.
   return {
     v: 2, baseline: lifetime, packsGranted: 0, packs: 1, premium: 0, balls: 0, collection: {}, slots: [null], mastered: 0,
-    bonusPeriod: 0, coins: 0, lastLifetime: lifetime, luck: 0,
+    bonusPeriod: 0, coins: 0, lastLifetime: lifetime, luck: 0, boxes: 0, items: {},
   };
 }
 
 /** Fills in the fields added in newer versions to a previously saved state (without giving retroactive coins). */
 export function normalize(s: GameState, lifetime: number): GameState {
-  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime;
+  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime; s.boxes ??= 0; s.items ??= {};
   for (const o of Object.values(s.collection)) { o.xp ??= 0; }
   // Cards that were already training receive the XP of everything trained so far (since they entered the slot).
   for (const t of s.slots) { if (t) { t.last ??= t.born; } }
   return s;
 }
 
-/* ───────── Monedas y tienda ───────── */
+/* ───────── Coins and shop ───────── */
 
 export const COIN_EVERY_TOKENS = 10_000;
 export const PACE_BONUS = 1.2;
@@ -266,11 +274,11 @@ export function earnCoins(s: GameState, lifetime: number, bonus: boolean): numbe
   return earned;
 }
 
-export type Item = 'pack' | 'premium' | 'ball' | 'slot' | 'luck';
+export type Item = 'pack' | 'premium' | 'ball' | 'box' | 'slot' | 'luck';
 
 const SLOT_PRICES = [400, 900, 1600, 2600, 4000];   // slots 2 to 6
 const LUCK_PRICES = [300, 600, 1200, 2400, 4800];   // levels 1 to 5
-const FIXED_PRICES: Record<'pack' | 'premium' | 'ball', number> = { pack: 80, premium: 250, ball: 15 };
+const FIXED_PRICES: Record<'pack' | 'premium' | 'ball' | 'box', number> = { pack: 80, premium: 250, ball: 15, box: BOX_PRICE };
 
 /** Current price of an item, or null if the maximum was already bought. */
 export function priceOf(s: GameState, item: Item): number | null {
@@ -286,6 +294,7 @@ export function buy(s: GameState, item: Item): boolean {
   if (item === 'pack') { s.packs++; }
   else if (item === 'premium') { s.premium++; }
   else if (item === 'ball') { s.balls++; }
+  else if (item === 'box') { s.boxes++; }
   else if (item === 'slot') { s.slots.push(null); }
   else { s.luck++; }
   return true;
@@ -354,7 +363,10 @@ export function untrain(s: GameState, key: string): boolean {
   return true;
 }
 
-export type FindNext = (card: Card) => Promise<{ ok: true; card: Card | null } | { ok: false }>;
+/** Result of looking up the next card of a line: the card, null when the line is over, the species to choose from when it branches, or a network failure. */
+export type NextResult = { ok: true; card: Card | null } | { ok: true; branches: string[] } | { ok: false };
+/** `pick` is the species chosen for a branching line. */
+export type FindNext = (card: Card, pick?: string) => Promise<NextResult>;
 
 /**
  * Resolves the completed stages: evolves into the next card or, if the line is over, graduates the card
@@ -367,14 +379,20 @@ export async function resolveDue(s: GameState, lifetime: number, mult: number, f
     for (let guard = 0; guard < 10; guard++) {
       const t = s.slots[i];
       if (!t || t.mastered || !trainingProgress(t, lifetime, mult).due) { break; }
-      const r = await findNext(t.card);
+      if (t.pending && !t.pick) { break; }              // waiting for the player to choose a branch
+      const r = await findNext(t.card, t.pick);
       if (!r.ok) { break; }
+      if ('branches' in r) {
+        t.pending = r.branches;
+        events.push(`branch:${t.card.name}`);
+        break;
+      }
       if (r.card) {
         addCards(s, [r.card], now);
         // The new card inherits the level of the previous one.
         const next = s.collection[keyOf(r.card)], prev = s.collection[keyOf(t.card)];
         if (next && prev) { next.xp = Math.max(next.xp, prev.xp); }
-        s.slots[i] = { card: r.card, born: t.born, evolved: t.evolved + 1, last: t.last };
+        s.slots[i] = { card: r.card, born: t.born, evolved: t.evolved + 1, last: t.last, ...(t.boost ? { boost: t.boost } : {}) };
         events.push(`evolve:${r.card.name}`);
       } else {
         // The card stays in the slot as a "Master" and keeps earning XP (levels) until you retire it.
@@ -389,3 +407,91 @@ export async function resolveDue(s: GameState, lifetime: number, mult: number, f
   }
   return events;
 }
+
+/* ───────── Items ───────── */
+
+export const LUCKY_EGG_TOKENS = 1_000_000;   // tokens that count double after using a Lucky Egg
+
+export const countOf = (s: GameState, id: ItemId): number => s.items[id] ?? 0;
+export function grantItem(s: GameState, id: ItemId, n = 1): void { s.items[id] = countOf(s, id) + n; }
+/** Takes one item out of the inventory. Returns false if there is none. */
+export function takeItem(s: GameState, id: ItemId): boolean {
+  const n = countOf(s, id);
+  if (n < 1) { return false; }
+  if (n === 1) { delete s.items[id]; } else { s.items[id] = n - 1; }
+  return true;
+}
+
+/** Opens a mystery box: returns the item found, or null if there is no box. */
+export function openBox(s: GameState, rng: () => number = Math.random): ItemId | null {
+  if (s.boxes < 1) { return null; }
+  s.boxes--;
+  const id = rollBox(s.luck, rng);
+  grantItem(s, id);
+  return id;
+}
+
+/** Rare Candy: the card jumps to the next level (the XP of that level's start). false if there is none or the card is at the maximum. */
+export function useRareCandy(s: GameState, key: string): boolean {
+  const o = s.collection[key];
+  if (!o || levelOf(o.xp) >= MAX_LEVEL || countOf(s, 'rare-candy') < 1) { return false; }
+  takeItem(s, 'rare-candy');
+  o.xp = levelOf(o.xp) * XP_PER_LEVEL;
+  return true;
+}
+
+/** Lucky Egg: the next 1M tokens give double XP to a card that is in training. */
+export function useLuckyEgg(s: GameState, key: string): boolean {
+  const t = s.slots.find(x => x && keyOf(x.card) === key);
+  if (!t || !takeItem(s, 'lucky-egg')) { return false; }
+  t.boost = (t.boost ?? 0) + LUCKY_EGG_TOKENS;
+  return true;
+}
+
+export type ChooseResult = { ok: true; name: string } | { ok: false; reason: 'none' | 'invalid' | 'item' };
+
+/**
+ * Resolves a branching evolution that is waiting for the player. `choice` is a species name (needs its item when that
+ * branch has one) or 'natural' (a random branch, free). The evolution itself happens on the next `resolveDue`.
+ */
+export function chooseEvolution(s: GameState, key: string, choice: string | 'natural', rng: () => number = Math.random): ChooseResult {
+  const t = s.slots.find(x => x && keyOf(x.card) === key);
+  if (!t?.pending?.length) { return { ok: false, reason: 'none' }; }
+  let name = choice;
+  if (choice === 'natural') {
+    name = t.pending[Math.floor(rng() * t.pending.length)];
+  } else {
+    if (!t.pending.includes(choice)) { return { ok: false, reason: 'invalid' }; }
+    const need = branchItem(t.card.name, choice);
+    if (need && !takeItem(s, need)) { return { ok: false, reason: 'item' }; }
+  }
+  t.pick = name;
+  delete t.pending;
+  return { ok: true, name };
+}
+
+/**
+ * Transformation (Mega, VMAX…): the card found replaces the old one. It keeps its level, counts as finished and, if the old
+ * card was training, takes its slot. The caller has already looked the card up; the item is only spent here.
+ */
+export function applyTransform(s: GameState, key: string, item: ItemId, newCard: Card, now = Date.now()): string | null {
+  const prev = s.collection[key];
+  if (!prev || countOf(s, item) < 1 || keyOf(newCard) === key) { return null; }
+  takeItem(s, item);
+  addCards(s, [newCard], now);
+  const nk = keyOf(newCard);
+  const next = s.collection[nk];
+  next.xp = Math.max(next.xp, prev.xp);
+  next.mastered = true;
+  for (let i = 0; i < s.slots.length; i++) {
+    const t = s.slots[i];
+    if (t && keyOf(t.card) === key) { s.slots[i] = { ...t, card: newCard, mastered: true, pending: undefined, pick: undefined }; }
+  }
+  return nk;
+}
+
+/** Species a line can branch into, for the UI: each with the item that picks it (if any). */
+export function branchOptions(t: Training): { name: string; item?: ItemId }[] {
+  return (t.pending ?? []).map(name => ({ name, item: branchItem(t.card.name, name) }));
+}
+export { baseName };

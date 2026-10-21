@@ -116,6 +116,21 @@ Las cartas muestran una inclinación 3D que sigue al ratón, y las de rareza Hol
 - **Stats (PS, ATQ, DEF, VEL):** salen de los datos reales de la carta (PS, daño de sus ataques, coste de retirada), normalizados por era para que una vintage y una VMAX sean comparables, y mejoran con el nivel, la etapa y la rareza. Por ahora solo se muestran; se usarán en los combates. Las cartas que ya tenías se completan solas al abrir el álbum (hace falta conexión).
 - **Valor de mercado:** el visor del álbum muestra un precio aproximado (tendencia de Cardmarket en € y precio de TCGplayer en $), una etiqueta de coleccionismo (*Común de mercado* → *Grail*) y el valor aproximado de toda tu colección. Se actualiza al mirar una carta si tiene más de 7 días. Es el precio de la carta normal (no distingue Shadowless) y es solo informativo: **no cambia** lo que te dan las monedas.
 
+## Cajas misteriosas, objetos y evoluciones
+
+Una **caja misteriosa** (120 monedas en la tienda) da un objeto al azar. Se abre desde el panel *Objetos*, donde también ves los que tienes.
+
+| Objeto | Qué hace |
+|---|---|
+| Piedras Fuego / Agua / Trueno / Hoja / Hielo / Solar / Lunar / Día / Alba, Roca del Rey | Eligen una rama de una evolución ramificada (ver abajo) |
+| Caramelo Raro | Sube una carta un nivel |
+| Huevo Suerte | Una carta en entrenamiento gana **el doble de XP** (niveles) durante los próximos 1 M de tokens; se acumulan |
+| Megapiedra, Banda Dynamax, Núcleo Astral, Orbe Teracristal (raros) | Transforman una carta terminada (ver abajo) |
+
+**Evoluciones ramificadas.** Algunas líneas pueden evolucionar de varias formas: Eevee (8 especies), Gloom, Poliwhirl, Slowpoke, Kirlia, Snorunt, Cosmoem, Wurmple y Pikachu (Raichu o Raichu de Alola). Cuando la barra de entrenamiento se llena, la carta **espera** y el panel te pide elegir. Una especie ligada a un objeto (por ejemplo Umbreon necesita una Piedra Lunar, Flareon una Piedra Fuego, Gallade una Piedra Alba) solo está disponible si lo tienes, y el objeto se gasta. Las especies sin objeto se pueden elegir gratis, y **Dejar que evolucione sola** elige una rama al azar sin coste. Las mejoras de suerte hacen más probables los objetos raros.
+
+**Transformaciones.** Una **carta terminada (Maestra) de nivel 20 o más** se puede transformar con el objeto correspondiente: Megapiedra → Mega (*M X EX*, *Mega X ex*), Banda Dynamax → VMAX, Núcleo Astral → VSTAR, Orbe Teracristal → Terastal ex. Abre la carta en el álbum y usa el botón; la carta nueva conserva el nivel y la antigua sigue en tu álbum. El objeto solo se gasta si esa carta existe (la búsqueda se hace antes). Las cartas que ya son Mega/VMAX/VSTAR no se pueden transformar otra vez.
+
 ## Monedas y tienda
 
 Además de los sobres gratis, ganas **1 moneda cada 10 K tokens** usados. Hay un **bonus del +20 %** mientras tu uso del cupo vaya por debajo del ritmo del mes (por ejemplo, llevar un 40 % del cupo a mitad de mes). No se dan monedas por tokens usados antes de instalar la versión 0.3.
@@ -127,6 +142,7 @@ Además de los sobres gratis, ganas **1 moneda cada 10 K tokens** usados. Hay un
 | Sobre | 80 | 2 cartas |
 | Sobre premium | 250 | 2 cartas sin comunes y con mejores probabilidades de Holo o superior |
 | Pokébola | 15 | 1 carta |
+| Caja misteriosa | 120 | 1 objeto al azar (piedras, caramelos, Huevo Suerte, objetos de transformación raros) |
 | Hueco de entrenamiento | 400 · 900 · 1 600 · 2 600 · 4 000 | Una carta más creciendo a la vez (hasta 6 huecos) |
 | Mejora de suerte | 300 · 600 · 1 200 · 2 400 · 4 800 | +20 % por nivel al peso de las eras Moderna y Actual en los sobres, y a la probabilidad de variantes Shadowless (5 niveles) |
 

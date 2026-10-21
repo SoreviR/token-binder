@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CARD_DATA_VERSION, Card, ERAS, Era, FindNext, PackKind, eraOfSerie, isPremium, rollEras, rollVariant, shuffledRarities, tierOf } from './engine';
 import { parseDamage, parsePricing } from './stats';
+import { Transform, baseName, transformNames } from './items';
 
 const BASE = 'https://api.tcgdex.net/v2/en';
 const TIMEOUT = 12_000;
@@ -169,19 +170,45 @@ export class Tcgdex {
     return cards.filter((c): c is Card => !!c);
   }
 
-  /** Next card in the line (evolveFrom = current name): prefers those passing the premium filter and the most similar rarity. */
-  findNext: FindNext = async card => {
+  /** The candidate that suits `ref` best: passing the premium filter first, then the most similar rarity. undefined when none can be read. */
+  private async bestOf(items: ListItem[], ref: Card, accept: (c: Card) => boolean = () => true): Promise<Card | undefined> {
+    const sample = [...items].sort(() => this.rng() - 0.5).slice(0, 16);
+    const cards = (await Promise.all(sample.map(s => this.detail(s.id)))).filter((c): c is Card => !!c && accept(c));
+    const score = (c: Card) => (isPremium(c) ? 0 : 100) + Math.abs(c.tier - ref.tier) * 3 - (c.tier > ref.tier ? 1 : 0);
+    cards.sort((a, b) => score(a) - score(b));
+    return cards[0];
+  }
+
+  /**
+   * Next card in the line (evolveFrom = current name). When the line branches into several species and none was picked
+   * it returns the species to choose from instead. `pick` selects one species.
+   */
+  findNext: FindNext = async (card, pick) => {
     const all = await this.list({ 'evolveFrom': `eq:${card.name}` });
     if (!all) { return { ok: false }; }
     if (!all.length) { return { ok: true, card: null }; }
-    const sample = [...all].sort(() => this.rng() - 0.5).slice(0, 16);
-    const cards = (await Promise.all(sample.map(s => this.detail(s.id)))).filter((c): c is Card => !!c);
-    if (!cards.length) { return { ok: false }; }
-    const score = (c: Card) => (isPremium(c) ? 0 : 100) + Math.abs(c.tier - card.tier) * 3 - (c.tier > card.tier ? 1 : 0);
-    cards.sort((a, b) => score(a) - score(b));
-    const best = cards[0];
+    const species = [...new Set(all.map(i => baseName(i.name)))];
+    if (!pick && species.length > 1) { return { ok: true, branches: species }; }
+    const pool = pick ? all.filter(i => baseName(i.name) === pick) : all;
+    const best = await this.bestOf(pool.length ? pool : all, card);
+    if (!best) { return { ok: false }; }
     // The Shadowless variant is not inherited: it is a specific copy, not a line.
     return { ok: true, card: { ...best, variant: undefined } };
   };
+
+  /** The transformed version of a card (Mega, VMAX…): a card with the matching name. card: null when none exists. */
+  async findTransform(card: Card, kind: Transform): Promise<{ ok: true; card: Card | null } | { ok: false }> {
+    const found: ListItem[] = [];
+    for (const name of transformNames(baseName(card.name), kind)) {
+      const items = await this.list({ name: `eq:${name}` });
+      if (!items) { return { ok: false }; }
+      found.push(...items.filter(i => i.id !== card.id));
+    }
+    if (!found.length) { return { ok: true, card: null }; }
+    // Terastal cards are the Scarlet & Violet "ex"; older eras also had cards called "ex" that are not the same thing.
+    const best = await this.bestOf(found, card, c => kind !== 'tera' || c.era === 'current');
+    if (!best && kind === 'tera') { return { ok: true, card: null }; }
+    return best ? { ok: true, card: { ...best, variant: undefined } } : { ok: false };
+  }
 }
 

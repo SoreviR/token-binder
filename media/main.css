@@ -141,3 +141,11 @@ body.album #overlay { justify-content: center; cursor: pointer; }
 .market { display: flex; flex-direction: column; align-items: center; gap: 2px; margin-top: 4px; }
 .market .coll { font-size: 11px; font-weight: 700; padding: 0 8px; border-radius: 8px; background: var(--vscode-badge-background); color: var(--vscode-badge-foreground); }
 .agrid .thumb .lvl { position: absolute; left: 2px; top: 17px; font-size: 9px; font-weight: 700; padding: 0 5px; border-radius: 8px; background: rgba(0,0,0,.75); color: #fff; }
+
+/* items, mystery box and branching evolutions */
+.branches { display: flex; flex-direction: column; gap: 4px; margin: 6px 0; }
+.branches .btn { width: 100%; }
+.itemfound { display: flex; flex-direction: column; align-items: center; gap: 4px; max-width: 280px; text-align: center; }
+.itemfound .big { font-size: 56px; line-height: 1; animation: pop .5s ease-out; }
+.itemrow { margin-top: 8px; }
+@keyframes pop { from { transform: scale(.3) rotate(-20deg); opacity: 0; } to { transform: none; opacity: 1; } }

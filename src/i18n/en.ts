@@ -73,6 +73,18 @@ export const en = {
   'shop.luck.name': 'Luck upgrade',
   'shop.luck.desc': 'level {0}/{1} · +20% per level to modern eras and Shadowless variants',
 
+  'shop.box.name': 'Mystery box',
+  'shop.box.desc': '1 random item: evolution stones, candy, rare transformation items',
+
+  // items
+  'branch.item': 'TokenBinder: you do not have the item for that evolution.',
+  'branch.invalid': 'TokenBinder: that card is not waiting for an evolution choice.',
+  'transform.invalid': 'TokenBinder: this card cannot be transformed. It must be a finished card of level {0} or higher that is not already a transformed form, and you need the item.',
+  'transform.offline': 'TokenBinder: could not look the card up (offline?). The item was not used.',
+  'transform.none': 'TokenBinder: no {1} version of {0} exists in the card database. The item was not used.',
+  'transform.done': 'TokenBinder: {0} became {1}!',
+  'transform.kind.mega': 'Mega', 'transform.kind.vmax': 'VMAX', 'transform.kind.vstar': 'VSTAR', 'transform.kind.tera': 'Terastal',
+
   // game data labels (ids come from the engine)
   'tier.0': 'Common', 'tier.1': 'Uncommon', 'tier.2': 'Rare', 'tier.3': 'Holo', 'tier.4': 'Ultra', 'tier.5': 'Illustration', 'tier.6': 'Secret',
   'era.vintage': 'Vintage', 'era.classic': 'Classic', 'era.bwxy': 'Black & White / XY', 'era.modern': 'Modern', 'era.current': 'Current',

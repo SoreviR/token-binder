@@ -74,6 +74,18 @@ export const es: Record<Key, string> = {
   'shop.luck.name': 'Mejora de suerte',
   'shop.luck.desc': 'nivel {0}/{1} · +20 % por nivel a las eras modernas y a las variantes Shadowless',
 
+  'shop.box.name': 'Caja misteriosa',
+  'shop.box.desc': '1 objeto al azar: piedras evolutivas, caramelos, objetos de transformación raros',
+
+  // items
+  'branch.item': 'TokenBinder: no tienes el objeto de esa evolución.',
+  'branch.invalid': 'TokenBinder: esa carta no está esperando que elijas una evolución.',
+  'transform.invalid': 'TokenBinder: esta carta no se puede transformar. Debe ser una carta terminada de nivel {0} o más que no sea ya una forma transformada, y necesitas el objeto.',
+  'transform.offline': 'TokenBinder: no se pudo buscar la carta (¿sin conexión?). No se usó el objeto.',
+  'transform.none': 'TokenBinder: no existe una versión {1} de {0} en la base de datos de cartas. No se usó el objeto.',
+  'transform.done': 'TokenBinder: ¡{0} se convirtió en {1}!',
+  'transform.kind.mega': 'Mega', 'transform.kind.vmax': 'VMAX', 'transform.kind.vstar': 'VSTAR', 'transform.kind.tera': 'Teracristal',
+
   // game data labels (ids come from the engine)
   'tier.0': 'Común', 'tier.1': 'Poco común', 'tier.2': 'Rara', 'tier.3': 'Holo', 'tier.4': 'Ultra', 'tier.5': 'Ilustración', 'tier.6': 'Secreta',
   'era.vintage': 'Vintage', 'era.classic': 'Clásica', 'era.bwxy': 'Black & White / XY', 'era.modern': 'Moderna', 'era.current': 'Actual',

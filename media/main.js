@@ -1,6 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, t, setLang, eraName, variantName } = window.PT;
+  const { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
 
@@ -49,6 +49,7 @@
       packBox,
       box(t('training.title', d.slots.filter(Boolean).length, d.slots.length), ...slots),
       shopBox,
+      itemsBox(),
       albumBox(),
       box(t('daily.title'), chart),
       box(t('models.title'), ...list(d.byModel)));
@@ -66,9 +67,43 @@
       el('div', { class: 'row', style: 'justify-content:center;margin-top:6px' }, el('b', { text: c.name }), badge(c.tier)),
       el('div', { class: 'sub', text: info(c) }),
       statsEl(c),
-      s.mastered ? el('div', { class: 'sub', text: t('slot.mastered') }) : bar(s.pct),
-      s.mastered ? null : el('div', { class: 'sub', text: t('slot.progress', fmt(s.into), fmt(s.span), eta(s.span - s.into, perDay)) + (s.evolved ? t('slot.evolutions', s.evolved) : '') }),
+      s.boost ? el('div', { class: 'sub', text: t('slot.boost', fmt(s.boost)) }) : null,
+      s.branches ? branchChoice(s) : null,
+      s.branches ? null : s.mastered ? el('div', { class: 'sub', text: t('slot.mastered') }) : bar(s.pct),
+      s.mastered || s.branches ? null : el('div', { class: 'sub', text: t('slot.progress', fmt(s.into), fmt(s.span), eta(s.span - s.into, perDay)) + (s.evolved ? t('slot.evolutions', s.evolved) : '') }),
       el('button', { class: 'btn ghost', style: 'margin-top:6px', text: t('slot.retire'), title: t('slot.retireTip'), onclick: () => send('untrain', { id: s.id }) }));
+  }
+
+  /** The line branches: one button per species (those that need an item are disabled until you have it) plus a free random option. */
+  function branchChoice(s) {
+    return el('div', { class: 'branches' },
+      el('div', { class: 'sub', text: t('slot.branchTitle', s.card.name) }),
+      ...s.branches.map(b => el('button', {
+        class: 'btn' + (b.item ? '' : ' ghost'), ...(b.have ? {} : { disabled: '' }),
+        text: b.item ? t(b.have ? 'slot.branchItem' : 'slot.branchNeeds', b.name, itemIcon(b.item) + ' ' + itemName(b.item)) : b.name,
+        onclick: () => send('chooseEvolution', { id: s.id, choice: b.name }),
+      })),
+      el('button', { class: 'btn ghost', text: t('slot.branchNatural'), onclick: () => send('chooseEvolution', { id: s.id, choice: 'natural' }) }));
+  }
+
+  /** Item inventory and the mystery box. */
+  function itemsBox() {
+    const d = S;
+    const owned = Object.entries(d.items || {}).filter(([, n]) => n > 0);
+    return box(t('items.title'),
+      owned.length
+        ? owned.map(([id, n]) => el('div', { class: 'shopitem', title: itemDesc(id) },
+          el('div', { class: 'si' }, el('div', { text: itemIcon(id) + ' ' + itemName(id) + ' ×' + n }), el('div', { class: 'sub', text: itemDesc(id) }))))
+        : el('div', { class: 'sub', text: t('items.empty') }),
+      el('button', { class: 'btn', style: 'width:100%;margin-top:8px', ...(d.boxes ? {} : { disabled: '' }), text: t('box.open', d.boxes), onclick: () => send('openBox') }));
+  }
+
+  function showBox(id) {
+    overlay.replaceChildren(
+      el('div', { class: 'hint', text: t('box.found') }),
+      el('div', { class: 'itemfound' }, el('div', { class: 'big', text: itemIcon(id) }), el('b', { text: itemName(id) }), el('div', { class: 'sub', text: itemDesc(id) })),
+      el('button', { class: 'btn', text: t('box.ok'), onclick: closeOverlay }));
+    overlay.querySelector('.btn')?.focus();
   }
 
   /** Album summary: the full album lives in an editor tab. */
@@ -134,6 +169,7 @@
       else if (e === 'bonusPack') toast(t('toast.bonus'));
       else if (e.startsWith('evolve:')) toast(t('toast.evolved', e.slice(7)));
       else if (e.startsWith('graduate:')) toast(t('toast.graduated', e.slice(9)));
+      else if (e.startsWith('branch:')) toast(t('toast.branch', e.slice(7)));
       else if (e.startsWith('level:')) { const [, name, lv] = e.split(':'); toast(t('toast.level', name, lv)); }
     }
   }
@@ -143,6 +179,7 @@
     if (m.type === 'state') { S = m.data; setLang(S.lang); render(); }
     else if (m.type === 'opening') showOpening(m.kind);
     else if (m.type === 'reveal') showReveal(m.cards);
+    else if (m.type === 'boxOpened') showBox(m.item);
     else if (m.type === 'openFailed') { closeOverlay(); toast(t('toast.openFailed')); }
   });
   window.addEventListener('keydown', e => { if (e.key === 'Escape') closeOverlay(); });

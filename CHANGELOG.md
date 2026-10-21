@@ -2,6 +2,12 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.6.0 - 2026-10-21
+
+- **Mystery boxes** (120 coins) with 16 items: evolution stones and King's Rock, Rare Candy (+1 level), Lucky Egg (double XP for 1M tokens) and four rare transformation items. An *Items* panel shows what you own.
+- **Choose the evolution:** lines that branch (Eevee has 8 species; also Gloom, Poliwhirl, Slowpoke, Kirlia, Snorunt, Cosmoem, Wurmple and Pikachu) now wait for you at the evolution point. Pick a species with the item it needs, take a free branch, or let it evolve naturally (random).
+- **Transformations:** a finished card of level 20+ can become its Mega, VMAX, VSTAR or Terastal ex version when one exists; it keeps its level.
+
 ## 1.5.0 - 2026-10-21
 
 - **Updates:** TokenBinder now checks GitHub once a day for a newer release and offers to install it (*Update now*, *Release notes*, *Skip this version*). It never installs anything without asking, verifies the downloaded file against the size and SHA-256 published by GitHub, and can be turned off with `tokenBinder.updates.check`. **Check for updates** is also available from the command palette.

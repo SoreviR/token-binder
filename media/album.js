@@ -1,6 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName } = window.PT;
+  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, TRANSFORM_ITEM } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
   const send = (type, extra) => vscode.postMessage(Object.assign({ type }, extra));
@@ -105,6 +105,7 @@
         el('div', { class: 'sub center', text: info(c) }),
         statsEl(c),
         marketEl(c),
+        itemButtons(c, training),
         c.count > 1 ? el('div', { class: 'sub center', text: t('viewer.copies', c.count) }) : null,
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap' },
           training
@@ -114,6 +115,19 @@
           el('button', { class: 'btn ghost', text: t('viewer.close'), onclick: closeViewer }))));
     if (!keepHigh) send('high', { id });
     overlay.querySelector('.viewer .btn')?.focus();
+  }
+  /** Buttons for the items that can be used on this card: Rare Candy, Lucky Egg (if training) and the transformations it qualifies for. */
+  function itemButtons(c, training) {
+    const have = id => (D.items && D.items[id]) || 0;
+    const buttons = [];
+    if (have('rare-candy') && c.stats.level < 50) buttons.push(el('button', { class: 'btn ghost', text: itemIcon('rare-candy') + ' ' + t('viewer.useCandy', have('rare-candy')), onclick: () => send('useItem', { item: 'rare-candy', id: c.id }) }));
+    if (have('lucky-egg') && training) buttons.push(el('button', { class: 'btn ghost', text: itemIcon('lucky-egg') + ' ' + t('viewer.useEgg', have('lucky-egg')), onclick: () => send('useItem', { item: 'lucky-egg', id: c.id }) }));
+    for (const kind of c.transforms || []) {
+      const item = TRANSFORM_ITEM[kind];
+      if (have(item)) buttons.push(el('button', { class: 'btn', text: itemIcon(item) + ' ' + t('viewer.transform', have(item), t('transform.kind.' + kind)), onclick: () => { send('transform', { item, id: c.id }); closeViewer(); } }));
+    }
+    if (!buttons.length) return null;
+    return el('div', { class: 'itemrow' }, el('div', { class: 'sub center', text: t('viewer.items') }), el('div', { class: 'row', style: 'gap:6px;justify-content:center;flex-wrap:wrap' }, buttons));
   }
   function closeViewer() { viewing = null; overlay.replaceChildren(); }
   overlay.addEventListener('click', closeViewer);

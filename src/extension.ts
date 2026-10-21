@@ -5,11 +5,13 @@ import { defaultRoots, runningUserRoot, uniqueRoots } from './usage/paths';
 import { fmt, parseLimit, percent, periodEnd, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
 import {
-  accrueXp, addCards, buy, CARD_DATA_VERSION, Card, consume, earnCoins, GameState, grantPacks, Item, keyOf, levelProgress, MAX_LUCK, MAX_SLOTS,
+  accrueXp, addCards, applyTransform, branchOptions, buy, CARD_DATA_VERSION, Card, chooseEvolution, consume, countOf, earnCoins, GameState, levelOf, openBox,
+  useLuckyEgg, useRareCandy, grantPacks, Item, keyOf, levelProgress, MAX_LUCK, MAX_SLOTS,
   newState, nextPackProgress, normalize, PackKind, priceOf, resolveDue, sellDuplicates, sellValue, startTraining, trainingProgress, underPace,
   untrain,
 } from './game/engine';
 import { collectorLabel, marketValue, statsOf } from './game/stats';
+import { MIN_TRANSFORM_LEVEL, TRANSFORM_BY_ITEM, Transform, canTransform, isItemId } from './game/items';
 import { Tcgdex } from './game/tcgdex';
 import { BinderViewProvider, WebviewMessage } from './webview/provider';
 import { AlbumPanel } from './webview/albumPanel';
@@ -132,6 +134,18 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (startTraining(state, m.id, usage.lifetimeTokens())) { await game.save(state); await tick(true); }
     } else if (m.type === 'untrain' && typeof m.id === 'string') {
       if (untrain(state, m.id)) { await game.save(state); await tick(true); }
+    } else if (m.type === 'openBox') {
+      const found = openBox(state);
+      if (found) { await game.save(state); target.send({ type: 'boxOpened', item: found }); await tick(true); }
+    } else if (m.type === 'chooseEvolution' && typeof m.id === 'string' && typeof m.choice === 'string') {
+      const r = chooseEvolution(state, m.id, m.choice);
+      if (r.ok) { lastEvolveTry = 0; await game.save(state); await tick(true); }
+      else { void vscode.window.showWarningMessage(t(r.reason === 'item' ? 'branch.item' : 'branch.invalid')); }
+    } else if (m.type === 'useItem' && typeof m.id === 'string' && isItemId(m.item)) {
+      const ok = m.item === 'rare-candy' ? useRareCandy(state, m.id) : m.item === 'lucky-egg' ? useLuckyEgg(state, m.id) : false;
+      if (ok) { await game.save(state); await tick(true); }
+    } else if (m.type === 'transform' && typeof m.id === 'string' && isItemId(m.item)) {
+      await transform(m.id, m.item);
     } else if (m.type === 'high' && typeof m.id === 'string') {
       const card = state.collection[m.id]?.card;
       const file = card && await tcg.image(card, 'high');
@@ -139,6 +153,25 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (src) { target.send({ type: 'high', id: m.id, src }); }
       if (card) { void refreshCard(m.id); }  // looking at a card brings its market price up to date
     }
+  }
+
+  /** Mega / VMAX / VSTAR / Terastal: looks the new card up first so the item is only spent when it exists. */
+  async function transform(key: string, item: string): Promise<void> {
+    const kind = TRANSFORM_BY_ITEM[item as keyof typeof TRANSFORM_BY_ITEM];
+    const owned = state?.collection[key];
+    if (!state || !kind || !owned || !isItemId(item) || countOf(state, item) < 1
+      || !canTransform(owned.card, { mastered: owned.mastered, level: levelOf(owned.xp) }, kind)) {
+      void vscode.window.showWarningMessage(t('transform.invalid', MIN_TRANSFORM_LEVEL));
+      return;
+    }
+    const r = await tcg.findTransform(owned.card, kind);
+    if (!r.ok) { void vscode.window.showWarningMessage(t('transform.offline')); return; }
+    if (!r.card) { void vscode.window.showInformationMessage(t('transform.none', owned.card.name, t(`transform.kind.${kind}`))); return; }
+    const nk = applyTransform(state, key, item, r.card);
+    if (!nk) { return; }
+    await game.save(state);
+    void vscode.window.showInformationMessage(t('transform.done', owned.card.name, r.card.name));
+    await tick(true);
   }
 
   async function openPack(kind: PackKind): Promise<void> {
@@ -203,6 +236,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
     return {
       ...(c.cv === CARD_DATA_VERSION ? {} : { basic: true }),   // no attacks or price yet: estimated stats
       stats: statsOf(c, xp), lvPct: lv ? lv.pct : 100, xp, mastered: !!owned?.mastered,
+      transforms: owned?.mastered
+        ? (['mega', 'vmax', 'vstar', 'tera'] as Transform[]).filter(k => canTransform(c, { mastered: true, level: levelOf(xp) }, k))
+        : [],
       market: marketValue(c), eur: c.price?.eur, usd: c.price?.usd, priceAt: c.priceAt, collector: collectorLabel(c),
       id: keyOf(c), name: c.name, rarity: c.rarity, tier: c.tier, stage: c.stage, hp: c.hp,
       types: c.types, set: c.set, era: c.era,   // era/variant/tier/collector are ids: the webview translates them
@@ -220,7 +256,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       ...await cardView(o.card, 'low', false, p => album.uri(p)), count: o.count, firstAt: o.firstAt,
     })));
     return {
-      lang: lang(), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      lang: lang(), items: s.items, album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count, 0)),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };
@@ -257,6 +293,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       { id: 'pack', name: t('shop.pack.name'), desc: t('shop.pack.desc') },
       { id: 'premium', name: t('shop.premium.name'), desc: t('shop.premium.desc') },
       { id: 'ball', name: t('shop.ball.name'), desc: t('shop.ball.desc') },
+      { id: 'box', name: t('shop.box.name'), desc: t('shop.box.desc') },
       { id: 'slot', name: t('shop.slot.name'), desc: t('shop.slot.desc', s.slots.length, MAX_SLOTS) },
       { id: 'luck', name: t('shop.luck.name'), desc: t('shop.luck.desc', s.luck, MAX_LUCK) },
     ];
@@ -265,7 +302,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const slots = await Promise.all(s.slots.map(async t => {
       if (!t) { return null; }
       const p = trainingProgress(t, lifetime, mult);
-      return { card: await cardView(t.card, 'high', true), id: keyOf(t.card), pct: p.pct, into: p.into, span: p.span, evolved: t.evolved, mastered: !!t.mastered };
+      return { card: await cardView(t.card, 'high', true), id: keyOf(t.card), pct: p.pct, into: p.into, span: p.span, evolved: t.evolved, mastered: !!t.mastered, boost: t.boost ?? 0,
+        branches: t.pending ? branchOptions(t).map(o => ({ name: o.name, item: o.item, have: !o.item || countOf(s, o.item) > 0 })) : undefined };
     }));
     enrichMissing(s.slots.flatMap(t => (t ? [t.card] : [])));
     const owned = Object.values(s.collection);
@@ -277,7 +315,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       today: b(agg.today), month: b(agg.month),
       byModel: Object.entries(agg.byModel).map(([k, v]) => ({ name: k, ...b(v) })).sort((a, c) => c.total - a.total),
       daily: agg.daily,
-      packs: s.packs, premium: s.premium, balls: s.balls, nextPack: nextPackProgress(s, lifetime, every),
+      boxes: s.boxes, items: s.items, packs: s.packs, premium: s.premium, balls: s.balls, nextPack: nextPackProgress(s, lifetime, every),
       coins: Math.floor(s.coins), pace, shop, perDay: usage.tokensSince(Date.now() - 7 * 864e5) / 7,
       slots, recent, albumUnique: owned.length, albumTotal: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
     };

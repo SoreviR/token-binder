@@ -117,6 +117,21 @@ Cards show a 3D tilt that follows the mouse, and cards of Holo rarity or higher 
 - **Stats (HP, ATK, DEF, SPD):** they come from the real card data (HP, damage of its attacks, retreat cost), normalized per era so that a vintage card and a VMAX are comparable, and they improve with level, stage and rarity. For now they are only displayed; they will be used in battles. Cards you already had are completed automatically when you open the album (an internet connection is needed).
 - **Market value:** the album viewer shows an approximate price (Cardmarket trend in € and TCGplayer price in $), a collectibility label (*Market common* → *Grail*) and the approximate value of your whole collection. It is refreshed when you look at a card if it is more than 7 days old. It is the price of the regular card (it does not distinguish Shadowless) and it is informational only: it **does not change** what coins give you.
 
+## Mystery boxes, items and evolutions
+
+A **mystery box** (120 coins in the shop) gives one random item. Open it from the *Items* panel. Items you own are listed there.
+
+| Item | What it does |
+|---|---|
+| Fire / Water / Thunder / Leaf / Ice / Sun / Moon / Shiny / Dawn Stone, King's Rock | Pick a branch of a branching evolution (see below) |
+| Rare Candy | Raises a card by one level |
+| Lucky Egg | A card in training earns **double XP** (levels) for the next 1M tokens; they stack |
+| Mega Stone, Dynamax Band, Star Core, Tera Orb (rare) | Transform a finished card (see below) |
+
+**Branching evolutions.** Some lines can evolve in several ways: Eevee (8 species), Gloom, Poliwhirl, Slowpoke, Kirlia, Snorunt, Cosmoem, Wurmple and Pikachu (Raichu or Alolan Raichu). When the training bar is full, the card **waits** and the panel asks you to choose. A species that is tied to an item (for example Umbreon needs a Moon Stone, Flareon a Fire Stone, Gallade a Dawn Stone) is only available if you have it; the item is spent. Species with no item are free to pick, and **Let it evolve naturally** picks a random branch for free. Luck upgrades make the rare items likelier.
+
+**Transformations.** A **finished (Master) card of level 20 or higher** can be transformed with the matching item: Mega Stone → Mega (*M X EX*, *Mega X ex*), Dynamax Band → VMAX, Star Core → VSTAR, Tera Orb → Terastal ex. Open the card in the album and use the button; the new card keeps the level and the old one stays in your album. The item is only spent if such a card exists (the lookup is done first). Cards that are already a Mega/VMAX/VSTAR cannot be transformed again.
+
 ## Coins and shop
 
 Besides the free packs, you earn **1 coin per 10K tokens** used. There is a **+20% bonus** while your quota usage is below the pace of the month (for example, being at 40% of the quota halfway through the month). No coins are given for tokens used before installing version 0.3.
@@ -128,6 +143,7 @@ Besides the free packs, you earn **1 coin per 10K tokens** used. There is a **+2
 | Pack | 80 | 2 cards |
 | Premium pack | 250 | 2 cards with no commons and better odds of Holo or higher |
 | Poké Ball | 15 | 1 card |
+| Mystery box | 120 | 1 random item (stones, candy, Lucky Egg, rare transformation items) |
 | Training slot | 400 · 900 · 1,600 · 2,600 · 4,000 | One more card growing at a time (up to 6 slots) |
 | Luck upgrade | 300 · 600 · 1,200 · 2,400 · 4,800 | +20% per level to the weight of the Modern and Current eras in packs, and to the probability of Shadowless variants (5 levels) |
 
