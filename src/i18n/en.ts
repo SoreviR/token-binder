@@ -100,7 +100,7 @@ export const en = {
 
   // mishaps for going over the quota
   'mishap.rocket': 'TokenBinder: you went over the quota and Team Rocket stole {0}! Beat them in the Battle tab to get it back.',
-  'mishap.trip': 'TokenBinder: you went over the quota, tripped while running and dropped {0} cards: {1}.',
+  'mishap.trip': 'TokenBinder: you went over the quota, tripped while running and dropped {0} cards: {1}. {2} more got scuffed (one step of wear) and {3} sleeves were torn on the ground.',
   'mishap.rain': 'TokenBinder: you went over the quota and got caught in the rain: {0} cards are soaked (a Charmandryer saves them). {1} stayed dry in their sleeve or slab.',
   'mishap.rainSaved': 'TokenBinder: you went over the quota and got caught in the rain, but your sleeves and slabs kept all {0} cards dry!',
   'mishap.open': 'Open album',

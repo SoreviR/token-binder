@@ -169,7 +169,7 @@ Like real collectors, you can protect your cards and have them **graded**. Open 
 Going over the quota has consequences (turn them off with `tokenBinder.mishaps.enabled`). Once you go **over 100%** of the monthly quota, **one** mishap happens in that quota period (never more than one per period):
 
 - 🚀 **Team Rocket** (60%) steals one random card. It appears in the **Battle** tab while they have it: beat them (Arbok, level 15) and you get it back exactly as it was. No coins, and a loss only means you try again.
-- 🏃 **You trip while running** (30%) and drop **10%** of the copies in your album (at least one); they are lost. Graded cards are safe in their slab.
+- 🏃 **You trip while running** (30%) and drop **10%** of the copies in your album (at least one); they are lost. **Another 10%** of your cards get scuffed on the ground and wear one step, unless they have a **sleeve**: then the sleeve takes the hit and is torn instead. Graded cards are safe in their slab.
 - 🌧️ **It rains** (10%) on **half** of your album. Cards in a **sleeve** or a **slab** stay dry; the rest end up **soaked**: worth nothing, and they cannot train, battle, be graded or be sold. A **Charmandryer** (40 coins in the shop, a hair dryer with the flame of Charmander's tail) dries one soaked card, which comes back usable but Heavily Played.
 
 The card in a training slot goes with you and the one at the grading service is not at home, so neither of them can be stolen, dropped or soaked. A notification tells you what happened and opens the album.

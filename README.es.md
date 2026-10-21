@@ -168,7 +168,7 @@ Como los coleccionistas de verdad, puedes proteger tus cartas y hacer que las **
 Pasarse de la cuota tiene consecuencias (se desactivan con `tokenBinder.mishaps.enabled`). Cuando te pasas **del 100 %** de la cuota mensual ocurre **un** percance en ese periodo de cuota (nunca más de uno por periodo):
 
 - 🚀 **El Team Rocket** (60 %) te roba una carta al azar. Aparece en la pestaña **Combate** mientras la tenga: gánales (Arbok, nivel 15) y la recuperas tal como estaba. Sin monedas, y si pierdes solo tienes que volver a intentarlo.
-- 🏃 **Tropiezas corriendo** (30 %) y se te cae el **10 %** de las copias del álbum (al menos una); se pierden. Las cartas gradeadas están a salvo en su slab.
+- 🏃 **Tropiezas corriendo** (30 %) y se te cae el **10 %** de las copias del álbum (al menos una); se pierden. **Otro 10 %** de tus cartas se estropea al rozar con el suelo y sube un paso de desgaste, salvo que tenga **funda**: entonces la funda se lleva el golpe y se rompe. Las cartas gradeadas están a salvo en su slab.
 - 🌧️ **Llueve** (10 %) sobre **la mitad** del álbum. Las cartas con **funda** o en **slab** no se mojan; el resto quedan **empapadas**: no valen nada y no pueden entrenar, combatir, gradearse ni venderse. Un **Charmandryer** (40 monedas en la tienda, un secador con la llama de la cola de Charmander) seca una carta empapada, que vuelve a servir pero queda muy jugada.
 
 La carta que está entrenando va contigo y la que está en el servicio de gradeo no está en casa, así que a ninguna de las dos se la pueden robar, caer ni mojar. Una notificación te cuenta qué pasó y abre el álbum.

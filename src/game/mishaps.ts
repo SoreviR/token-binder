@@ -16,6 +16,8 @@ export interface MishapResult {
   kind: MishapKind;
   cards: { key: string; name: string; n: number }[];   // cards affected (n = copies lost, or 1 for a stolen or soaked card)
   saved: number;                                       // cards the rain reached that a sleeve or a slab kept dry
+  worn?: number;                                       // trip: cards scuffed one step of wear
+  sleevesLost?: number;                                // trip: cards whose sleeve took the hit and was torn
 }
 
 /** Team Rocket's ace when you go to win a card back: about as tough as the third gym leader, with no reward but the card. */
@@ -69,14 +71,29 @@ export function rocketSteal(s: GameState, rng: () => number = Math.random): Mish
   return { kind: 'rocket', cards: [{ key, name: o.card.name, n: 1 }], saved: 0 };
 }
 
-/** You trip and 10% of the copies in the album fall and are lost (at least one). Graded cards are safe in their slab. */
+/**
+ * You trip: 10% of the copies in the album fall and are lost (at least one), and another 10% of the cards get scuffed on
+ * the ground. A scuffed card wears one step, unless it has a sleeve: the sleeve takes the hit and is torn instead.
+ * Graded cards are safe in their slab.
+ */
 export function tripAndDrop(s: GameState, rng: () => number = Math.random): MishapResult | null {
   const pool = shuffle(copies(s, o => !o.grade), rng);
   if (!pool.length) { return null; }
   const lost = pool.slice(0, Math.max(1, Math.round(pool.length * TRIP_SHARE)));
   const names = Object.fromEntries(lost.map(k => [k, s.collection[k].card.name]));
   for (const k of lost) { removeCopy(s, k); }
-  return { kind: 'trip', cards: tally(lost, s, names), saved: 0 };
+  // Only cards the ground can still hurt: a sleeve to tear, or room to wear (a soaked card is past caring).
+  const hurt = shuffle(Object.keys(s.collection).filter(k => {
+    const o = s.collection[k];
+    return !o.grade && !o.soaked && inAlbum(s, k, o) > 0 && (o.care?.sleeve || (o.wear ?? 0) < MAX_WEAR);
+  }), rng);
+  const scuffed = hurt.slice(0, Math.min(hurt.length, Math.max(1, Math.round(Object.keys(s.collection).length * TRIP_SHARE))));
+  let worn = 0, sleevesLost = 0;
+  for (const k of scuffed) {
+    const o = s.collection[k];
+    if (o.care?.sleeve) { delete o.care.sleeve; sleevesLost++; } else { o.wear = (o.wear ?? 0) + 1; worn++; }
+  }
+  return { kind: 'trip', cards: tally(lost, s, names), saved: 0, worn, sleevesLost };
 }
 
 /** It rains on half of the album's cards. A sleeve or a slab keeps a card dry; the rest end up soaked (all their copies). */

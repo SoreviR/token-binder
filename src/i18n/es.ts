@@ -101,7 +101,7 @@ export const es: Record<Key, string> = {
 
   // percances por pasarse de la cuota
   'mishap.rocket': 'TokenBinder: te pasaste de la cuota y el Team Rocket te robó {0}. Gánales en la pestaña Combate para recuperarla.',
-  'mishap.trip': 'TokenBinder: te pasaste de la cuota, tropezaste corriendo y se te cayeron {0} cartas: {1}.',
+  'mishap.trip': 'TokenBinder: te pasaste de la cuota, tropezaste corriendo y se te cayeron {0} cartas: {1}. Otras {2} se estropearon (un paso de desgaste) y {3} fundas se rompieron al rozar con el suelo.',
   'mishap.rain': 'TokenBinder: te pasaste de la cuota y te pilló la lluvia: {0} cartas están empapadas (un Charmandryer las salva). {1} se libraron gracias a su funda o slab.',
   'mishap.rainSaved': 'TokenBinder: te pasaste de la cuota y te pilló la lluvia, ¡pero tus fundas y slabs mantuvieron secas las {0} cartas!',
   'mishap.open': 'Abrir álbum',

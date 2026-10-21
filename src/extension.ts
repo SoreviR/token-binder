@@ -404,7 +404,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const names = m.cards.map(c => (c.n > 1 ? `${c.name} ×${c.n}` : c.name)).join(', ');
     const lost = m.cards.reduce((n, c) => n + c.n, 0);
     const msg = m.kind === 'rocket' ? t('mishap.rocket', names)
-      : m.kind === 'trip' ? t('mishap.trip', lost, names)
+      : m.kind === 'trip' ? t('mishap.trip', lost, names, m.worn ?? 0, m.sleevesLost ?? 0)
         : m.cards.length ? t('mishap.rain', m.cards.length, m.saved) : t('mishap.rainSaved', m.saved);
     log.appendLine(`[mishap] ${m.kind}: ${names || '-'}${m.saved ? ` (${m.saved} kept dry)` : ''}`);
     void vscode.window.showWarningMessage(msg, t('mishap.open')).then(a => { if (a) { album.show(); } });

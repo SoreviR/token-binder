@@ -121,6 +121,28 @@ test('tripping drops 10% of the copies (at least one), and graded cards are safe
   assert.equal(copiesOf(graded), 5);
 });
 
+test('tripping also scuffs another 10% of the cards: one step of wear, or a sleeve takes the hit and is torn', () => {
+  const s = album(40);
+  const m = tripAndDrop(s, mulberry32(3))!;
+  assert.equal((m.worn ?? 0) + (m.sleevesLost ?? 0), 4, '10% of the 36 cards left, rounded');
+  assert.equal(Object.values(s.collection).filter(o => o.wear === 1).length, m.worn);
+
+  const sleeved = album(20);
+  for (const o of Object.values(sleeved.collection)) { o.care = { sleeve: true, toploader: true }; }
+  const r = tripAndDrop(sleeved, mulberry32(9))!;
+  assert.equal(r.worn, 0, 'a sleeve stops the wear');
+  assert.equal(r.sleevesLost, 2);
+  const torn = Object.values(sleeved.collection).filter(o => !o.care?.sleeve);
+  assert.equal(torn.length, 2);
+  for (const o of torn) { assert.equal(o.wear, undefined); assert.equal(o.care?.toploader, true, 'only the sleeve is lost'); }
+
+  // nothing left to hurt: worn out without a sleeve, soaked or graded cards are skipped
+  const done = album(10);
+  for (const o of Object.values(done.collection)) { o.wear = MAX_WEAR; }
+  const d = tripAndDrop(done, () => 0)!;
+  assert.deepEqual([d.worn, d.sleevesLost], [0, 0]);
+});
+
 test('the rain reaches half of the album; sleeves and slabs keep cards dry, cards in training are not there', () => {
   const s = album(10);
   for (const k of ['c0', 'c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7']) { s.collection[k].care = { sleeve: true }; }
