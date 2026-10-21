@@ -28,10 +28,27 @@
   const sorter = el('select', { class: 'sorter', onchange: e => { sort = e.target.value; renderGrid(); } });
   const chips = el('div', { class: 'chips' });
   const grid = el('div', { class: 'agrid' });
-  app.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), sellAll), el('div', { class: 'toolbar' }, search, eraSel, sorter), chips, grid);
+  // Two tabs: the album and the battle screen (media/battle.js).
+  let tab = 'album';
+  const albumView = el('div', {});
+  const battleView = el('div', { style: 'display:none' });
+  const tabAlbum = el('button', { class: 'tab on', onclick: () => showTab('album') });
+  const tabBattle = el('button', { class: 'tab', onclick: () => showTab('battle') });
+  function showTab(name) {
+    tab = name;
+    albumView.style.display = name === 'album' ? '' : 'none';
+    battleView.style.display = name === 'battle' ? '' : 'none';
+    tabAlbum.classList.toggle('on', name === 'album'); tabBattle.classList.toggle('on', name === 'battle');
+    if (name === 'battle') closeViewer();
+  }
+  albumView.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), sellAll), el('div', { class: 'toolbar' }, search, eraSel, sorter), chips, grid);
+  app.append(el('div', { class: 'tabs', role: 'tablist' }, tabAlbum, tabBattle), albumView, battleView);
+  window.PTBattle.init({ root: battleView, stage: document.getElementById('stage'), send });
 
   function labelToolbar() {
     title.textContent = t('album.title');
+    tabAlbum.textContent = t('tab.album');
+    tabBattle.textContent = t('tab.battle');
     sellAll.textContent = t('album.sellAll');
     sellAll.title = t('album.sellAllTip');
     search.placeholder = t('album.searchPlaceholder');
@@ -73,6 +90,7 @@
       c.variant ? el('span', { class: 'vt', text: t('variant.tag.' + c.variant) }) : null,
       D.trainingIds.includes(c.id) ? el('span', { class: 'tr', text: t('album.training') }) : null,
       c.grade ? el('span', { class: 'gr g' + c.grade, text: 'TBGS ' + c.grade }) : null,
+      c.id === D.fighterId ? el('span', { class: 'fgt', title: t('battle.isFighter'), text: '⚔' }) : null,
       c.stats.level > 1 || c.mastered ? el('span', { class: 'lvl', text: (c.mastered ? '★ ' : '') + t('stats.level', c.stats.level) }) : null),
       () => openViewer(c.id), c.name + ', ' + c.rarity + (c.variant ? ', ' + variantName(c) : ''))));
   }
@@ -80,6 +98,7 @@
   function render() {
     setLang(D.lang);
     labelToolbar();
+    window.PTBattle.setData(D.battle);
     summary.textContent = t('album.summary', D.unique, D.total, D.mastered) + (D.value ? t('album.value', D.value.toLocaleString(D.lang)) : '');
     sellAll.style.display = D.total > D.unique ? '' : 'none';
     renderEras();
@@ -109,6 +128,9 @@
         marketEl(c),
         itemButtons(c, training),
         careRow(c, training),
+        c.id === D.fighterId
+          ? el('div', { class: 'sub center', style: 'margin-top:6px', text: t('battle.isFighter') })
+          : el('div', { class: 'row', style: 'justify-content:center;margin-top:6px' }, el('button', { class: 'btn ghost', text: '⚔ ' + t('battle.takeTo'), onclick: () => send('setFighter', { id: c.id }) })),
         c.count > 1 ? el('div', { class: 'sub center', text: t('viewer.copies', c.count) }) : null,
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap' },
           training
@@ -158,6 +180,7 @@
   window.addEventListener('message', ev => {
     const m = ev.data || {};
     if (m.type === 'album') { D = m.data; render(); }
+    else if (m.type === 'battleResult') { showTab('battle'); window.PTBattle.play(m.data); }
     else if (m.type === 'high' && viewing === m.id) {
       const img = overlay.querySelector('.card3d img');
       if (img) img.src = m.src;

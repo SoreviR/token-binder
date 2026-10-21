@@ -113,6 +113,17 @@ export interface Training {
   pick?: string;        // the chosen species; applied on the next evolution step
   boost?: number;       // tokens left at double XP (Lucky Egg)
 }
+export interface BattleEntry { at: number; leader: string; card: string; won: boolean; rounds: number; coins: number }
+export interface BattleRecord {
+  wins: number; losses: number;
+  streak: number;                          // current win streak
+  best: number;                            // longest win streak
+  badges: string[];                        // gym leaders beaten at least once
+  daily: { day: string; rewarded: number };  // rematch rewards already given today
+  history: BattleEntry[];                  // most recent first, last 20
+}
+export const newBattleRecord = (): BattleRecord => ({ wins: 0, losses: 0, streak: 0, best: 0, badges: [], daily: { day: '', rewarded: 0 }, history: [] });
+
 export interface GameState {
   v: 2;
   baseline: number;       // lifetime tokens at the start: packs are counted from here
@@ -128,6 +139,8 @@ export interface GameState {
   lastLifetime: number;   // lifetime tokens at the last coin count
   luck: number;           // luck upgrade level (0-5)
   boxes: number;          // unopened mystery boxes
+  fighter?: string;       // key of the card taken to battles
+  battle?: BattleRecord;  // record, badges and recent fights
   items: Partial<Record<ItemId, number>>;   // item inventory
 }
 
@@ -242,13 +255,13 @@ export function newState(lifetime: number): GameState {
   // A welcome pack so there is something to open from the very first moment.
   return {
     v: 2, baseline: lifetime, packsGranted: 0, packs: 1, premium: 0, balls: 0, collection: {}, slots: [null], mastered: 0,
-    bonusPeriod: 0, coins: 0, lastLifetime: lifetime, luck: 0, boxes: 0, items: {},
+    bonusPeriod: 0, coins: 0, lastLifetime: lifetime, luck: 0, boxes: 0, items: {}, battle: newBattleRecord(),
   };
 }
 
 /** Fills in the fields added in newer versions to a previously saved state (without giving retroactive coins). */
 export function normalize(s: GameState, lifetime: number): GameState {
-  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime; s.boxes ??= 0; s.items ??= {};
+  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime; s.boxes ??= 0; s.items ??= {}; s.battle ??= newBattleRecord();
   for (const o of Object.values(s.collection)) { o.xp ??= 0; }
   // Cards that were already training receive the XP of everything trained so far (since they entered the slot).
   for (const t of s.slots) { if (t) { t.last ??= t.born; } }

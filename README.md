@@ -114,8 +114,27 @@ Cards show a 3D tilt that follows the mouse, and cards of Holo rarity or higher 
 ## Level, stats and market value
 
 - **Level (1-50):** each card earns as XP the tokens you use while it is in a training slot: one level per 400K tokens (about 20M for level 50). When it evolves, the new card **inherits the level**; Masters (like Zapdos, which does not evolve) keep growing. Retiring a card does not take its level away.
-- **Stats (HP, ATK, DEF, SPD):** they come from the real card data (HP, damage of its attacks, retreat cost), normalized per era so that a vintage card and a VMAX are comparable, and they improve with level, stage and rarity. For now they are only displayed; they will be used in battles. Cards you already had are completed automatically when you open the album (an internet connection is needed).
+- **Stats (HP, ATK, DEF, SPD):** they come from the real card data (HP, damage of its attacks, retreat cost), normalized per era so that a vintage card and a VMAX are comparable, and they improve with level, stage and rarity. They are the ones used in battles. Cards you already had are completed automatically when you open the album (an internet connection is needed).
 - **Market value:** the album viewer shows an approximate price (Cardmarket trend in € and TCGplayer price in $), a collectibility label (*Market common* → *Grail*) and the approximate value of your whole collection. It is refreshed when you look at a card if it is more than 7 days old. It is the price of the regular card (it does not distinguish Shadowless) and it is informational only: it **does not change** what coins give you.
+
+## Battles
+
+Take **one card** to battle: open it in the album and press **Take to battle**, then open the **Battle** tab. You face the eight Kanto gym leaders one after another (Brock, Misty, Lt. Surge, Erika, Koga, Sabrina, Blaine, Giovanni), each with one real card of their own. A fight is automatic and lasts about 7 rounds; the screen shows the odds before you start, plays it back with the real name of each attack, and explains **why you won or lost** afterwards.
+
+**What makes a card strong.** Thousands of cards have very different printed HP and damage, so what is printed on the card does **not** decide a fight. Strength comes from small, visible factors, and the Battle tab shows the breakdown for your card:
+
+| Factor | Effect |
+|---|---|
+| **Training level** (the biggest one) | +1.8% per level (level 50 = ×1.88) |
+| **Market demand** (how much the card is really worth, *Market common* → *Grail*) | +2% per class, up to +10% |
+| **Rarity** (Holo, Ultra, Secret…) | +0.3% per category, up to +1.8% |
+| **Evolution stage** | +2% Stage 1, +4% Stage 2 and ex/V/VMAX/Mega |
+| **Grade** (graded cards) | +0.8% per point above 5, up to +4% |
+| **Token-usage bonus** | up to +8%: +2% for every 25 points of monthly quota you have used less than a typical player (75%) |
+
+What the card prints only changes *how* it fights: a card with more HP than damage leans tanky, the opposite leans hard-hitting, with the same total power. A type weakness is worth +15% damage (resistance −8%). The fight is rolled with a seed, so it is fair and reproducible.
+
+**The ladder.** Beat a leader to unlock the next; the first victory gives a **badge** and coins (150 → 1,000), later victories give 20 coins, up to 5 paid rematches a day. The leaders' levels go 3, 9, 15 … 45, so you roughly need a card of their level. Your record, streak and last fights are saved.
 
 ## Mystery boxes, items and evolutions
 

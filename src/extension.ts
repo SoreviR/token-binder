@@ -21,6 +21,8 @@ import { lang, resolveLang, setLang, t } from './i18n';
 import { Updater } from './update/updater';
 import { backupIfUpgraded, exportPayload, parseImport } from './game/backup';
 import { registerDevTools } from './devhook';
+import { Fighter, effectiveness, estimateWin, factorGaps, simulate } from './game/battle';
+import { LEADERS, LEADER_BY_ID, REMATCH_DAILY_CAP, battleOf, dayKey, leaderFighter, leaderUnlocked, playerFighter, recordBattle, setFighter } from './game/leaders';
 import { PROTECTORS, Protector, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading } from './game/grading';
 
 const cfg = () => vscode.workspace.getConfiguration('tokenBinder');
@@ -62,6 +64,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
   const failedThumbs = new Set<string>(); // do not retry in a loop when offline; cleared on reload
   const failedEnrich = new Set<string>();
   let enriching = false;
+  let lastQuotaPct = 0;                      // share of the monthly quota used (feeds the token-usage bonus in battles)
+  let fetchingLeaders = false;
 
   let rerun = false;
   async function tick(force = false): Promise<void> {
@@ -81,6 +85,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const agg = usage.aggregate(start, now);
       const usedNow = used(agg.month, unit);
       const pct = percent(usedNow, limit);
+      lastQuotaPct = pct;
       const lifetime = usage.lifetimeTokens();
 
       state ??= game.load(lifetime);
@@ -149,6 +154,10 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (ok) { await game.save(state); await tick(true); }
     } else if (m.type === 'transform' && typeof m.id === 'string' && isItemId(m.item)) {
       await transform(m.id, m.item);
+    } else if (m.type === 'setFighter' && typeof m.id === 'string') {
+      if (setFighter(state, m.id)) { await game.save(state); await tick(true); }
+    } else if (m.type === 'startBattle' && typeof m.leader === 'string') {
+      await startBattle(m.leader);
     } else if (m.type === 'protect' && typeof m.id === 'string' && PROTECTORS.includes(m.item as Protector)) {
       if (protect(state, m.id, m.item as Protector)) { await game.save(state); await tick(true); }
     } else if (m.type === 'grade' && typeof m.id === 'string') {
@@ -180,6 +189,89 @@ export function activate(ctx: vscode.ExtensionContext): void {
     if (!nk) { return; }
     await game.save(state);
     void vscode.window.showInformationMessage(t('transform.done', owned.card.name, r.card.name));
+    await tick(true);
+  }
+
+  /** The fighter as the battle screen needs it: names, stats, the strength breakdown and the card art. */
+  async function fighterView(f: Fighter, card: Card) {
+    const view = await cardView(card, 'high', true, p => album.uri(p));
+    return {
+      name: f.name, key: f.key, level: f.level, hp: f.hp, atk: f.atk, def: f.def, spd: f.spd, types: f.types, strength: f.strength, moves: f.moves.map(m => m.name),
+      src: view.src, tier: card.tier, variant: card.variant, rarity: card.rarity,
+    };
+  }
+
+  /** Looks the eight gym aces up in the background (the first time they need the network) and repaints when done. */
+  function fetchLeaders(): void {
+    if (fetchingLeaders) { return; }
+    fetchingLeaders = true;
+    void (async () => {
+      let changed = false;
+      try {
+        for (const d of LEADERS) {
+          const card = await tcg.leaderCard(d.id, d.species);
+          if (card && !tcg.cachedImage(card, 'low')) { await tcg.image(card, 'low'); changed = true; }
+        }
+      } finally { fetchingLeaders = false; }
+      if (changed) { void tick(true); }
+    })();
+  }
+
+  /** Everything the combat tab shows: your fighter, the record and the ladder with the odds against each leader. */
+  async function battleData(s: GameState) {
+    const rec = battleOf(s);
+    const me = playerFighter(s, lastQuotaPct);
+    const own = s.fighter ? s.collection[s.fighter] : undefined;
+    const leaders = await Promise.all(LEADERS.map(async (d, i) => {
+      const card = await tcg.cachedLeaderCard(d.id);
+      const foe = card ? leaderFighter(d, card) : undefined;
+      const art = card ? tcg.cachedImage(card, 'low') : undefined;
+      return {
+        id: d.id, name: d.name, species: d.species, level: d.level, reward: d.reward, rematch: d.rematch,
+        unlocked: leaderUnlocked(s, i), earned: rec.badges.includes(d.id),
+        card: card ? card.name : undefined, src: art ? album.uri(art) : undefined, types: foe?.types ?? [],
+        strength: foe?.strength.total,
+        odds: me.ok && foe ? estimateWin(me.fighter, foe, 200, i + 1) : undefined,
+        edge: me.ok && foe ? (effectiveness(me.fighter, foe).eff === 'weak' ? 'me' : effectiveness(foe, me.fighter).eff === 'weak' ? 'foe' : undefined) : undefined,
+      };
+    }));
+    const today = dayKey(Date.now());
+    return {
+      fighter: own && me.ok ? await fighterView(me.fighter, own.card) : null,
+      fighterBlocked: me.ok ? undefined : me.reason,
+      record: { wins: rec.wins, losses: rec.losses, streak: rec.streak, best: rec.best, badges: rec.badges },
+      rewardsLeft: rec.daily.day === today ? Math.max(0, REMATCH_DAILY_CAP - rec.daily.rewarded) : REMATCH_DAILY_CAP,
+      history: rec.history,
+      leaders,
+    };
+  }
+
+  /** One battle against a gym leader: simulate, record, pay and send the whole fight to the screen to be played back. */
+  async function startBattle(leaderId: string): Promise<void> {
+    const def = LEADER_BY_ID[leaderId];
+    if (!state || !def) { return; }
+    if (!leaderUnlocked(state, LEADERS.indexOf(def))) { void vscode.window.showWarningMessage(t('battle.locked')); return; }
+    const me = playerFighter(state, lastQuotaPct);
+    if (!me.ok) { void vscode.window.showWarningMessage(t(me.reason === 'grading' ? 'battle.grading' : 'battle.noFighter')); return; }
+    const card = await tcg.leaderCard(def.id, def.species);
+    if (!card) { void vscode.window.showWarningMessage(t('battle.offline')); return; }
+    const foe = leaderFighter(def, card);
+    const own = state.collection[state.fighter!].card;
+    const odds = estimateWin(me.fighter, foe, 400, 99);
+    const result = simulate(me.fighter, foe, (Math.random() * 4294967296) >>> 0);
+    const won = result.winner === 'a';
+    const outcome = recordBattle(state, def, me.fighter.name, won, result.rounds);
+    await game.save(state);
+    album.send({
+      type: 'battleResult',
+      data: {
+        leader: { id: def.id, name: def.name, level: def.level },
+        me: await fighterView(me.fighter, own), foe: await fighterView(foe, card),
+        odds, won, rounds: result.rounds, reason: result.reason, log: result.log, outcome,
+        gaps: factorGaps(me.fighter, foe).slice(0, 3),
+        typeEdge: effectiveness(me.fighter, foe).eff === 'weak' ? 'me' : effectiveness(foe, me.fighter).eff === 'weak' ? 'foe' : undefined,
+      },
+    });
     await tick(true);
   }
 
@@ -264,11 +356,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const owned = Object.values(s.collection);
     prefetchThumbs(owned.map(o => o.card));
     enrichMissing(owned.map(o => o.card));
+    fetchLeaders();
     const cards = await Promise.all(owned.slice(0, 1000).map(async o => ({
       ...await cardView(o.card, 'low', false, p => album.uri(p)), count: o.count, firstAt: o.firstAt,
     })));
     return {
-      lang: lang(), items: s.items, coins: Math.floor(s.coins), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      lang: lang(), items: s.items, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade), 0)),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };

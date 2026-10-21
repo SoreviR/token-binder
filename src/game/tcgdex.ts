@@ -34,12 +34,13 @@ export class Tcgdex {
   }
 
   /** Which sets belong to each era (downloaded once and saved on disk). undefined when there is neither network nor cache. */
-  private async loadEras(): Promise<Map<Era, string[]> | undefined> {
+  private async loadEras(offline = false): Promise<Map<Era, string[]> | undefined> {
     if (this.eraSets) { return this.eraSets; }
     const file = path.join(this.dir, 'eras.json');
     let data: Record<string, string[]> | undefined;
     try { data = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* no cache */ }
     if (!data) {
+      if (offline) { return undefined; }
       data = {};
       const series = ERAS.flatMap(e => e.series);
       const res = await Promise.all(series.map(s => this.getJson(`${BASE}/series/${s}`)));
@@ -195,6 +196,39 @@ export class Tcgdex {
     // The Shadowless variant is not inherited: it is a specific copy, not a line.
     return { ok: true, card: { ...best, variant: undefined } };
   };
+
+  /** The ace card of a leader if it is already on disk. Never touches the network (the panel asks for this on every refresh). */
+  async cachedLeaderCard(leaderId: string): Promise<Card | undefined> {
+    let id: string | undefined;
+    try { id = JSON.parse(fs.readFileSync(path.join(this.dir, 'leaders.json'), 'utf8'))[leaderId]; } catch { return undefined; }
+    if (!id) { return undefined; }
+    let card: Card;
+    try { card = JSON.parse(fs.readFileSync(this.cardFile(id), 'utf8')); } catch { return undefined; }
+    if (card.setId && !card.era) { await this.loadEras(true); card.era = this.setEra.get(card.setId); }
+    return card;
+  }
+
+  /**
+   * The ace card of a gym leader: found by species name (the premium ones first) the first time and then remembered in
+   * `leaders.json`, so every leader is always the same card. undefined when offline and not seen before.
+   */
+  async leaderCard(leaderId: string, species: string): Promise<Card | undefined> {
+    const file = path.join(this.dir, 'leaders.json');
+    let known: Record<string, string> = {};
+    try { known = JSON.parse(fs.readFileSync(file, 'utf8')); } catch { /* nothing remembered yet */ }
+    if (known[leaderId]) {
+      const cached = await this.detail(known[leaderId]);
+      if (cached) { return cached; }
+    }
+    const items = await this.list({ name: `eq:${species}` });
+    if (!items?.length) { return undefined; }
+    const ref = { tier: 3 } as Card;   // a holographic card is the model: premium cards score best, then the closest rarity
+    const best = await this.bestOf(items, ref);
+    if (!best) { return undefined; }
+    known[leaderId] = best.id;
+    fs.writeFileSync(file, JSON.stringify(known));
+    return { ...best, variant: undefined };
+  }
 
   /** The transformed version of a card (Mega, VMAX…): a card with the matching name. card: null when none exists. */
   async findTransform(card: Card, kind: Transform): Promise<{ ok: true; card: Card | null } | { ok: false }> {

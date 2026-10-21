@@ -82,6 +82,12 @@ export const es: Record<Key, string> = {
   'shop.toploader.name': 'Toploader',
   'shop.toploader.desc': 'Protección rígida: mejora aún más sus opciones al gradearla',
 
+  // battles
+  'battle.noFighter': 'TokenBinder: elige primero la carta que llevas a combatir (ábrela en el álbum y pulsa «Llevar a combatir»).',
+  'battle.grading': 'TokenBinder: tu carta de combate está en el servicio de gradeo. Elige otra o espera a que vuelva.',
+  'battle.locked': 'TokenBinder: vence antes al líder anterior.',
+  'battle.offline': 'TokenBinder: no se pudo encontrar la carta del líder (¿sin conexión?). Inténtalo de nuevo con conexión.',
+
   // grading
   'grade.coins': 'TokenBinder: no tienes monedas suficientes para enviar esta carta a gradear.',
   'grade.training': 'TokenBinder: retira la carta del entrenamiento antes de enviarla a gradear.',

@@ -79,7 +79,7 @@ window.PT = (function () {
     return el('div', { class: 'stats' },
       el('div', { class: 'row' }, el('b', { text: t('stats.level', s.level) + (s.level >= 50 ? t('stats.max') : '') }), c.mastered ? el('span', { class: 'master', text: t('stats.master') }) : null),
       el('div', { class: 'barwrap lv' }, el('i', { style: 'width:' + Math.max(0, Math.min(100, c.lvPct)).toFixed(1) + '%' })),
-      el('div', { class: 'statgrid' }, cell(t('stats.hp'), s.hp), cell(t('stats.atk'), s.atk), cell(t('stats.def'), s.def), cell(t('stats.spd'), s.spd)),
+      el('div', { class: 'statgrid' }, cell(t('stats.hp'), s.hp), cell(t('stats.atk'), Math.round(s.atk)), cell(t('stats.def'), s.def), cell(t('stats.spd'), s.spd)),
       c.basic ? el('div', { class: 'sub', text: t('stats.basic') }) : null);
   }
 

@@ -48,7 +48,7 @@ export class AlbumPanel {
     return `<!doctype html><html><head><meta charset="utf-8">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: ${w.cspSource}; style-src ${w.cspSource}; script-src 'nonce-${nonce}';">
 <link rel="stylesheet" href="${uri('main.css')}"></head>
-<body class="album"><div id="app"></div><div id="overlay"></div>
-<script nonce="${nonce}" src="${uri('i18n.js')}"></script><script nonce="${nonce}" src="${uri('common.js')}"></script><script nonce="${nonce}" src="${uri('album.js')}"></script></body></html>`;
+<body class="album"><div id="app"></div><div id="overlay"></div><div id="stage"></div>
+<script nonce="${nonce}" src="${uri('i18n.js')}"></script><script nonce="${nonce}" src="${uri('common.js')}"></script><script nonce="${nonce}" src="${uri('battle.js')}"></script><script nonce="${nonce}" src="${uri('album.js')}"></script></body></html>`;
   }
 }

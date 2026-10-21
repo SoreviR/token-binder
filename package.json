@@ -2,7 +2,7 @@
   "name": "token-binder",
   "displayName": "TokenBinder",
   "description": "%extension.description%",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "publisher": "sorevir",
   "license": "MIT",
   "engines": {
@@ -166,7 +166,8 @@
     "build": "node esbuild.mjs",
     "watch": "node esbuild.mjs --watch",
     "test": "node --import tsx --test test/*.test.ts",
-    "package": "node esbuild.mjs --release && vsce package --no-dependencies"
+    "package": "node esbuild.mjs --release && vsce package --no-dependencies",
+    "balance": "node --import tsx scripts/balance.ts"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

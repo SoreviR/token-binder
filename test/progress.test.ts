@@ -96,21 +96,21 @@ test('parseDamage understands 20+, 30×, numbers and attacks without damage', ()
   assert.equal(parseDamage(''), 0);
 });
 
-test('stats: normalized per era and growing with the level', () => {
+test('stats: a vintage card and a VMAX end up in the same band, and level raises them', () => {
   const vintage = card('v', 'Charizard', { era: 'vintage', hp: 120, retreat: 3, attacks: [{ name: 'Fire Spin', damage: 100, cost: 4 }] });
   const vmax = card('m', 'Rayquaza VMAX', { era: 'modern', stage: 'VMAX', hp: 320, tier: 4, retreat: 2, attacks: [{ name: 'Max Burst', damage: 20, cost: 2 }] });
   const a = statsOf(vintage), b = statsOf(vmax);
-  assert.ok(a.atk > b.atk, 'the raw damage of the vintage card weighs more against the reference of its era');
-  assert.ok(Math.abs(a.hp - b.hp) / a.hp < 0.5, 'HP does not explode because of the era');
+  assert.ok(Math.abs(a.hp * a.atk - b.hp * b.atk) / (a.hp * a.atk) < 0.15, 'printed numbers do not decide the total power');
   const lv10 = statsOf(vintage, 9 * XP_PER_LEVEL);
   assert.equal(lv10.level, 10);
-  assert.ok(lv10.hp > a.hp && lv10.atk > a.atk && lv10.spd >= a.spd);
+  assert.ok(lv10.hp > a.hp && lv10.atk > a.atk);
 });
 
-test('stats: without attack data they are estimated from the rarity and never return NaN', () => {
+test('stats: a card with no attack data still gets sane stats and rarer cards are only slightly stronger', () => {
   const s = statsOf(card('x', 'Algo', { tier: 3 }));
   for (const v of Object.values(s)) { assert.ok(Number.isFinite(v) && v > 0); }
-  assert.ok(statsOf(card('y', 'Algo', { tier: 6 })).atk > statsOf(card('y', 'Algo', { tier: 0 })).atk);
+  const rare = statsOf(card('y', 'Algo', { tier: 6 })), common = statsOf(card('y', 'Algo', { tier: 0 }));
+  assert.ok(rare.atk > common.atk && rare.atk / common.atk < 1.25);
 });
 
 test('prices: Cardmarket trend and the highest TCGplayer marketPrice; collectibility ids', () => {

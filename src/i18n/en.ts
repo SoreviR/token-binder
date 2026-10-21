@@ -81,6 +81,12 @@ export const en = {
   'shop.toploader.name': 'Toploader',
   'shop.toploader.desc': 'Rigid protection: a bigger boost to its grading odds',
 
+  // battles
+  'battle.noFighter': 'TokenBinder: choose the card you take to battle first (open it in the album and press "Take to battle").',
+  'battle.grading': 'TokenBinder: your battle card is at the grading service. Choose another one or wait for it to come back.',
+  'battle.locked': 'TokenBinder: beat the previous gym leader first.',
+  'battle.offline': 'TokenBinder: could not find the leader\'s card (offline?). Try again with a connection.',
+
   // grading
   'grade.coins': 'TokenBinder: you do not have enough coins to send this card for grading.',
   'grade.training': 'TokenBinder: retire the card from training before sending it for grading.',

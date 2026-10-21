@@ -2,6 +2,11 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.8.0 - 2026-10-21
+
+- **Battles (1 vs 1):** take one card to battle and face the eight Kanto gym leaders. Fights are automatic (about 7 rounds), use the real attacks of the cards, and are explained afterwards ("why you won / lost"). Beating a leader gives a badge and coins and unlocks the next one; your record and recent fights are saved. A new **Battle** tab in the album.
+- **A new strength model** keeps the many different cards comparable: training level matters most, then market demand, rarity, stage, grade and a small token-usage bonus (up to +8%); what is printed on a card only decides whether it leans tanky or hard-hitting, never how strong it is. The stats shown in the album come from the same model, so they have changed. Balance is fixed by tests that simulate thousands of fights with 320 real cards, and `npm run balance` prints the report.
+
 ## 1.7.0 - 2026-10-21
 
 - **Protection and grading:** sleeves and toploaders (shop or mystery boxes) improve the odds when a card is sent to the "TBGS" grading service. It comes back after 500K tokens with a 1-10 grade, shown in a slab; re-submitting can only improve it. The grade multiplies the card's market value (10 → ×3), which also counts in the value of your collection.

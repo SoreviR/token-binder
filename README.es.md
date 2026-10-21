@@ -113,8 +113,27 @@ Las cartas muestran una inclinación 3D que sigue al ratón, y las de rareza Hol
 ## Nivel, stats y valor de mercado
 
 - **Nivel (1-50):** cada carta suma como XP los tokens que usas mientras está en un hueco de entrenamiento: un nivel cada 400 K tokens (unos 20 M para el 50). Al evolucionar, la carta nueva **hereda el nivel**; las Maestras (como Zapdos, que no evoluciona) siguen subiendo. Retirarla no le quita el nivel.
-- **Stats (PS, ATQ, DEF, VEL):** salen de los datos reales de la carta (PS, daño de sus ataques, coste de retirada), normalizados por era para que una vintage y una VMAX sean comparables, y mejoran con el nivel, la etapa y la rareza. Por ahora solo se muestran; se usarán en los combates. Las cartas que ya tenías se completan solas al abrir el álbum (hace falta conexión).
+- **Stats (PS, ATQ, DEF, VEL):** salen de los datos reales de la carta (PS, daño de sus ataques, coste de retirada), normalizados por era para que una vintage y una VMAX sean comparables, y mejoran con el nivel, la etapa y la rareza. Son las que se usan en los combates. Las cartas que ya tenías se completan solas al abrir el álbum (hace falta conexión).
 - **Valor de mercado:** el visor del álbum muestra un precio aproximado (tendencia de Cardmarket en € y precio de TCGplayer en $), una etiqueta de coleccionismo (*Común de mercado* → *Grail*) y el valor aproximado de toda tu colección. Se actualiza al mirar una carta si tiene más de 7 días. Es el precio de la carta normal (no distingue Shadowless) y es solo informativo: **no cambia** lo que te dan las monedas.
+
+## Combates
+
+Lleva **una carta** a combatir: ábrela en el álbum y pulsa **Llevar a combatir**, y abre la pestaña **Combate**. Te enfrentas uno tras otro a los ocho líderes de Kanto (Brock, Misty, Lt. Surge, Erika, Koga, Sabrina, Blaine, Giovanni), cada uno con una carta real. El combate es automático y dura unas 7 rondas; la pantalla muestra las probabilidades antes de empezar, lo reproduce con el nombre real de cada ataque y al final te explica **por qué ganaste o perdiste**.
+
+**Qué hace fuerte a una carta.** Hay miles de cartas con PS y daños impresos muy distintos, así que lo impreso **no** decide el combate. La fuerza sale de factores pequeños y visibles, y la pestaña de combate te enseña el desglose de tu carta:
+
+| Factor | Efecto |
+|---|---|
+| **Nivel de entrenamiento** (el que más pesa) | +1,8 % por nivel (nivel 50 = ×1,88) |
+| **Demanda de mercado** (lo que vale de verdad la carta, *Común de mercado* → *Grail*) | +2 % por clase, hasta +10 % |
+| **Rareza** (Holo, Ultra, Secreta…) | +0,3 % por categoría, hasta +1,8 % |
+| **Etapa de evolución** | +2 % Fase 1, +4 % Fase 2 y ex/V/VMAX/Mega |
+| **Grado** (cartas gradeadas) | +0,8 % por punto sobre 5, hasta +4 % |
+| **Bonus por uso de tokens** | hasta +8 %: +2 % por cada 25 puntos de cupo mensual que hayas usado menos que un jugador típico (75 %) |
+
+Lo que imprime la carta solo cambia *cómo* pelea: una con más PS que daño es más aguantadora, al revés pega más fuerte, con la misma potencia total. Una debilidad de tipo vale +15 % de daño (resistencia −8 %). El combate se tira con una semilla, así que es justo y reproducible.
+
+**La escalera.** Vence a un líder para desbloquear al siguiente; la primera victoria da una **medalla** y monedas (150 → 1 000), las siguientes dan 20 monedas, con hasta 5 revanchas pagadas al día. Los niveles de los líderes son 3, 9, 15 … 45, así que más o menos necesitas una carta de su nivel. Se guardan tu récord, tu racha y los últimos combates.
 
 ## Cajas misteriosas, objetos y evoluciones
 
