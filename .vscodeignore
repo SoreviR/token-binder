@@ -10,3 +10,4 @@ install.ps1
 *.vsix
 .gitignore
 install.sh
+CHANGELOG.md

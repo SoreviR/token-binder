@@ -51,7 +51,19 @@ Descarga el `.vsix` del último [Release](https://github.com/SoreviR/token-binde
    code --install-extension token-binder-X.Y.Z.vsix
    ```
 
-Después **reinicia VS Code**. Para actualizar, repite cualquiera de las dos opciones.
+Después **reinicia VS Code**.
+
+## Actualizar
+
+VS Code no actualiza solo las extensiones instaladas desde un `.vsix`, así que TokenBinder lo hace por su cuenta:
+
+- Una vez al día (unos segundos después de abrir VS Code) pregunta a GitHub si hay un [Release](https://github.com/SoreviR/token-binder/releases) más nuevo. Si lo hay, un aviso ofrece **Actualizar ahora**, **Ver novedades** y **Omitir esta versión**.
+- *Actualizar ahora* descarga el `.vsix`, lo comprueba contra el tamaño y el SHA-256 que publica GitHub, lo instala y ofrece recargar VS Code. **Nunca instala nada sin que pulses el botón.**
+- También puedes buscar a mano: `F1` → **TokenBinder: Buscar actualizaciones**.
+- Para que no haga la consulta diaria, desactiva `tokenBinder.updates.check`. Sin ella, actualiza volviendo a ejecutar el instalador (Opción 1 o 2 de arriba).
+- Tu progreso se conserva al actualizar. Antes del primer arranque de una versión nueva, la extensión guarda una copia de tu progreso en su carpeta de almacenamiento (`backups/` dentro del almacenamiento global de la extensión; se conservan las 3 últimas) y puedes restaurar una con **Importar progreso**.
+- Si tienes la **1.4.0 o anterior** todavía no tienes el actualizador: ejecuta el instalador una vez más para conseguirlo. A partir de ahí las actualizaciones llegan solas.
+- ¿Instalada desde el Marketplace (si algún día se publica ahí)? Entonces VS Code la actualiza y la comprobación propia no hace nada.
 
 ## Configuración
 
@@ -64,6 +76,7 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | Ajuste | Por defecto | Descripción |
 |---|---|---|
 | `tokenBinder.language` | `auto` | Idioma de la interfaz: `auto` (sigue al de VS Code: español si es español, inglés en otro caso), `en` o `es`. Cambia en caliente, sin reiniciar. |
+| `tokenBinder.updates.check` | `true` | Buscar en GitHub una vez al día si hay una versión nueva y ofrecer instalarla (nunca instala sin preguntar). |
 | `tokenBinder.quota.monthlyLimit` | `5000000` | Tu cupo mensual, en la unidad elegida. **Cámbialo**: el valor por defecto es solo un marcador. |
 | `tokenBinder.quota.unit` | `tokens` | `tokens` o `credits` (créditos de IA de Copilot). |
 | `tokenBinder.quota.resetDay` | `1` | Día del mes (UTC) en que se reinicia el cupo. |
@@ -74,7 +87,7 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 
 Los títulos de los comandos y las descripciones de los ajustes en la ventana de Ajustes de VS Code siguen el idioma de VS Code; todo lo demás (panel, álbum, avisos, diálogos) sigue a `tokenBinder.language`.
 
-Comandos (`F1`): **TokenBinder: Abrir álbum**, **TokenBinder: Exportar progreso**, **TokenBinder: Importar progreso**, **TokenBinder: Reiniciar progreso**, **TokenBinder: Configurar cupo mensual**, **TokenBinder: Abrir ajustes**, **TokenBinder: Abrir panel** y **TokenBinder: Recalcular uso**.
+Comandos (`F1`): **TokenBinder: Abrir álbum**, **TokenBinder: Exportar progreso**, **TokenBinder: Importar progreso**, **TokenBinder: Reiniciar progreso**, **TokenBinder: Configurar cupo mensual**, **TokenBinder: Abrir ajustes**, **TokenBinder: Abrir panel** y **TokenBinder: Recalcular uso** y **TokenBinder: Buscar actualizaciones**.
 
 ## Cómo se juega
 
@@ -127,7 +140,7 @@ Tu progreso (álbum, monedas, cartas en entrenamiento, compras) vive dentro de V
 
 ## Privacidad
 
-Todo es local. La extensión **solo lee** archivos de VS Code en tu equipo y **no envía nada** a ningún servidor. Nunca lee el contenido de tus preguntas ni respuestas: solo los contadores de tokens. Las únicas peticiones de red son **descargas** de datos e imágenes de cartas desde `api.tcgdex.net` y `assets.tcgdex.net` (no se envía ningún dato tuyo); todo lo descargado queda en disco y no se vuelve a pedir. Si tu red corporativa bloquea esos dominios no podrás abrir sobres, pero el contador de tokens y la cuota seguirán funcionando.
+Todo es local. La extensión **solo lee** archivos de VS Code en tu equipo y **no envía nada** a ningún servidor. Nunca lee el contenido de tus preguntas ni respuestas: solo los contadores de tokens. Las únicas peticiones de red son **descargas** de datos e imágenes de cartas desde `api.tcgdex.net` y `assets.tcgdex.net` (no se envía ningún dato tuyo; todo lo descargado queda en disco y no se vuelve a pedir) y la **búsqueda de actualizaciones**: como mucho una petición al día a `api.github.com` para saber cuál es el último release de este repositorio, sin más datos tuyos que los que lleva cualquier petición web (se desactiva con `tokenBinder.updates.check`). Si tu red corporativa bloquea esos dominios no podrás abrir sobres, pero el contador de tokens y la cuota seguirán funcionando.
 
 ## Cómo funciona
 
@@ -181,14 +194,14 @@ npm run package     # genera token-binder-X.Y.Z.vsix
 
 Pulsa **F5** en VS Code para abrir una ventana de desarrollo con la extensión cargada.
 
-Estructura: `src/usage/` (lectura de sesiones: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (cuota), `src/game/` (motor de sobres/entrenamiento y cliente de TCGdex), `src/i18n/` y `media/i18n.js` (textos en inglés y español), `src/webview/` y `media/` (panel lateral y pestaña del álbum).
+Estructura: `src/update/` (búsqueda de actualizaciones), `src/usage/` (lectura de sesiones: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (cuota), `src/game/` (motor de sobres/entrenamiento y cliente de TCGdex), `src/i18n/` y `media/i18n.js` (textos en inglés y español), `src/webview/` y `media/` (panel lateral y pestaña del álbum).
 
 ### Publicar una versión
 
-1. Sube la versión en `package.json` y haz commit.
+1. Sube la versión en `package.json`, añade una sección `## X.Y.Z - fecha` a `CHANGELOG.md` y haz commit.
 2. `git tag vX.Y.Z && git push --tags`.
 
-GitHub Actions ejecuta las pruebas, empaqueta el `.vsix` y lo adjunta al Release; el instalador siempre baja el último.
+GitHub Actions ejecuta las pruebas, empaqueta el `.vsix` y lo adjunta al Release con la sección del changelog como notas (falla si falta); los instaladores y el actualizador de la extensión usan siempre el último release. Mantén el nombre `token-binder-X.Y.Z.vsix`: ambos dependen de él.
 
 ## Créditos y licencia
 

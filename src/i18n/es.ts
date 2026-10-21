@@ -42,6 +42,20 @@ export const es: Record<Key, string> = {
   'import.replace': 'Reemplazar',
   'import.done': 'TokenBinder: progreso importado.',
 
+  'import.tooNew': 'TokenBinder: este archivo lo exportó una versión más nueva de TokenBinder. Actualiza TokenBinder primero y vuelve a importarlo.',
+
+  // updates
+  'update.available': 'Hay una versión nueva de TokenBinder: {0} (tienes la {1}). ¿Actualizar ahora?',
+  'update.now': 'Actualizar ahora',
+  'update.notes': 'Ver novedades',
+  'update.skip': 'Omitir esta versión',
+  'update.downloading': 'Descargando TokenBinder {0}…',
+  'update.installed': 'TokenBinder {0} está instalado. Recarga VS Code para empezar a usarlo.',
+  'update.reload': 'Recargar ahora',
+  'update.failed': 'TokenBinder: falló la actualización ({0}). Puedes actualizar a mano volviendo a ejecutar el instalador (mira el README).',
+  'update.upToDate': 'TokenBinder {0} está al día.',
+  'update.checkFailed': 'TokenBinder: no se pudo buscar actualizaciones (sin conexión, o GitHub no responde).',
+
   // legacy PokeToken migration
   'legacy.offer': 'TokenBinder reemplaza a PokeToken (misma extensión con otro nombre). Ya recuperé tu progreso y tus ajustes. ¿Desinstalar la versión antigua para evitar duplicados?',
   'legacy.uninstall': 'Desinstalar PokeToken',

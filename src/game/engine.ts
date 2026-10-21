@@ -89,6 +89,8 @@ export interface Card {
 export interface Attack { name: string; damage: number; cost: number }
 export interface Price { eur?: number; usd?: number }
 export const CARD_DATA_VERSION = 2;
+/** Version of the saved/exported progress format. Only raise it for changes that older versions cannot read; new fields get defaults in `normalize()`. */
+export const STATE_SCHEMA = 1;
 
 /** Unique key of a copy: the same id with another variant is a different card in the album. */
 export const keyOf = (c: Pick<Card, 'id' | 'variant'>): string => (c.variant ? `${c.id}#${c.variant}` : c.id);

@@ -52,7 +52,19 @@ It downloads the `.vsix` from the latest [Release](https://github.com/SoreviR/to
    code --install-extension token-binder-X.Y.Z.vsix
    ```
 
-Then **restart VS Code**. To update, repeat either option.
+Then **restart VS Code**.
+
+## Updating
+
+VS Code does not update extensions installed from a `.vsix` on its own, so TokenBinder does it itself:
+
+- Once a day (a few seconds after VS Code starts) it asks GitHub whether there is a newer [Release](https://github.com/SoreviR/token-binder/releases). If there is, a notice offers **Update now**, **Release notes** and **Skip this version**.
+- *Update now* downloads the `.vsix`, checks it against the size and SHA-256 that GitHub publishes for it, installs it and offers to reload VS Code. **It never installs anything without you clicking.**
+- You can also check by hand: `F1` → **TokenBinder: Check for updates**.
+- To stop the daily check, turn off `tokenBinder.updates.check`. Without it, update by running the installer again (Option 1 or 2 above).
+- Your progress is kept across updates. Before the first start of a new version, the extension saves a copy of your progress in its storage folder (`backups/` inside the extension's global storage; the last 3 are kept) and you can restore one with **Import progress**.
+- If you are on **1.4.0 or older** you do not have the updater yet: run the installer once more to get it. From then on updates arrive by themselves.
+- Installed from the Marketplace instead (if it is ever published there)? Then VS Code updates it and the built-in check stays quiet.
 
 ## Configuration
 
@@ -65,6 +77,7 @@ This extension **does not query GitHub or your organization**: it computes the p
 | Setting | Default | Description |
 |---|---|---|
 | `tokenBinder.language` | `auto` | Interface language: `auto` (follows VS Code: Spanish if it is Spanish, English otherwise), `en` or `es`. Changes live, no restart needed. |
+| `tokenBinder.updates.check` | `true` | Check GitHub once a day for a newer release and offer to install it (never installs without asking). |
 | `tokenBinder.quota.monthlyLimit` | `5000000` | Your monthly quota, in the chosen unit. **Change it**: the default is only a placeholder. |
 | `tokenBinder.quota.unit` | `tokens` | `tokens` or `credits` (Copilot AI credits). |
 | `tokenBinder.quota.resetDay` | `1` | Day of the month (UTC) on which the quota resets. |
@@ -75,7 +88,7 @@ This extension **does not query GitHub or your organization**: it computes the p
 
 Command titles and the setting descriptions in VS Code's Settings editor follow VS Code's display language; everything else (panel, album, notices, dialogs) follows `tokenBinder.language`.
 
-Commands (`F1`): **TokenBinder: Open album**, **TokenBinder: Export progress**, **TokenBinder: Import progress**, **TokenBinder: Reset progress**, **TokenBinder: Set monthly quota**, **TokenBinder: Open settings**, **TokenBinder: Open panel** and **TokenBinder: Recalculate usage**.
+Commands (`F1`): **TokenBinder: Open album**, **TokenBinder: Export progress**, **TokenBinder: Import progress**, **TokenBinder: Reset progress**, **TokenBinder: Set monthly quota**, **TokenBinder: Open settings**, **TokenBinder: Open panel** and **TokenBinder: Recalculate usage** and **TokenBinder: Check for updates**.
 
 ## How to play
 
@@ -128,7 +141,7 @@ Your progress (album, coins, cards in training, purchases) lives inside VS Code 
 
 ## Privacy
 
-Everything is local. The extension **only reads** VS Code files on your computer and **sends nothing** to any server. It never reads the content of your questions or answers: only the token counters. The only network requests are **downloads** of card data and images from `api.tcgdex.net` and `assets.tcgdex.net` (none of your data is sent); everything downloaded stays on disk and is not requested again. If your corporate network blocks those domains you will not be able to open packs, but the token counter and the quota keep working.
+Everything is local. The extension **only reads** VS Code files on your computer and **sends nothing** to any server. It never reads the content of your questions or answers: only the token counters. The only network requests are **downloads** of card data and images from `api.tcgdex.net` and `assets.tcgdex.net` (none of your data is sent; everything downloaded stays on disk and is not requested again) and the **update check**: at most one request a day to `api.github.com` for the latest release of this repository, which carries no data of yours beyond what any web request carries (turn it off with `tokenBinder.updates.check`). If your corporate network blocks those domains you will not be able to open packs, but the token counter and the quota keep working.
 
 ## How it works
 
@@ -182,16 +195,16 @@ npm run package     # produces token-binder-X.Y.Z.vsix
 
 Press **F5** in VS Code to open a development window with the extension loaded.
 
-Layout: `src/usage/` (session reading: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (quota), `src/game/` (pack/training engine and TCGdex client), `src/i18n/` and `media/i18n.js` (English and Spanish texts), `src/webview/` and `media/` (side panel and album tab).
+Layout: `src/update/` (update check), `src/usage/` (session reading: `journal`, `sqlite`, `extract`, `store`), `src/quota.ts` (quota), `src/game/` (pack/training engine and TCGdex client), `src/i18n/` and `media/i18n.js` (English and Spanish texts), `src/webview/` and `media/` (side panel and album tab).
 
 Adding a language: add its keys to `src/i18n/` (the compiler complains about any key that is missing), to `media/i18n.js` and to `package.nls.<lang>.json`; `npm test` checks that all dictionaries match.
 
 ### Publishing a version
 
-1. Bump the version in `package.json` and commit.
+1. Bump the version in `package.json` and add a `## X.Y.Z - date` section to `CHANGELOG.md`, then commit.
 2. `git tag vX.Y.Z && git push --tags`.
 
-GitHub Actions runs the tests, packages the `.vsix` and attaches it to the Release; the installer always downloads the latest.
+GitHub Actions runs the tests, packages the `.vsix` and attaches it to the Release with the changelog section as its notes (it fails if the section is missing); the installers and the in-extension updater always use the latest release. Keep the file name `token-binder-X.Y.Z.vsix`: both depend on it.
 
 ## Credits and license
 

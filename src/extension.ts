@@ -16,6 +16,8 @@ import { AlbumPanel } from './webview/albumPanel';
 import { migrateLegacySettings, migrateLegacyState, offerUninstallLegacy } from './migrate';
 import { lastBackend } from './usage/sqlite';
 import { lang, resolveLang, setLang, t } from './i18n';
+import { Updater } from './update/updater';
+import { backupIfUpgraded, exportPayload, parseImport } from './game/backup';
 
 const cfg = () => vscode.workspace.getConfiguration('tokenBinder');
 
@@ -26,6 +28,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
   const log = vscode.window.createOutputChannel('TokenBinder');
   // It used to be called PokeToken: its progress is recovered BEFORE the state is read (this runs synchronously).
   migrateLegacyState(ctx, s => log.appendLine(s));
+  // Before the new version touches the saved progress, keep a copy when the extension has just been updated.
+  const version = String(ctx.extension.packageJSON.version);
+  void backupIfUpgraded(ctx.globalState, version, path.join(ctx.globalStorageUri.fsPath, 'backups'))
+    .then(file => { if (file) { log.appendLine(`[backup] progress saved before updating to ${version}: ${file}`); } })
+    .catch(e => log.appendLine(`[backup] failed: ${e}`));
+  const updater = new Updater(ctx, s => log.appendLine(s));
   const usage = new UsageStore(roots);
   usage.stamps = ctx.globalState.get('tokenBinder.stamps.v1', usage.stamps);
   const game = new GameStore(ctx.globalState);
@@ -280,6 +288,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     vscode.window.registerWebviewViewProvider(BinderViewProvider.viewType, provider),
     vscode.commands.registerCommand('tokenBinder.open', () => vscode.commands.executeCommand('workbench.view.extension.tokenBinder')),
     vscode.commands.registerCommand('tokenBinder.refresh', () => tick(true)),
+    vscode.commands.registerCommand('tokenBinder.checkForUpdates', () => updater.check(true)),
     vscode.commands.registerCommand('tokenBinder.openAlbum', () => album.show()),
     vscode.commands.registerCommand('tokenBinder.setQuota', async () => {
       const c = cfg();
@@ -302,7 +311,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (!state) { return false; }
       const file = await vscode.window.showSaveDialog({ title: t('export.title'), filters: { JSON: ['json'] }, defaultUri: vscode.Uri.file(path.join(require('os').homedir(), 'tokenbinder-progress.json')) });
       if (!file) { return false; }
-      const payload = { app: 'token-binder', exportedAt: new Date().toISOString(), game: state };
+      const payload = exportPayload(state, version);
       await vscode.workspace.fs.writeFile(file, Buffer.from(JSON.stringify(payload, null, 2), 'utf8'));
       void vscode.window.showInformationMessage(t('export.done', Object.keys(state.collection).length, Math.floor(state.coins)));
       return true;
@@ -328,10 +337,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
       if (!pick?.length) { return; }
       let imported: GameState;
       try {
-        const data = JSON.parse(Buffer.from(await vscode.workspace.fs.readFile(pick[0])).toString('utf8'));
-        const g = data?.game;
-        if (data?.app !== 'token-binder' || g?.v !== 2 || typeof g.collection !== 'object' || !Array.isArray(g.slots)) { throw new Error('format'); }
-        imported = normalize(g, usage.lifetimeTokens());
+        const parsed = parseImport(JSON.parse(Buffer.from(await vscode.workspace.fs.readFile(pick[0])).toString('utf8')));
+        if (!parsed.ok) {
+          void vscode.window.showErrorMessage(t(parsed.reason === 'tooNew' ? 'import.tooNew' : 'import.invalid'));
+          return;
+        }
+        imported = normalize(parsed.game, usage.lifetimeTokens());
       } catch {
         void vscode.window.showErrorMessage(t('import.invalid'));
         return;
@@ -367,6 +378,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   ctx.subscriptions.push({ dispose: () => { clearInterval(poll); clearTimeout(timer); } });
 
   void tick(true);
+  updater.start();
   // Settings from the old version and the prompt to remove it (does not block startup).
   void migrateLegacySettings(s => log.appendLine(s)).then(() => offerUninstallLegacy());
 }

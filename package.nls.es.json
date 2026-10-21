@@ -19,5 +19,7 @@
   "config.language.auto": "Seguir el idioma de VS Code (español si es español, inglés en otro caso).",
   "config.language.en": "Inglés",
   "config.language.es": "Español",
-  "config.language": "Idioma de la interfaz de TokenBinder."
+  "config.language": "Idioma de la interfaz de TokenBinder.",
+  "command.checkForUpdates": "Buscar actualizaciones",
+  "config.updates.check": "Buscar en GitHub una vez al día si hay una versión nueva de TokenBinder y ofrecer instalarla (nunca instala sin preguntar). Desactívalo para que no haga estas consultas."
 }
