@@ -576,7 +576,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   updater.start();
   // Private, git-ignored testing tools plug in here; the public source registers nothing.
   registerDevTools({ ctx, getState: () => state, lifetime: () => usage.lifetimeTokens(), growth: () => cfg().get<number>('growth.multiplier', 1),
-    save: () => (state ? game.save(state) : Promise.resolve()), refresh: () => tick(true) });
+    save: () => (state ? game.save(state) : Promise.resolve()), refresh: () => tick(true), announceMishap });
   // Settings from the old version and the prompt to remove it (does not block startup).
   void migrateLegacySettings(s => log.appendLine(s)).then(() => offerUninstallLegacy());
 }
