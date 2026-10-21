@@ -128,8 +128,8 @@ export function pickEra(w: EraWeights, luck = 0, rng: () => number = Math.random
 
 /** Era que pide cada carta de un sobre de ese tipo. */
 export function rollEras(kind: PackKind, luck = 0, rng: () => number = Math.random): Era[] {
-  const slots = kind === 'pack' ? [BASE_W, BASE_W, BASE_W, BASE_W, HIT_W]
-    : kind === 'premium' ? [HIT_W, HIT_W, HIT_W, TOP_W, TOP_W] : [BASE_W];
+  const slots = kind === 'pack' ? [BASE_W, HIT_W]
+    : kind === 'premium' ? [HIT_W, TOP_W] : [BASE_W];
   return slots.map(w => pickEra(w, luck, rng));
 }
 

@@ -194,8 +194,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
 
   async function snapshot(unit: Unit, limit: number, usedNow: number, pct: number, agg: ReturnType<UsageStore['aggregate']>, s: GameState, lifetime: number, mult: number, every: number, events: string[], pace: boolean) {
     const shopItems: { id: Item; name: string; desc: string }[] = [
-      { id: 'pack', name: 'Sobre', desc: '5 cartas' },
-      { id: 'premium', name: 'Sobre premium', desc: '5 cartas, mejores rarezas' },
+      { id: 'pack', name: 'Sobre', desc: '2 cartas' },
+      { id: 'premium', name: 'Sobre premium', desc: '2 cartas, mejores rarezas' },
       { id: 'ball', name: 'Pokébola', desc: '1 carta' },
       { id: 'slot', name: 'Hueco de entrenamiento', desc: `${s.slots.length}/${MAX_SLOTS} · una carta más creciendo` },
       { id: 'luck', name: 'Mejora de suerte', desc: `nivel ${s.luck}/${MAX_LUCK} · +20 % por nivel a las eras modernas y a las variantes Shadowless` },

@@ -39,9 +39,9 @@ test('cuanto más moderna la era, más alta la rareza media (y nunca hay comunes
   assert.ok(ERA_BY_ID.vintage.holoOnly && ERA_BY_ID.classic.holoOnly && !ERA_BY_ID.current.holoOnly);
 });
 
-test('sobres: 5 cartas (premium inclinado a lo moderno), Pokébola 1; la suerte favorece lo moderno', () => {
-  assert.equal(rollEras('pack', 0, () => 0).length, 5);
-  assert.equal(rollEras('premium', 0, () => 0).length, 5);
+test('sobres: 2 cartas (premium inclinado a lo moderno), Pokébola 1; la suerte favorece lo moderno', () => {
+  assert.equal(rollEras('pack', 0, () => 0).length, 2);
+  assert.equal(rollEras('premium', 0, () => 0).length, 2);
   assert.equal(rollEras('ball', 0, () => 0).length, 1);
   const count = (luck: number) => {
     let seed = 7; const rng = () => (seed = (seed * 16807) % 2147483647) / 2147483647;

@@ -68,7 +68,7 @@ Comandos (`F1`): **TokenBinder: Abrir álbum**, **TokenBinder: Exportar progreso
 ## Cómo se juega
 
 1. **Ganas sobres con tus tokens.** Empiezas con uno de bienvenida y recibes otro cada 750 K tokens usados (`packs.everyTokens`). Si llegas al **100 % del cupo** en un periodo, ganas un sobre extra de regalo.
-2. **Abres el sobre** (botón *Abrir sobre*): salen 5 cartas reales del Pokémon TCG, **solo cartas de colección**. No hay comunes ni rarezas normales: cuanto más moderna es la era, más alta es la rareza mínima exigida.
+2. **Abres el sobre** (botón *Abrir sobre*): salen 2 cartas reales del Pokémon TCG, **solo cartas de colección**. No hay comunes ni rarezas normales: cuanto más moderna es la era, más alta es la rareza mínima exigida.
 
    | Era | Series | Qué puede salir |
    |---|---|---|
@@ -78,7 +78,7 @@ Comandos (`F1`): **TokenBinder: Abrir álbum**, **TokenBinder: Exportar progreso
    | **Moderna** | Sun & Moon, Sword & Shield | V, VMAX, VSTAR, Ultra, Secret, Radiant, Amazing, Shiny V… |
    | **Actual** | Scarlet & Violet y posteriores | Illustration rare, Special illustration rare, Hyper rare, Ultra y Secret |
 
-   Cada carta de un sobre normal viene de una era según estas probabilidades aproximadas: Vintage 34 %, Clásica 28 %, BW/XY 16 %, Moderna 14 %, Actual 8 %. La **última carta** del sobre es la «estrella» y favorece las eras modernas (Moderna 26 %, Actual 20 %). El **sobre premium** trae 5 cartas de ese tipo, con las dos últimas aún más modernas, y la **Pokébola** es una sola carta de reparto normal.
+   Cada carta de un sobre normal viene de una era según estas probabilidades aproximadas: Vintage 34 %, Clásica 28 %, BW/XY 16 %, Moderna 14 %, Actual 8 %. La **última carta** del sobre es la «estrella» y favorece las eras modernas (Moderna 26 %, Actual 20 %). El **sobre premium** trae 2 cartas de ese tipo, con la última aún más moderna, y la **Pokébola** es una sola carta de reparto normal.
 
    **Shadowless:** las cartas del Set Base pueden salir en su variante **Shadowless** (24 %) o **1.ª edición Shadowless** (6 %). Son ejemplares distintos en el álbum, con etiqueta y brillo dorado, y se venden más caras.
 3. **Pon una carta a entrenar** (*Entrenar*, en el sobre o desde el álbum). Mientras usas tokens, su barra avanza y el panel estima cuántos días faltan según tu ritmo de los últimos 7 días. A los ~1.5 M tokens **evoluciona** a la carta siguiente de su línea (por ejemplo Charmander → Charmeleon → Charizard), prefiriendo cartas que cumplan el filtro de arriba y una rareza parecida; las siguientes etapas duran ~4.5 M, ~6 M y ~8 M tokens. Cuando ya no tiene más evoluciones **completa su línea**, libera el hueco y te da **un sobre**. `growth.multiplier` escala estas duraciones. Como en las eras antiguas muchas holográficas son ya la forma final, es normal que algunas cartas se gradúen sin evolucionar.
@@ -94,8 +94,8 @@ Además de los sobres gratis, ganas **1 moneda cada 10 K tokens** usados. Hay un
 
 | Artículo | Precio | Qué da |
 |---|---|---|
-| Sobre | 80 | 5 cartas |
-| Sobre premium | 250 | 5 cartas sin comunes y con mejores probabilidades de Holo o superior |
+| Sobre | 80 | 2 cartas |
+| Sobre premium | 250 | 2 cartas sin comunes y con mejores probabilidades de Holo o superior |
 | Pokébola | 15 | 1 carta |
 | Hueco de entrenamiento | 400 · 900 · 1 600 · 2 600 · 4 000 | Una carta más creciendo a la vez (hasta 6 huecos) |
 | Mejora de suerte | 300 · 600 · 1 200 · 2 400 · 4 800 | +20 % por nivel al peso de las eras Moderna y Actual en los sobres, y a la probabilidad de variantes Shadowless (5 niveles) |
