@@ -1,6 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
+    { "source": "/api/v1/:route*", "destination": "/api/v1?route=:route*" },
     { "source": "/l/:code", "destination": "/league.html" }
   ],
   "headers": [

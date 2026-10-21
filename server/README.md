@@ -12,7 +12,7 @@ Only what the League tab says: your GitHub id and login, the card you take to ba
 
 | Path | What |
 |---|---|
-| `api/v1/[...path].ts` | the only function; hands every request to the router |
+| `api/v1.ts` | the only function; `vercel.json` rewrites `/api/v1/*` to it and it hands the request to the router |
 | `lib/router.ts` | routes, session and battle-version check |
 | `lib/service.ts` | what each route does (leagues, fighters, duels, inbox, deletion) |
 | `lib/rules.ts` | pure rules: level cap, Elo, daily limits, invite codes |
