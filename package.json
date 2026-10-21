@@ -122,7 +122,7 @@
         },
         "tokenBinder.online.server": {
           "type": "string",
-          "default": "",
+          "default": "https://token-binder-league.vercel.app",
           "markdownDescription": "%config.online.server%",
           "scope": "application"
         },

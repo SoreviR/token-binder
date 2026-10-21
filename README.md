@@ -86,7 +86,7 @@ This extension **does not query GitHub or your organization**: it computes the p
 | `tokenBinder.growth.multiplier` | `1` | Scales the tokens each card needs to evolve (0.1–2). |
 | `tokenBinder.mishaps.enabled` | `false` | Mishaps for going over 100% of your own monthly quota (see [Going over the quota](#going-over-the-quota-mishaps)). Off by default; cards you invested in are never lost. |
 | `tokenBinder.online.enabled` | `false` | Turn on the online leagues (see [Online leagues](#online-leagues-opt-in)). |
-| `tokenBinder.online.server` | `""` | Address of the league server (`https`). Only you can set it, never a workspace. |
+| `tokenBinder.online.server` | `https://token-binder-league.vercel.app` | Address of the league server (`https`). Only you can set it, never a workspace. |
 | `tokenBinder.storageRoots` | `[]` | VS Code `User` folders to read, if you use a non-standard installation. |
 
 Command titles and the setting descriptions in VS Code's Settings editor follow VS Code's display language; everything else (panel, album, notices, dialogs) follows `tokenBinder.language`.
@@ -173,7 +173,7 @@ Like real collectors, you can protect your cards and have them **graded**. Open 
 
 ## Online leagues (opt-in)
 
-Challenge your friends with the card you take to battle and climb a shared ranking. It is **off by default** and only works if you (and your friends) point the extension at a league server (see [`server/`](server/README.md): it is small and you can host your own on Vercel).
+Challenge your friends with the card you take to battle and climb a shared ranking. It is **off by default** and needs a league server: the default one is hosted by the author, and you can host your own on Vercel (see [`server/`](server/README.md), it is small) and set its address.
 
 - **Leagues** are private: someone creates one and shares its **invite code** (like `K7MQ-4XPD`). Up to 30 players per league. The **League** tab of the album lists the ranking, your fighter and the duels.
 - **Duels are asynchronous.** You challenge the card a friend registered; the server plays the fight at once with the same rules as the Battle tab, moves the Elo of both (K = 32) and your friend gets a notification and can watch the replay. Limits: **10 challenges a day** and **2 a day against the same player**. Duels pay **no coins** (they would inflate the economy); the card you fight with earns battle XP like in any other fight.
