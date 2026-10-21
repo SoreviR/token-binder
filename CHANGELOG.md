@@ -2,6 +2,14 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.13.0 - 2026-10-22
+
+- **Online leagues (opt-in, off by default):** a new **League** tab in the album. Create a private league, share its invite code and challenge your friends with the card you take to battle. Duels are asynchronous: the server plays the fight at once with the same rules as the Battle tab, moves the Elo of both players and your friend can watch the replay later. Limits: 10 challenges a day, 2 a day against the same player. Duels pay no coins; the card that fights earns battle XP as usual.
+- **Ranking page:** `<server>/l/<invite code>` shows the Elo table and the latest duels to whoever has the code.
+- **Privacy:** turning it on asks first (and names the server), then signs you in with the GitHub account VS Code already has. The server stores only your GitHub id and login, your battle card (level, grade, held item), roughly how much of your quota you used and your duel results. **Delete my online data** (League tab or command palette) removes everything. The server address can only be set by you, never by a workspace, and only `https` is accepted.
+- **Fair play between friends:** the server looks the cards up in TCGdex itself, so both players fight with the same data and prices. A new player can field cards up to level 10 and the cap rises 4 levels a day (anything above is clamped).
+- **Your own server:** the `server/` folder holds the league server (Vercel + Neon Postgres) and its README; the setting `tokenBinder.online.server` points the extension to it. The default one is hosted by the author.
+
 ## 1.12.0 - 2026-10-21
 
 - **Items tab in the album:** the mystery boxes and every item you own are now shown as cards (icon, amount and what it does), grouped by use. The side panel keeps the box button and a link to the tab.
