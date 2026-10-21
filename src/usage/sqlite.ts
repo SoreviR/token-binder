@@ -15,6 +15,24 @@ try { rows = db.prepare('${QUERY}').all(); } catch {}
 process.stdout.write(JSON.stringify(rows));
 `;
 
+/**
+ * Ejecuta un script con Node y devuelve su stdout. Primero con el propio binario de VS Code (ELECTRON_RUN_AS_NODE), que
+ * no depende del PATH —en macOS las apps gráficas no heredan el de la terminal—, y si falla con el `node` del PATH.
+ */
+function runChild(js: string, args: string[], maxBuffer: number): { ok: true; stdout: string } | { ok: false; error: string } {
+  let error = 'node falló';
+  const attempts: [string, NodeJS.ProcessEnv][] = [
+    [process.execPath, { ...process.env, ELECTRON_RUN_AS_NODE: '1' }],
+    ['node', process.env],
+  ];
+  for (const [bin, env] of attempts) {
+    const r = spawnSync(bin, ['--no-warnings', '-e', js, ...args], { encoding: 'utf8', maxBuffer, windowsHide: true, env });
+    if (!r.error && r.status === 0) { return { ok: true, stdout: r.stdout }; }
+    error = r.error ? String(r.error.message) : (r.stderr || '').split('\n').find(l => /Error/.test(l)) ?? error;
+  }
+  return { ok: false, error };
+}
+
 let inProcess: any | null | undefined;
 function sqliteModule(): any | null {
   if (inProcess === undefined) {
@@ -43,10 +61,10 @@ export function readTurnUsage(dbPath: string): TurnUsageRow[] {
     const db = new mod.DatabaseSync(dbPath, { readOnly: true });
     try { return parse(db.prepare(QUERY).all()); } catch { return []; } finally { db.close(); }
   }
-  const r = spawnSync('node', ['--no-warnings', '-e', CHILD, dbPath], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, windowsHide: true });
-  if (r.error || r.status !== 0) {
+  const r = runChild(CHILD, [dbPath], 256 * 1024 * 1024);
+  if (!r.ok) {
     lastBackend = 'none';
-    lastError = r.error ? String(r.error.message) : (r.stderr || '').split('\n').find(l => /Error/.test(l)) ?? 'node falló';
+    lastError = r.error;
     throw new Error('SQLite no disponible (ni node:sqlite en VS Code ni `node` >=22.5 en el PATH): ' + lastError);
   }
   lastBackend = 'child-node';
@@ -65,8 +83,8 @@ export function readSessionTimes(hostDb: string): Map<string, number> {
       try { rows = db.prepare(sql).all(); } finally { db.close(); }
     } else {
       const js = `const {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(process.argv[1],{readOnly:true});process.stdout.write(JSON.stringify(d.prepare('${sql}').all()))`;
-      const r = spawnSync('node', ['--no-warnings', '-e', js, hostDb], { encoding: 'utf8', windowsHide: true });
-      rows = r.status === 0 ? JSON.parse(r.stdout) : [];
+      const r = runChild(js, [hostDb], 64 * 1024 * 1024);
+      rows = r.ok ? JSON.parse(r.stdout) : [];
     }
     for (const r of rows) { out.set(String(r.session_uri).replace(/^.*:\//, ''), Number(r.modified_time)); }
   } catch { /* sin fechas: se usa el mtime del archivo */ }
@@ -82,7 +100,7 @@ export function readItemValue(dbPath: string, key: string): string | undefined {
     try { const r = db.prepare(sql).get(key); return r ? String(r.value) : undefined; } finally { db.close(); }
   }
   const js = `const {DatabaseSync}=require('node:sqlite');const d=new DatabaseSync(process.argv[1],{readOnly:true});const r=d.prepare('${sql}').get(process.argv[2]);process.stdout.write(JSON.stringify(r?String(r.value):null))`;
-  const r = spawnSync('node', ['--no-warnings', '-e', js, dbPath, key], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true });
-  if (r.error || r.status !== 0) { throw new Error('SQLite no disponible para leer ' + dbPath); }
+  const r = runChild(js, [dbPath, key], 64 * 1024 * 1024);
+  if (!r.ok) { throw new Error('SQLite no disponible para leer ' + dbPath); }
   return JSON.parse(r.stdout || 'null') ?? undefined;
 }

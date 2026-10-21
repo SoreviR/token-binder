@@ -1,9 +1,31 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 
-export function defaultRoots(): string[] {
-  const appData = process.env.APPDATA ?? path.join(process.env.USERPROFILE ?? '', 'AppData', 'Roaming');
-  return ['Code', 'Code - Insiders', 'VSCodium'].map(n => path.join(appData, n, 'User'));
+const APP_NAMES = ['Code', 'Code - Insiders', 'VSCodium'];
+
+/** Carpetas «User» de VS Code según el sistema operativo (Windows: %APPDATA%, macOS: Application Support, Linux: ~/.config). */
+export function defaultRoots(platform: NodeJS.Platform = process.platform, env: NodeJS.ProcessEnv = process.env, home: string = os.homedir()): string[] {
+  const p = platform === 'win32' ? path.win32 : path.posix;
+  const base = platform === 'win32' ? env.APPDATA ?? p.join(env.USERPROFILE ?? home, 'AppData', 'Roaming')
+    : platform === 'darwin' ? p.join(home, 'Library', 'Application Support')
+      : env.XDG_CONFIG_HOME || p.join(home, '.config');
+  return APP_NAMES.map(n => p.join(base, n, 'User'));
+}
+
+/** Carpeta User de la instalación que ejecuta la extensión (…/User/globalStorage/<ext> → …/User); cubre instalaciones portables. */
+export function runningUserRoot(globalStoragePath: string): string {
+  return path.dirname(path.dirname(globalStoragePath));
+}
+
+/** Quita rutas repetidas (en Windows y macOS sin distinguir mayúsculas, p. ej. `c:\` frente a `C:\`). */
+export function uniqueRoots(roots: string[], platform: NodeJS.Platform = process.platform): string[] {
+  const seen = new Set<string>();
+  return roots.filter(r => {
+    const k = (platform === 'linux' ? path.posix : path.win32).normalize(r).replace(/[\\/]+$/, '');
+    const key = platform === 'linux' ? k : k.toLowerCase();
+    return seen.has(key) ? false : (seen.add(key), true);
+  });
 }
 
 function listDir(dir: string): fs.Dirent[] {

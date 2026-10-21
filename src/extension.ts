@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { UsageStore, totalOf } from './usage/store';
-import { defaultRoots } from './usage/paths';
+import { defaultRoots, runningUserRoot, uniqueRoots } from './usage/paths';
 import { fmt, parseLimit, percent, periodEnd, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
 import {
@@ -17,7 +17,7 @@ import { lastBackend } from './usage/sqlite';
 const cfg = () => vscode.workspace.getConfiguration('tokenBinder');
 
 export function activate(ctx: vscode.ExtensionContext): void {
-  const roots = () => { const r = cfg().get<string[]>('storageRoots', []); return r.length ? r : defaultRoots(); };
+  const roots = () => { const r = cfg().get<string[]>('storageRoots', []); return r.length ? r : uniqueRoots([runningUserRoot(ctx.globalStorageUri.fsPath), ...defaultRoots()]); };
   const log = vscode.window.createOutputChannel('TokenBinder');
   // Antes se llamaba PokeToken: se recupera su progreso ANTES de leer el estado (lo hace síncrono).
   migrateLegacyState(ctx, s => log.appendLine(s));

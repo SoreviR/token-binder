@@ -1,6 +1,6 @@
 # TokenBinder
 
-Extensión de VS Code para **Windows** que mide los tokens que consumes en **GitHub Copilot Chat** mientras trabajas y los convierte en **sobres de cartas del Pokémon TCG**: abres sobres, coleccionas cartas de distintas rarezas (con efecto holográfico 3D) y las pones a entrenar para que evolucionen con tus tokens. En la barra de estado ves cuánto llevas gastado y qué **porcentaje de tu cupo mensual** representa.
+Extensión de VS Code que mide los tokens que consumes en **GitHub Copilot Chat** mientras trabajas y los convierte en **sobres de cartas del Pokémon TCG**: abres sobres, coleccionas cartas de distintas rarezas (con efecto holográfico 3D) y las pones a entrenar para que evolucionen con tus tokens. En la barra de estado ves cuánto llevas gastado y qué **porcentaje de tu cupo mensual** representa.
 
 Proyecto personal no oficial, sin relación con GitHub, Microsoft, Nintendo ni The Pokémon Company.
 
@@ -23,17 +23,23 @@ TokenBinder es el nuevo nombre de **PokeToken** (la misma extensión, ahora cent
 
 ## Instalación
 
-Requisitos: Windows, VS Code 1.90 o superior con el comando `code` en el PATH, y Copilot Chat.
+Requisitos: **Windows, macOS o Linux**, VS Code 1.90 o superior con el comando `code` en el PATH, y Copilot Chat. (El soporte de macOS y Linux llegó en la 1.2.0; hasta la 1.1 solo se leía la carpeta de datos de Windows.)
 
 ### Opción 1: un comando (recomendada)
 
-En PowerShell:
+En **Windows** (PowerShell):
 
 ```powershell
 irm https://raw.githubusercontent.com/SoreviR/token-binder/main/install.ps1 | iex
 ```
 
-Descarga el `.vsix` del último [Release](https://github.com/SoreviR/token-binder/releases/latest) y lo instala. Puedes leer el script antes de ejecutarlo: [`install.ps1`](install.ps1).
+En **macOS / Linux** (Terminal):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SoreviR/token-binder/main/install.sh | bash
+```
+
+Descarga el `.vsix` del último [Release](https://github.com/SoreviR/token-binder/releases/latest) y lo instala. Puedes leer los scripts antes de ejecutarlos: [`install.ps1`](install.ps1) e [`install.sh`](install.sh). En Mac, si dice que no encuentra `code`, abre VS Code y ejecuta `Cmd+Shift+P` → *Shell Command: Install 'code' command in PATH*; el script también prueba la ruta de `/Applications` por su cuenta.
 
 ### Opción 2: a mano
 
@@ -118,10 +124,10 @@ VS Code guarda cada turno del chat con sus tokens en archivos locales; TokenBind
 
 | Versión de VS Code | Dónde está el uso | Formato |
 |---|---|---|
-| Reciente (probado en 1.142) | `%APPDATA%\Code\agentSessionData\<sesión>\session.db`, tabla `turn_usage` | SQLite |
-| Anterior | `%APPDATA%\Code\User\workspaceStorage\<hash>\chatSessions\*.jsonl` | JSON lines |
+| Reciente (probado en 1.142) | `<datos>/Code/agentSessionData/<sesión>/session.db`, tabla `turn_usage` | SQLite |
+| Anterior | `<datos>/Code/User/workspaceStorage/<hash>/chatSessions/*.jsonl` | JSON lines |
 
-También revisa `Code - Insiders` y `VSCodium`. Leer SQLite requiere el módulo `node:sqlite`: TokenBinder usa el de VS Code y, si no está disponible, el `node` (22.5 o superior) que tengas en el PATH.
+`<datos>` es `%APPDATA%` en Windows, `~/Library/Application Support` en macOS y `~/.config` (o `$XDG_CONFIG_HOME`) en Linux. También revisa `Code - Insiders` y `VSCodium`, y siempre la carpeta de la instalación de VS Code que está ejecutando la extensión (así funcionan también las instalaciones portables). Leer SQLite requiere el módulo `node:sqlite`: TokenBinder usa el de VS Code y, si no está disponible, ejecuta un proceso con el propio VS Code como Node y, como último recurso, el `node` (22.5 o superior) que tengas en el PATH.
 
 Un turno de agente que encadena varias llamadas al modelo se cuenta completo (suma de todas las rondas). Los tokens servidos desde caché se cuentan en el total, igual que el uso que factura el proveedor.
 
@@ -138,14 +144,16 @@ Un turno de agente que encadena varias llamadas al modelo se cuenta completo (su
 **El contador se queda en 0**
 1. Abre `Ver > Salida` y elige **TokenBinder** en el desplegable: ahí aparece el error exacto.
 2. Si dice que SQLite no está disponible, instala [Node.js](https://nodejs.org) 22.5 o superior y reinicia VS Code.
-3. Comprueba que existen archivos en `%APPDATA%\Code\agentSessionData\` o en `%APPDATA%\Code\User\workspaceStorage\*\chatSessions\`. Si tu VS Code guarda el chat en otra parte (instalación portable, otra carpeta de datos), indícala en `tokenBinder.storageRoots`.
+3. Comprueba que existen archivos en `agentSessionData/` o en `User/workspaceStorage/*/chatSessions/` dentro de la carpeta de datos de VS Code (Windows: `%APPDATA%\Code\`; macOS: `~/Library/Application Support/Code/`; Linux: `~/.config/Code/`). Si tu VS Code guarda el chat en otra parte (instalación portable, otra carpeta de datos), indícala en `tokenBinder.storageRoots`.
 4. Ejecuta **TokenBinder: Recalcular uso**.
 
 **No se pueden abrir sobres** (aparece «sin conexión»): comprueba que tu red permite `api.tcgdex.net` y `assets.tcgdex.net`. El sobre no se gasta si falla.
 
 **No sale el ícono en la barra de actividad**: reinicia VS Code por completo (no basta recargar la ventana).
 
-**`code` no se reconoce**: en VS Code, `Ctrl+Shift+P` → *Shell Command: Install 'code' command in PATH*.
+**`code` no se reconoce**: en VS Code, `Ctrl+Shift+P` (`Cmd+Shift+P` en Mac) → *Shell Command: Install 'code' command in PATH*.
+
+**macOS: la instalación falla o el contador se queda en 0**: si el script no funciona, instala a mano (Opción 2: `Cmd+Shift+P` → *Extensions: Install from VSIX…*) y reinicia VS Code con `Cmd+Q` (cerrar la ventana no basta). Si el contador sigue en 0, mira `Ver > Salida > TokenBinder`; con la 1.2.0 ya no hace falta tener Node en el PATH.
 
 Si el contador sigue sin moverse, abre un *issue* con la versión de VS Code y las **claves** (sin contenido) de una fila de `turn_usage`; el formato es lo más probable que haya cambiado.
 
