@@ -182,6 +182,9 @@ export class LeagueController {
     const r = await this.h.client.call('GET', `/leagues/${this.selected}`);
     if (!r.ok) { this.board = undefined; return this.handleFailure(r); }
     this.board = r;
+    // A pardon is per league, so what matters to the player is whether they are BUSTED in the league they are looking at.
+    const mine = (r as { members?: { you: boolean; busted: boolean }[] }).members?.find(m => m.you);
+    if (mine && this.registered) { this.registered.busted = mine.busted; }
   }
 
   /* ───── leagues ───── */
@@ -275,9 +278,10 @@ export class LeagueController {
   private async reborn(): Promise<void> {
     if (!(await this.h.confirm(this.h.t('league.rebornConfirm'), this.h.t('league.rebornYes')))) { return; }
     await this.run(async () => {
-      await this.h.rebirth();
+      // The server first: if it cannot be reached, nothing was wiped and the player is no worse off.
       const r = await this.h.client.call('POST', '/me/reborn');
       if (!r.ok) { return this.handleFailure(r); }
+      await this.h.rebirth();
       await this.syncInner(true);
     });
   }

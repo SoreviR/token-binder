@@ -28,7 +28,8 @@ export function levelCap(joinedAt: number, now: number): number {
 /* ───── cheat check: is a reported save impossible for the real time that has passed? ───── */
 
 // Growth even a very active player could not beat in a day. Generous on purpose: this flags an edited save, not a whale.
-export const MAX_TOKENS_PER_DAY = 30_000_000;
+// The count includes cached tokens (it is the same figure the game progresses on), and a heavy agentic day is mostly cache reads.
+export const MAX_TOKENS_PER_DAY = 120_000_000;
 const PACKS_EVERY_TOKENS = 750_000;   // the client default (packs.everyTokens); the server cannot read the client setting
 const SLOTS_MAX = 6;                   // training slots all earn XP at once, so total XP can grow a few times faster than tokens
 
@@ -57,6 +58,17 @@ export function isImplausible(p: Profile, base: Profile, msSinceBaseline: number
   if (p.xp - base.xp > budget * SLOTS_MAX * 1.5 + XP_PER_LEVEL) { return true; }                            // XP is trained with tokens: you cannot train more than you have used
   if (p.cards - base.cards > (budget / PACKS_EVERY_TOKENS) * 8 + 60) { return true; }                       // cards come from packs, which come from tokens
   return false;
+}
+
+const NOTHING: Profile = { coins: 0, cards: 0, items: 0, xp: 0, tokens: 0 };
+
+/**
+ * The first report has no baseline to grow from, so it is judged against an empty save: the player had at most as many
+ * days as their lifetime tokens take at the fastest possible rate. An honest veteran with a long history passes (their
+ * lifetime tokens are not "growth"); an edited save with far more coins, cards or XP than those tokens could buy does not.
+ */
+export function isImplausibleFirst(p: Profile): boolean {
+  return isImplausible(p, NOTHING, (p.tokens / MAX_TOKENS_PER_DAY) * DAY);
 }
 
 export interface FighterClaim { key: string; xp: number; grade?: number; held?: HeldId; quotaPct: number }

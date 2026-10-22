@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { XP_PER_LEVEL } from '../src/game/engine';
 import {
   BASE_LEVEL_CAP, ELO_K, LEVELS_PER_DAY,
-  checkClaim, cleanLeagueName, eloDelta, inviteCode, isImplausible, levelCap, normalizeCode, readProfile,
+  checkClaim, cleanLeagueName, eloDelta, inviteCode, isImplausible, isImplausibleFirst, levelCap, normalizeCode, readProfile,
 } from '../server/lib/rules';
 import { signSession, verifySession } from '../server/lib/auth';
 
@@ -67,11 +67,14 @@ test('isImplausible: flags an edited save, allows an honest one, and never flags
   assert.equal(isImplausible(honest, zero, 2 * DAY), false);
   // each edited field on its own is enough to flag it (same honest token count)
   assert.equal(isImplausible({ ...honest, coins: 900_000_000 }, zero, 2 * DAY), true, 'millions of coins');
-  assert.equal(isImplausible({ ...honest, cards: 3000 }, zero, 2 * DAY), true, 'thousands of cards');
-  assert.equal(isImplausible({ ...honest, xp: 2_000_000_000 }, zero, 2 * DAY), true, 'every card maxed');
+  assert.equal(isImplausible({ ...honest, cards: 30_000 }, zero, 2 * DAY), true, 'thousands of cards');
+  assert.equal(isImplausible({ ...honest, xp: 50_000_000_000 }, zero, 2 * DAY), true, 'every card maxed');
   assert.equal(isImplausible({ ...honest, tokens: 5_000_000_000 }, zero, 1 * DAY), true, 'more token use than one day allows');
   // only growth is checked: measured from a baseline that already holds a lot, the same report is fine
   assert.equal(isImplausible({ ...honest, coins: 900_000_000 }, { ...honest, coins: 900_000_000 }, 0), false, 'a vouched baseline');
+  // a first report has no baseline: a long honest history is fine, an edited save is judged against its own lifetime tokens
+  assert.equal(isImplausibleFirst({ coins: 300, cards: 40, items: 5, xp: 3_000_000, tokens: 200_000_000 }), false, 'a veteran');
+  assert.equal(isImplausibleFirst({ coins: 900_000_000, cards: 40, items: 5, xp: 3_000_000, tokens: 5_000_000 }), true, 'edited coins');
   // having less than before (sold, mishap, reset) is always fine
   assert.equal(isImplausible({ coins: 0, cards: 1, items: 0, xp: 0, tokens: 6_000_000 }, honest, 2 * DAY), false);
 });

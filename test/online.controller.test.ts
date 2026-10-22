@@ -98,10 +98,7 @@ test('an edited save is reported, flags the player BUSTED, and "volver a nacer" 
   await a.ctl.handle({ type: 'leagueRefresh' });
   assert.equal(last(a).registered.busted, false, 'a majority pardon clears it');
 
-  // grow further beyond the vouched baseline, get busted again, then be reborn: the save is wiped and the flag goes with it.
-  a.state.coins = 5e9;
-  await a.ctl.handle({ type: 'leagueRefresh' });
-  assert.equal(last(a).registered.busted, true);
+  // being reborn: the save is wiped and the flag goes with it.
   await a.ctl.handle({ type: 'leagueReborn' });
   assert.equal(a.state.coins, 0, 'the local save was reset to zero');
   assert.equal(last(a).registered, undefined, 'no fighter after a rebirth');

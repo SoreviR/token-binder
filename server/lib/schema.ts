@@ -82,13 +82,14 @@ create table if not exists member_stats (
   losses      int not null,
   primary key (league_id, player_id)
 )`,
-  // Anti-cheat: the extension reports its whole-save figures; growth beyond what the real time passed allows flags the
-  // player as BUSTED (sorted to the bottom of every ranking). `allow_profile` is the accepted baseline growth is measured
-  // from (+ `allow_at`); a majority pardon moves it up to the current state, being reborn resets it to zero.
+  // Anti-cheat: the extension reports its whole-save figures; growth beyond what the real time since the last accepted report
+  // allows flags the player as BUSTED (sorted to the bottom of every ranking, and out of duels). `allow_profile` is that last
+  // accepted report (+ `allow_at`); empty means there is none yet, so the next report is judged on its own (see isImplausibleFirst).
+  // A pardon is per league (`members.pardoned`): the other members vouch for them there, it clears nothing elsewhere.
   `alter table players add column if not exists busted boolean not null default false`,
   `alter table players add column if not exists allow_profile jsonb not null default '{}'`,
   `alter table players add column if not exists allow_at timestamptz not null default now()`,
-  `alter table players add column if not exists last_profile jsonb not null default '{}'`,
+  `alter table members add column if not exists pardoned boolean not null default false`,
   `-- Votes from the other members of a league to lift a player's BUSTED flag. A majority of them clears it.
 create table if not exists pardons (
   league_id   int not null references leagues(id) on delete cascade,

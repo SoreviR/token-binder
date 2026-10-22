@@ -8,7 +8,7 @@ import { getCard } from './cards';
 import type { Db } from './db';
 import {
   DAILY_DUELS, DAILY_PER_RIVAL, MAX_JOINED_LEAGUES, MAX_MEMBERS, MAX_OWNED_LEAGUES,
-  checkClaim, cleanLeagueName, eloDelta, inviteCode, isImplausible, normalizeCode, readProfile,
+  checkClaim, cleanLeagueName, eloDelta, inviteCode, isImplausible, isImplausibleFirst, normalizeCode, readProfile,
 } from './rules';
 
 export interface Deps { db: Db; now: () => number; rng: () => number; fetchJson: FetchJson; secret: string }
@@ -139,6 +139,8 @@ export interface FighterView {
 export async function registerFighter(d: Deps, pid: number, raw: unknown): Promise<Result<{ fighter: FighterView; clamped: boolean; levelCap: number; busted: boolean }>> {
   const since = await joinedAt(d, pid);
   if (since === undefined) { return fail('unknown-player', 401); }
+  // The whole-save report is how a fighter is vetted; a client that does not send it (an older version) cannot field one.
+  if (typeof (raw as { profile?: unknown } | null)?.profile !== 'object' || (raw as { profile?: unknown }).profile === null) { return fail('update-required', 426); }
   const check = checkClaim(raw, since, d.now());
   if (!check.ok) { return fail(check.error); }
   const c = check.claim;
@@ -149,52 +151,69 @@ export async function registerFighter(d: Deps, pid: number, raw: unknown): Promi
      on conflict (player_id) do update set card_key = excluded.card_key, xp = excluded.xp, grade = excluded.grade, held = excluded.held,
        quota_pct = excluded.quota_pct, updated_at = excluded.updated_at`,
     [pid, c.key, c.xp, c.grade ?? null, c.held ?? null, c.quotaPct, iso(d.now())]);
-  const busted = await checkProfile(d, pid, raw);
+  const busted = await checkProfile(d, pid, raw, c.xp);
   return { ok: true, clamped: check.clamped, levelCap: check.cap, busted, fighter: { cardId: card.id, image: card.image, key: c.key, name: card.name, types: card.types ?? [], tier: card.tier, level: levelOf(c.xp), grade: c.grade, held: c.held } };
 }
 
 /**
  * Reads the whole-save report that rides along with the fighter and flags the player BUSTED if it is impossible for the
- * real time passed. Once flagged, it stays flagged until a majority pardon or being reborn clears it (a later honest
- * report does not quietly undo it).
+ * real time passed since the last accepted report (or, for the first one, for the lifetime tokens it claims). Once flagged,
+ * it stays flagged until a league pardons them there or they are reborn (a later honest report does not quietly undo it).
  */
-async function checkProfile(d: Deps, pid: number, raw: unknown): Promise<boolean> {
+async function checkProfile(d: Deps, pid: number, raw: unknown, claimXp: number): Promise<boolean> {
   const p = readProfile((raw as { profile?: unknown })?.profile);
-  const row = (await d.db.query<{ busted: boolean; allow_profile: unknown; allow_at: string }>(
+  const row = (await d.db.query<{ busted: boolean; allow_profile: Record<string, unknown>; allow_at: string }>(
     'select busted, allow_profile, allow_at from players where id = $1', [pid]))[0];
   if (!row) { return false; }
-  await d.db.query('update players set last_profile = $1 where id = $2', [JSON.stringify(p), pid]);
   if (row.busted) { return true; }
-  if (isImplausible(p, readProfile(row.allow_profile), d.now() - new Date(row.allow_at).getTime())) {
+  const first = Object.keys(row.allow_profile ?? {}).length === 0;
+  // The fighter's XP is part of the save's total: a fighter with more XP than the whole save has is a made-up number.
+  const bad = claimXp > p.xp + 1 || (first ? isImplausibleFirst(p) : isImplausible(p, readProfile(row.allow_profile), d.now() - new Date(row.allow_at).getTime()));
+  if (bad) {
     await d.db.query('update players set busted = true where id = $1', [pid]);
+    await d.db.query('update members set pardoned = false where player_id = $1', [pid]);
     return true;
   }
+  // Accepted: this report is the baseline the next one grows from, so a slow edit is bounded per report, not per lifetime.
+  await d.db.query('update players set allow_profile = $1, allow_at = $2 where id = $3', [JSON.stringify(p), iso(d.now()), pid]);
   return false;
 }
 
-/** A majority of the other members of a league can lift a BUSTED flag; being reborn (below) is the player's own way out. */
+/** A BUSTED player, as far as one league is concerned: flagged, and not (yet) vouched for by that league. */
+async function bustedIn(d: Deps, leagueId: number, pid: number): Promise<boolean> {
+  const r = await d.db.query<{ b: boolean }>(
+    'select (p.busted and not m.pardoned) as b from members m join players p on p.id = m.player_id where m.league_id = $1 and m.player_id = $2', [leagueId, pid]);
+  return !!r[0]?.b;
+}
+
+/**
+ * A majority of the other members of a league can lift a BUSTED flag *in that league*; being reborn (below) is the player's own
+ * way out everywhere. The pardon stays local on purpose: otherwise a player could vouch for themselves in a private league
+ * with a second account and be cleared in every league they are in.
+ */
 export async function pardon(d: Deps, pid: number, leagueId: number, subject: number): Promise<Result<{ pardoned: boolean; votes: number; need: number }>> {
   if (!Number.isInteger(subject) || subject === pid) { return fail('invalid-subject'); }
   if (!(await isMember(d, leagueId, pid))) { return fail('not-member', 404); }
   if (!(await isMember(d, leagueId, subject))) { return fail('subject-not-member', 404); }
-  const row = (await d.db.query<{ busted: boolean }>('select busted from players where id = $1', [subject]))[0];
-  if (!row?.busted) { return fail('not-busted'); }
+  if (!(await bustedIn(d, leagueId, subject))) { return fail('not-busted'); }
   await d.db.query('insert into pardons (league_id, subject, voter, created_at) values ($1, $2, $3, $4) on conflict do nothing', [leagueId, subject, pid, iso(d.now())]);
   const total = num((await d.db.query<{ n: number }>('select count(*)::int as n from members where league_id = $1', [leagueId]))[0].n);
   const need = Math.floor((total - 1) / 2) + 1;
-  const votes = num((await d.db.query<{ n: number }>('select count(*)::int as n from pardons where league_id = $1 and subject = $2', [leagueId, subject]))[0].n);
+  // Only votes from people who are still in the league count.
+  const votes = num((await d.db.query<{ n: number }>(
+    'select count(*)::int as n from pardons v join members m on m.league_id = v.league_id and m.player_id = v.voter where v.league_id = $1 and v.subject = $2', [leagueId, subject]))[0].n);
   if (votes >= need) {
-    // The group vouches for them: lift the flag and accept their current state as the new baseline.
-    await d.db.query('update players set busted = false, allow_profile = last_profile, allow_at = $1 where id = $2', [iso(d.now()), subject]);
-    await d.db.query('delete from pardons where subject = $1', [subject]);
+    await d.db.query('update members set pardoned = true where league_id = $1 and player_id = $2', [leagueId, subject]);
+    await d.db.query('delete from pardons where league_id = $1 and subject = $2', [leagueId, subject]);
     return { ok: true, pardoned: true, votes, need };
   }
   return { ok: true, pardoned: false, votes, need };
 }
 
-/** "I was a cheater and want to play again": clears the flag and resets the baseline to zero. A save that was not really reset is flagged again on the next report. */
+/** "I was a cheater and want to play again": clears the flag and the baseline. The next report is judged from scratch, so a save that was not really reset is flagged again at once. */
 export async function reborn(d: Deps, pid: number): Promise<Result<object>> {
-  await d.db.query(`update players set busted = false, allow_profile = '{}', last_profile = '{}', allow_at = $1 where id = $2`, [iso(d.now()), pid]);
+  await d.db.query(`update players set busted = false, allow_profile = '{}', allow_at = $1 where id = $2`, [iso(d.now()), pid]);
+  await d.db.query('update members set pardoned = false where player_id = $1', [pid]);
   await d.db.query('delete from pardons where subject = $1', [pid]);
   return { ok: true };
 }
@@ -224,11 +243,11 @@ async function recentDuels(d: Deps, leagueId: number, limit: number, pid?: numbe
 async function membersOf(d: Deps, leagueId: number, me?: number): Promise<MemberView[]> {
   // Busted players are forced to the bottom of the ranking, whatever their Elo.
   const rows = await d.db.query<{ id: number; login: string; busted: boolean; elo: number; wins: number; losses: number; card_key: string | null; xp: number | null; grade: number | null; held: string | null; data: any }>(
-    `select p.id, p.login, p.busted, m.elo, m.wins, m.losses, f.card_key, f.xp, f.grade, f.held, c.data
+    `select p.id, p.login, (p.busted and not m.pardoned) as busted, m.elo, m.wins, m.losses, f.card_key, f.xp, f.grade, f.held, c.data
        from members m join players p on p.id = m.player_id
        left join fighters f on f.player_id = p.id
        left join cards c on c.id = split_part(f.card_key, '#', 1)
-      where m.league_id = $1 order by p.busted asc, m.elo desc, m.wins desc, p.login`, [leagueId]);
+      where m.league_id = $1 order by (p.busted and not m.pardoned) asc, m.elo desc, m.wins desc, p.login`, [leagueId]);
   return rows.map(r => ({
     id: num(r.id), login: r.login, busted: !!r.busted, elo: num(r.elo), wins: num(r.wins), losses: num(r.losses), you: me !== undefined && num(r.id) === me,
     fighter: r.card_key && r.data ? {
@@ -247,7 +266,8 @@ export async function leagueView(d: Deps, pid: number, leagueId: number):
   // A busted player is cleared by a majority of the OTHER members voting to pardon them; show the tally.
   const need = Math.floor((members.length - 1) / 2) + 1;
   if (members.some(m => m.busted)) {
-    const votes = await d.db.query<{ subject: number; voter: number }>('select subject, voter from pardons where league_id = $1', [leagueId]);
+    const votes = await d.db.query<{ subject: number; voter: number }>(
+      'select v.subject, v.voter from pardons v join members m on m.league_id = v.league_id and m.player_id = v.voter where v.league_id = $1', [leagueId]);
     for (const m of members) {
       if (!m.busted) { continue; }
       const vs = votes.filter(v => num(v.subject) === m.id);
@@ -296,6 +316,8 @@ export async function challenge(d: Deps, pid: number, leagueId: number, rivalId:
   if (!Number.isInteger(rivalId) || rivalId === pid) { return fail('invalid-rival'); }
   if (!(await isMember(d, leagueId, pid))) { return fail('not-member', 404); }
   if (!(await isMember(d, leagueId, rivalId))) { return fail('rival-not-member', 404); }
+  if (await bustedIn(d, leagueId, pid)) { return fail('busted', 403); }
+  if (await bustedIn(d, leagueId, rivalId)) { return fail('rival-busted', 403); }
   const mine = await fighterRow(d, pid);
   if (!mine) { return fail('no-fighter'); }
   const theirs = await fighterRow(d, rivalId);
