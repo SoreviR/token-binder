@@ -149,8 +149,18 @@ window.PTBattle = (function () {
 
   /* ───── the arena: background by environment, attack effects by type ───── */
   const SCENE = { Fire: 'volcano', Water: 'lake', Grass: 'forest', Lightning: 'plant', Psychic: 'temple', Fighting: 'dojo', Darkness: 'night', Metal: 'factory', Dragon: 'peak', Fairy: 'garden', Colorless: 'meadow' };
-  /** Where the fight takes place: league duels in a stadium, Team Rocket in their hideout, the rest by the rival's type. */
-  const sceneOf = r => (r.duel ? 'stadium' : r.leader.id === 'rocket' ? 'hideout' : SCENE[(r.foe.types || [])[0]] || 'meadow');
+  // Each gym leader and Elite Four trainer has a place of their own; everything else takes the rival's type.
+  const SCENE_BY_ID = { brock: 'gym-rock', misty: 'gym-water', surge: 'gym-electric', erika: 'gym-garden', koga: 'gym-poison', sabrina: 'gym-psychic', blaine: 'gym-fire', giovanni: 'gym-ground',
+    lorelei: 'elite-ice', bruno: 'elite-fighting', agatha: 'elite-ghost', lance: 'elite-dragon' };
+  /** Where the fight takes place: a league duel in a stadium, the weekly boss in its arena, the cup in a colosseum, Team Rocket in their hideout, each leader in their own gym, the rest by the rival's type. */
+  function sceneOf(r) {
+    const kind = r.leader.kind, id = r.leader.id;
+    if (r.duel) return 'stadium';
+    if (kind === 'boss') return 'boss-arena';
+    if (kind === 'cup') return 'colosseum';
+    if (id === 'rocket') return 'hideout';
+    return SCENE_BY_ID[kind === 'elite' ? id.split(':')[1] : id] || SCENE[(r.foe.types || [])[0]] || 'meadow';
+  }
   // Projectiles fly from the attacker to the target; impacts strike the target directly.
   const PROJECTILE = { Fire: '🔥', Water: '💧', Grass: '🍃', Psychic: '🔮', Darkness: '🌑', Dragon: '🔥', Fairy: '✨' };
   const IMPACT = { Lightning: '⚡', Fighting: '👊', Metal: '⚙️', Colorless: '⭐' };

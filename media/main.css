@@ -347,6 +347,20 @@ body.drag-from-dock .agrid { outline: 2px dashed var(--vscode-focusBorder); outl
 .arena-fighters.scene-meadow { --sky: #6fbf5a; background-image: url('scenes/meadow.png'); }
 .arena-fighters.scene-stadium { --sky: #17301f; background-image: url('scenes/stadium.png'); }
 .arena-fighters.scene-hideout { --sky: #2a1020; background-image: url('scenes/hideout.png'); }
+.arena-fighters.scene-gym-rock { --sky: #6a4c36; background-image: url('scenes/gym-rock.png'); }
+.arena-fighters.scene-gym-water { --sky: #7ac0e0; background-image: url('scenes/gym-water.png'); }
+.arena-fighters.scene-gym-electric { --sky: #2e2e3a; background-image: url('scenes/gym-electric.png'); }
+.arena-fighters.scene-gym-garden { --sky: #bfe8d0; background-image: url('scenes/gym-garden.png'); }
+.arena-fighters.scene-gym-poison { --sky: #3a2448; background-image: url('scenes/gym-poison.png'); }
+.arena-fighters.scene-gym-psychic { --sky: #6a2aa0; background-image: url('scenes/gym-psychic.png'); }
+.arena-fighters.scene-gym-fire { --sky: #5a1a10; background-image: url('scenes/gym-fire.png'); }
+.arena-fighters.scene-gym-ground { --sky: #4a3c28; background-image: url('scenes/gym-ground.png'); }
+.arena-fighters.scene-elite-ice { --sky: #3a78b0; background-image: url('scenes/elite-ice.png'); }
+.arena-fighters.scene-elite-fighting { --sky: #7a4a28; background-image: url('scenes/elite-fighting.png'); }
+.arena-fighters.scene-elite-ghost { --sky: #34204a; background-image: url('scenes/elite-ghost.png'); }
+.arena-fighters.scene-elite-dragon { --sky: #34346a; background-image: url('scenes/elite-dragon.png'); }
+.arena-fighters.scene-colosseum { --sky: #c8a878; background-image: url('scenes/colosseum.png'); }
+.arena-fighters.scene-boss-arena { --sky: #5a1020; background-image: url('scenes/boss-arena.png'); }
 
 /* attack effects, drawn by media/battle.js */
 .fx-layer { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
