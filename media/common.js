@@ -156,5 +156,8 @@ window.PT = (function () {
   // Which item turns a card into which transformed form (the same table the host uses).
   const TRANSFORM_ITEM = { mega: 'mega-stone', vmax: 'dynamax-band', vstar: 'star-core', tera: 'tera-orb' };
 
-  return { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM, slabEl, marksEl };
+  const TYPE_ICON = { Fire: '🔥', Water: '💧', Grass: '🍃', Lightning: '⚡', Psychic: '🔮', Fighting: '🥊', Darkness: '🌑', Metal: '⚙️', Dragon: '🐉', Fairy: '✨', Colorless: '⚪' };
+  const typeName = x => t('type.' + x);
+
+  return { TCOLOR, TYPE_ICON, typeName, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM, slabEl, marksEl };
 })();

@@ -1,9 +1,8 @@
 // The "Battle" tab of the album: your fighter, the gym ladder, the animated 1v1 arena and the result explained.
 // The extension host simulates the fight and sends the whole log; this file only plays it back.
 window.PTBattle = (function () {
-  const { el, t, cardEl, marksEl, itemDesc } = window.PT;
+  const { el, t, cardEl, marksEl, itemDesc, TYPE_ICON } = window.PT;
   const FACTORS = ['level', 'demand', 'rarity', 'stage', 'grade', 'tokens'];
-  const TYPE_ICON = { Fire: '🔥', Water: '💧', Grass: '🍃', Lightning: '⚡', Psychic: '🔮', Fighting: '🥊', Darkness: '🌑', Metal: '⚙️', Dragon: '🐉', Fairy: '✨', Colorless: '⚪' };
   const typeIcons = types => (types || []).map(x => TYPE_ICON[x] || '').join(' ');
   const pct = f => (f >= 1 ? '+' : '−') + Math.abs(Math.round((f - 1) * 100)) + '%';
 
@@ -96,6 +95,16 @@ window.PTBattle = (function () {
     root.replaceChildren(...[recordBox(data), fighterBox(data), rocketBox(data), ladderBox(data), historyBox(data)].filter(Boolean));
   }
 
+  /* ───── the arena: background by environment, attack effects by type ───── */
+  const SCENE = { Fire: 'volcano', Water: 'lake', Grass: 'forest', Lightning: 'plant', Psychic: 'temple', Fighting: 'dojo', Darkness: 'night', Metal: 'factory', Dragon: 'peak', Fairy: 'garden', Colorless: 'meadow' };
+  /** Where the fight takes place: league duels in a stadium, Team Rocket in their hideout, the rest by the rival's type. */
+  const sceneOf = r => (r.duel ? 'stadium' : r.leader.id === 'rocket' ? 'hideout' : SCENE[(r.foe.types || [])[0]] || 'meadow');
+  // Projectiles fly from the attacker to the target; impacts strike the target directly.
+  const PROJECTILE = { Fire: '🔥', Water: '💧', Grass: '🍃', Psychic: '🔮', Darkness: '🌑', Dragon: '🔥', Fairy: '✨' };
+  const IMPACT = { Lightning: '⚡', Fighting: '👊', Metal: '⚙️', Colorless: '⭐' };
+  const calm = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const IMPACT_DELAY = 340;
+
   /* ───── the arena ───── */
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
   function closeArena() { clearTimers(); stage.replaceChildren(); }
@@ -117,25 +126,69 @@ window.PTBattle = (function () {
     const speedBtn = el('button', { class: 'btn ghost', text: '1×', onclick: () => { speed = speed === 1 ? 2 : 1; speedBtn.textContent = speed + '×'; } });
     const skipBtn = el('button', { class: 'btn ghost', text: t('battle.skip'), onclick: () => finish(true) });
     const resultBox = el('div', { class: 'bresult' });
+    const fxLayer = el('div', { class: 'fx-layer' });
     const arena = el('div', { class: 'arena' },
       el('div', { class: 'arena-title', text: t('battle.vs', r.leader.name, t('stats.level', r.leader.level)) }),
-      el('div', { class: 'arena-fighters' }, foe.wrap, el('div', { class: 'vs', text: 'VS' }), me.wrap),
-      logBox, el('div', { class: 'row', style: 'gap:8px;justify-content:center' }, speedBtn, skipBtn), resultBox);
+      el('div', { class: 'arena-fighters scene-' + sceneOf(r) }, foe.wrap, el('div', { class: 'vs', text: 'VS' }), me.wrap),
+      logBox, el('div', { class: 'row', style: 'gap:8px;justify-content:center' }, speedBtn, skipBtn), resultBox, fxLayer);
     stage.replaceChildren(arena);
     skipBtn.focus();
 
     const by = s => (s === 'a' ? me : foe), nameOf = s => (s === 'a' ? r.me.name : r.foe.name);
-    const setHp = (who, hp) => { who.hp.style.width = Math.max(0, hp / who.max * 100).toFixed(1) + '%'; who.hpText.textContent = Math.max(0, hp) + ' / ' + who.max; };
+    const setHp = (who, hp) => { const f = Math.max(0, hp / who.max); who.hp.style.width = (f * 100).toFixed(1) + '%'; who.hp.parentNode.dataset.level = f > 0.5 ? 'high' : f > 0.2 ? 'mid' : 'low'; who.hpText.textContent = Math.max(0, hp) + ' / ' + who.max; };
     const line = (text, cls) => { logBox.append(el('div', { class: 'logline ' + (cls || ''), text })); while (logBox.children.length > 7) logBox.firstChild.remove(); logBox.scrollTop = logBox.scrollHeight; };
+
+    /** The move's effect, drawn over the arena between the two cards. A miss flies past the target. */
+    function playFx(attacker, target, kind, ev) {
+      const base = arena.getBoundingClientRect();
+      const mid = n => { const b = n.getBoundingClientRect(); return { x: b.left - base.left + b.width / 2, y: b.top - base.top + b.height / 2 }; };
+      const from = mid(attacker.card), to = mid(target.card);
+      const size = ev.crit ? 64 : 44;
+      const put = (glyph, cls, at) => {
+        const n = el('div', { class: 'fx fx-' + kind + ' ' + cls, text: glyph, style: 'left:' + (at.x - size / 2) + 'px;top:' + (at.y - size / 2) + 'px;font-size:' + size + 'px' });
+        fxLayer.append(n);
+        return n;
+      };
+      const done = (anim, n) => { anim.onfinish = () => n.remove(); timers.push(setTimeout(() => n.remove(), 1200 / speed)); };
+      if (PROJECTILE[kind]) {
+        const dx = to.x - from.x, dy = to.y - from.y, k = ev.miss ? 1.6 : 1;
+        for (let i = 0; i < 3; i++) {   // the first copy is the projectile, the other two its trail
+          const n = put(PROJECTILE[kind], i ? 'trail' : '', from);
+          const anim = n.animate([
+            { transform: 'translate(0,0) scale(.5) rotate(0deg)', opacity: 0 },
+            { transform: 'translate(0,0) scale(.8) rotate(0deg)', opacity: i ? 0.5 : 1, offset: 0.12 },
+            { transform: 'translate(' + dx * k + 'px,' + dy * k + 'px) scale(' + (ev.miss ? 0.7 : 1.2) + ') rotate(360deg)', opacity: ev.miss ? 0 : 1 },
+          ], { duration: 420 / speed, delay: i * 55 / speed, easing: 'ease-in', fill: 'both' });
+          done(anim, n);
+        }
+      } else if (!ev.miss) {
+        const n = put(IMPACT[kind] || IMPACT.Colorless, '', to);
+        done(n.animate([
+          { transform: 'translateY(-' + (kind === 'Lightning' ? 160 : 40) + 'px) scale(.5)', opacity: 0 },
+          { transform: 'translateY(0) scale(1.3)', opacity: 1, offset: 0.45 },
+          { transform: 'translateY(0) scale(1.7)', opacity: 0 },
+        ], { duration: 560 / speed, easing: 'ease-out', fill: 'both' }), n);
+      }
+      if (!ev.miss) {
+        const ring = put('', 'ring', to);
+        done(ring.animate([{ transform: 'scale(.3)', opacity: 0.9 }, { transform: 'scale(' + (ev.crit ? 3.2 : 2.2) + ')', opacity: 0 }], { duration: 480 / speed, delay: IMPACT_DELAY * 0.7 / speed, easing: 'ease-out', fill: 'both' }), ring);
+      }
+    }
 
     function applyAttack(ev, animate) {
       const attacker = by(ev.side), target = by(ev.side === 'a' ? 'b' : 'a');
-      setHp(me, ev.hp.a); setHp(foe, ev.hp.b);
-      if (animate) {
+      if (!animate) { setHp(me, ev.hp.a); setHp(foe, ev.hp.b); }
+      else {
         attacker.card.classList.add('lunge'); timers.push(setTimeout(() => attacker.card.classList.remove('lunge'), 350 / speed));
-        if (ev.dmg > 0) { target.card.classList.add('hit'); timers.push(setTimeout(() => target.card.classList.remove('hit'), 350 / speed)); }
-        const pop = el('div', { class: 'dmg' + (ev.crit ? ' crit' : '') + (ev.miss ? ' miss' : ''), text: ev.miss ? t('battle.missShort') : '−' + ev.dmg });
-        target.card.append(pop); timers.push(setTimeout(() => pop.remove(), 900 / speed));
+        const still = calm();
+        if (!still) playFx(attacker, target, ((ev.side === 'a' ? r.me : r.foe).types || [])[0] || 'Colorless', ev);
+        // Damage lands when the effect reaches the target.
+        timers.push(setTimeout(() => {
+          setHp(me, ev.hp.a); setHp(foe, ev.hp.b);
+          if (ev.dmg > 0) { target.card.classList.add('hit'); timers.push(setTimeout(() => target.card.classList.remove('hit'), 350 / speed)); if (ev.crit) arena.classList.add('quake'); timers.push(setTimeout(() => arena.classList.remove('quake'), 350 / speed)); }
+          const pop = el('div', { class: 'dmg' + (ev.crit ? ' crit' : '') + (ev.miss ? ' miss' : ''), text: ev.miss ? t('battle.missShort') : '−' + ev.dmg });
+          target.card.append(pop); timers.push(setTimeout(() => pop.remove(), 900 / speed));
+        }, still ? 0 : IMPACT_DELAY / speed));
       }
       line(ev.miss ? t('battle.miss', nameOf(ev.side), ev.move) : t('battle.used', nameOf(ev.side), ev.move, ev.dmg), ev.side === 'a' ? 'mine' : 'theirs');
       if (!ev.miss && ev.crit) line(t('battle.crit'), 'note');

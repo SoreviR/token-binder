@@ -189,7 +189,8 @@
     "watch": "node esbuild.mjs --watch",
     "test": "node --import tsx --test test/*.test.ts",
     "package": "node esbuild.mjs --release && vsce package --no-dependencies",
-    "balance": "node --import tsx scripts/balance.ts"
+    "balance": "node --import tsx scripts/balance.ts",
+    "scenes": "node scripts/build-scenes.mjs"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.11",

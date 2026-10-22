@@ -1,6 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM, slabEl, marksEl, fmt } = window.PT;
+  const { TCOLOR, el, badge, cardEl, press, info, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM, slabEl, marksEl, fmt, TYPE_ICON, typeName } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
   const send = (type, extra) => vscode.postMessage(Object.assign({ type }, extra));
@@ -11,6 +11,8 @@
   let query = '';
   let sort = 'tier';
   let cond = '';           // chosen condition filter ('' = any)
+  let typ = '';            // chosen type filter ('' = any)
+  let drag = null;         // card being dragged: { id, from: 'grid' | 'dock' }
   let gear = '';           // chosen held-item filter ('' = any, 'any', 'none' or an item id)
   let viewing = null;
 
@@ -51,7 +53,9 @@
   const sorter = el('select', { class: 'sorter', onchange: e => { sort = e.target.value; renderGrid(); } });
   const condSel = el('select', { class: 'sorter', onchange: e => { cond = e.target.value; renderGrid(); } });
   const gearSel = el('select', { class: 'sorter', onchange: e => { gear = e.target.value; renderGrid(); } });
+  const typeSel = el('select', { class: 'sorter', onchange: e => { typ = e.target.value; renderGrid(); } });
   const chips = el('div', { class: 'chips' });
+  const dock = el('div', { class: 'dock' });
   const grid = el('div', { class: 'agrid' });
   // Three tabs: the album, the items and the battle screen (media/battle.js).
   let tab = 'album';
@@ -73,7 +77,7 @@
     if (name === 'league') send('leagueOpen');
     if (name !== 'album') closeViewer();
   }
-  albumView.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), sellAll), el('div', { class: 'toolbar' }, search, eraSel, condSel, gearSel, sorter), chips, grid);
+  albumView.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), sellAll), dock, el('div', { class: 'toolbar' }, search, eraSel, typeSel, condSel, gearSel, sorter), chips, grid);
   app.append(el('div', { class: 'tabs', role: 'tablist' }, tabAlbum, tabItems, tabBattle, tabLeague), albumView, itemsView, battleView, leagueView);
   window.PTBattle.init({ root: battleView, stage: document.getElementById('stage'), send });
   window.PTLeague.init({ root: leagueView, send });
@@ -92,6 +96,7 @@
     sorter.setAttribute('aria-label', t('album.sortAria'));
     sorter.replaceChildren(...Object.keys(SORTS).map(k => el('option', { value: k, text: t('sort.' + k) })));
     sorter.value = sort;
+    typeSel.setAttribute('aria-label', t('album.typeAria'));
     condSel.setAttribute('aria-label', t('album.condAria'));
     condSel.replaceChildren(el('option', { value: '', text: t('filter.allCond') }), ...Object.keys(COND_FILTERS).map(k => el('option', { value: k, text: t('filter.' + k) })));
     condSel.value = cond;
@@ -108,6 +113,13 @@
     eraSel.value = era;
   }
 
+  function renderTypes() {
+    const types = [...new Set(D.album.flatMap(c => c.types || []))].sort((a, b) => typeName(a).localeCompare(typeName(b)));
+    if (typ && !types.includes(typ)) typ = '';
+    typeSel.replaceChildren(el('option', { value: '', text: t('filter.allTypes') }), ...types.map(x => el('option', { value: x, text: (TYPE_ICON[x] || '') + ' ' + typeName(x) })));
+    typeSel.value = typ;
+  }
+
   function renderChips() {
     const tiers = [0, 1, 2, 3, 4, 5, 6];
     const counts = tiers.map(i => D.album.filter(c => c.tier === i).length);
@@ -119,7 +131,7 @@
   function renderGrid() {
     if (!D) return;
     const cards = D.album
-      .filter(c => (tier === null || c.tier === tier) && (!era || c.era === era)
+      .filter(c => (tier === null || c.tier === tier) && (!era || c.era === era) && (!typ || (c.types || []).includes(typ))
         && (!cond || COND_FILTERS[cond](c))
         && (!gear || (gear === 'any' ? !!c.held : gear === 'none' ? !c.held : c.held === gear))
         && (!query || (c.name + ' ' + (c.set || '') + ' ' + c.rarity + ' ' + variantName(c)).toLowerCase().includes(query)))
@@ -128,20 +140,86 @@
       grid.replaceChildren(el('div', { class: 'sub', style: 'grid-column:1/-1', text: D.album.length ? t('album.noMatch') : t('album.emptyHint') }));
       return;
     }
-    grid.replaceChildren(...cards.map(c => press(el('div', { class: 'thumb' + (D.trainingIds.includes(c.id) ? ' training' : '') + (c.variant ? ' v-' + c.variant : ''), style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name + ' · ' + c.rarity },
+    grid.replaceChildren(...cards.map(c => draggable(c.id, 'grid', press(el('div', { class: 'thumb' + (D.trainingIds.includes(c.id) ? ' training' : '') + (c.variant ? ' v-' + c.variant : ''), style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name + ' · ' + c.rarity },
       c.src ? el('img', { src: c.src, alt: '', loading: 'lazy' }) : el('div', { class: 'nm', text: c.name }),
       c.count > 1 ? el('span', { class: 'n', text: '×' + c.count }) : null,
       c.variant ? el('span', { class: 'vt', text: t('variant.tag.' + c.variant) }) : null,
       D.trainingIds.includes(c.id) ? el('span', { class: 'tr', text: t('album.training') }) : null,
       c.grade ? el('span', { class: 'gr g' + c.grade, text: 'TBGS ' + c.grade }) : null,
       !c.grade && !c.soaked && c.wear > 0 ? el('span', { class: 'cond w' + c.wear, title: t('condition.' + c.wear), text: t('condition.short.' + c.wear) }) : null,
+      c.types && c.types[0] ? el('span', { class: 'ttag', title: typeName(c.types[0]), text: TYPE_ICON[c.types[0]] || '' }) : null,
       c.held ? el('span', { class: 'heldtag', title: itemName(c.held), text: itemIcon(c.held) }) : null,
       c.soaked ? el('span', { class: 'wet-tag', title: t('care.tipSoaked'), text: '💧' }) : null,
       !c.grade && (c.care.sleeve || c.care.toploader) ? el('span', { class: 'care', title: t('care.tipSleeve'), text: (c.care.sleeve ? '🛡️' : '') + (c.care.toploader ? '📦' : '') }) : null,
       c.id === D.fighterId ? el('span', { class: 'fgt', title: t('battle.isFighter'), text: '⚔' }) : null,
       c.stats.level > 1 || c.mastered ? el('span', { class: 'lvl', text: (c.mastered ? '★ ' : '') + t('stats.level', c.stats.level) }) : null),
-      () => openViewer(c.id), c.name + ', ' + c.rarity + (c.variant ? ', ' + variantName(c) : ''))));
+      () => openViewer(c.id), c.name + ', ' + c.rarity + (c.variant ? ', ' + variantName(c) : '')))));
   }
+
+  /* ───── drag and drop: cards onto the training and battle zones of the dock ───── */
+  function draggable(id, from, node) {
+    node.setAttribute('draggable', 'true');
+    node.addEventListener('dragstart', e => {
+      drag = { id, from };
+      e.dataTransfer.setData('text/plain', id);
+      e.dataTransfer.effectAllowed = 'move';
+      node.classList.add('dragging');
+      document.body.classList.add('dragging-card');
+      document.body.classList.toggle('drag-from-dock', from === 'dock');
+    });
+    node.addEventListener('dragend', () => {
+      drag = null;
+      node.classList.remove('dragging');
+      document.body.classList.remove('dragging-card', 'drag-from-dock');
+      dock.querySelectorAll('.drop-ok, .drop-no').forEach(x => x.classList.remove('drop-ok', 'drop-no'));
+      grid.classList.remove('drop-ok');
+    });
+    return node;
+  }
+  /** Makes `zone` accept the dragged card when `check(card)` returns '' (otherwise it returns why not); `act(id)` runs on drop. */
+  function dropZone(zone, check, act) {
+    const verdict = () => { const c = drag && D.album.find(x => x.id === drag.id); return c ? check(c) : t('dock.cannot'); };
+    zone.addEventListener('dragover', e => {
+      if (!drag) return;
+      const why = verdict();
+      zone.classList.toggle('drop-ok', !why); zone.classList.toggle('drop-no', !!why);
+      zone.title = why;
+      if (!why) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+    });
+    zone.addEventListener('dragleave', e => { if (!zone.contains(e.relatedTarget)) zone.classList.remove('drop-ok', 'drop-no'); });
+    zone.addEventListener('drop', e => {
+      e.preventDefault();
+      const id = drag && drag.id;
+      zone.classList.remove('drop-ok', 'drop-no');
+      if (id && !verdict()) act(id);
+    });
+    return zone;
+  }
+  const miniThumb = c => el('div', { class: 'mini', style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name },
+    c.src ? el('img', { src: c.src, alt: '', draggable: 'false' }) : el('div', { class: 'nm', text: c.name }));
+
+  function renderDock() {
+    const training = D.trainingIds.map(id => D.album.find(c => c.id === id)).filter(Boolean);
+    const fighter = D.album.find(c => c.id === D.fighterId);
+    const slots = training.length + D.freeSlots;
+    const trainZone = dropZone(
+      el('div', { class: 'dz dz-train' },
+        el('div', { class: 'dz-title', text: '🏋️ ' + t('dock.train') + ' (' + training.length + '/' + slots + ')' }),
+        el('div', { class: 'dz-body' },
+          ...training.map(c => draggable(c.id, 'dock', miniThumb(c))),
+          ...Array.from({ length: D.freeSlots }, () => el('div', { class: 'mini empty', title: t('dock.drop'), text: '+' })))),
+      c => D.trainingIds.includes(c.id) ? t('dock.already') : c.soaked ? t('care.tipSoaked') : !D.freeSlots ? t('dock.noFree') : '',
+      id => send('train', { id }));
+    const fightZone = dropZone(
+      el('div', { class: 'dz dz-fight' },
+        el('div', { class: 'dz-title', text: '⚔ ' + t('dock.fight') }),
+        el('div', { class: 'dz-body' }, fighter ? miniThumb(fighter) : el('div', { class: 'mini empty', title: t('dock.drop'), text: '+' }), el('span', { class: 'sub', text: fighter ? fighter.name : t('dock.noFighter') }))),
+      c => c.id === D.fighterId ? t('dock.already') : c.soaked ? t('care.tipSoaked') : c.grading ? t('battle.grading') : '',
+      id => send('setFighter', { id }));
+    dock.replaceChildren(trainZone, fightZone);
+  }
+  // Dragging a card out of the training zone and dropping it on the grid takes it out of training.
+  dropZone(grid, c => (drag && drag.from === 'dock' && D.trainingIds.includes(c.id) ? '' : t('dock.cannot')), id => send('untrain', { id }));
 
   function render() {
     setLang(D.lang);
@@ -150,6 +228,8 @@
     summary.textContent = t('album.summary', D.unique, D.total, D.mastered) + (D.value ? t('album.value', D.value.toLocaleString(D.lang)) : '');
     sellAll.style.display = D.total > D.unique ? '' : 'none';
     renderEras();
+    renderTypes();
+    renderDock();
     renderChips();
     renderGrid();
     renderItems();

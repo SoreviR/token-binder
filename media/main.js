@@ -10,6 +10,14 @@
   const box = (title, ...kids) => el('div', { class: 'card-box' }, title && el('h4', { text: title }), ...kids);
   const bar = (pct, cls) => el('div', { class: 'barwrap ' + (cls || '') }, el('i', { style: 'width:' + Math.max(0, Math.min(100, pct)).toFixed(1) + '%' }));
   const send = (type, extra) => vscode.postMessage(Object.assign({ type }, extra));
+  /** Collapsible box: closed by default and remembered, because every state message rebuilds the whole panel. */
+  const folds = Object.assign({}, vscode.getState()?.folds);
+  const fold = (key, title, extra, ...kids) => {
+    const d = el('details', { class: 'card-box fold' }, el('summary', {}, el('h4', { text: title }), extra ? el('span', { class: 'sub', text: extra }) : null), ...kids);
+    d.open = !!folds[key];
+    d.addEventListener('toggle', () => { folds[key] = d.open; vscode.setState({ ...vscode.getState(), folds }); });
+    return d;
+  };
   const freeSlot = () => !!S && S.slots.some(s => s === null);
 
   /* ───── main panel ───── */
@@ -27,7 +35,8 @@
           el('div', { class: 'sub', text: t('packs.next', fmt(d.nextPack.into), fmt(d.nextPack.span), eta(d.nextPack.span - d.nextPack.into, d.perDay)) }),
           el('div', { class: 'btns' }, openBtn('pack', d.packs, t('packs.pack')), openBtn('premium', d.premium, t('packs.premium')), openBtn('ball', d.balls, t('packs.ball'))))));
 
-    const shopBox = box(t('shop.title'),
+    const affordable = d.shop.filter(i => i.price !== null && d.coins >= i.price).length;
+    const shopBox = fold('shop', t('shop.title'), t('shop.coins', d.coins) + (affordable ? ' · ' + t('shop.affordable', affordable) : ''),
       el('div', { class: 'row' }, el('b', { text: t('shop.coins', d.coins) }),
         el('span', { class: d.pace ? 'pace on' : 'pace', title: t('shop.paceTip'), text: d.pace ? t('shop.paceOn') : t('shop.paceOff') })),
       ...d.shop.map(i => el('div', { class: 'shopitem' },
@@ -51,8 +60,8 @@
       shopBox,
       itemsBox(),
       albumBox(),
-      box(t('daily.title'), chart),
-      box(t('models.title'), ...list(d.byModel)));
+      fold('daily', t('daily.title'), '', chart),
+      fold('models', t('models.title'), '', ...list(d.byModel)));
 
     announce(d.events || []);
     if (q >= 80 && q < 100 && warned < 80) { warned = 80; toast(t('toast.warn', q.toFixed(0))); }
