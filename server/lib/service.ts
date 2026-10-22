@@ -7,8 +7,8 @@ import { FetchJson, SESSION_DAYS, githubUser, signSession } from './auth';
 import { getCard } from './cards';
 import type { Db } from './db';
 import {
-  DAILY_DUELS, MAX_JOINED_LEAGUES, MAX_MEMBERS, MAX_OWNED_LEAGUES,
-  checkClaim, checkDailyLimits, cleanLeagueName, eloDelta, inviteCode, normalizeCode,
+  DAILY_DUELS, DAILY_PER_RIVAL, MAX_JOINED_LEAGUES, MAX_MEMBERS, MAX_OWNED_LEAGUES,
+  checkClaim, cleanLeagueName, eloDelta, inviteCode, normalizeCode,
 } from './rules';
 
 export interface Deps { db: Db; now: () => number; rng: () => number; fetchJson: FetchJson; secret: string }
@@ -98,7 +98,11 @@ export async function joinLeague(d: Deps, pid: number, rawCode: unknown): Promis
     if (await countJoined(d, pid) >= MAX_JOINED_LEAGUES) { return fail('too-many-joined'); }
     const n = num((await d.db.query<{ n: number }>('select count(*)::int as n from members where league_id = $1', [id]))[0].n);
     if (n >= MAX_MEMBERS) { return fail('league-full'); }
-    await d.db.query('insert into members (league_id, player_id, joined_at) values ($1, $2, $3)', [id, pid, iso(d.now())]);
+    // If the player was here before, restore the standing they left with instead of starting fresh at 1000.
+    const past = (await d.db.query<{ elo: number; wins: number; losses: number }>(
+      'select elo, wins, losses from member_stats where league_id = $1 and player_id = $2', [id, pid]))[0];
+    await d.db.query('insert into members (league_id, player_id, elo, wins, losses, joined_at) values ($1, $2, $3, $4, $5, $6)',
+      [id, pid, past ? num(past.elo) : 1000, past ? num(past.wins) : 0, past ? num(past.losses) : 0, iso(d.now())]);
   }
   return { ok: true, league: { id, name: l.name, code } };
 }
@@ -107,6 +111,12 @@ export async function leaveLeague(d: Deps, pid: number, leagueId: number): Promi
   if (!(await isMember(d, leagueId, pid))) { return fail('not-member', 404); }
   const owner = (await d.db.query<{ owner: number }>('select owner from leagues where id = $1', [leagueId]))[0];
   if (owner && num(owner.owner) === pid) { await passOrEndLeague(d, leagueId, pid); }
+  // Remember the standing so coming back does not wipe a losing record (member_stats survives the member row).
+  await d.db.query(
+    `insert into member_stats (league_id, player_id, elo, wins, losses)
+     select league_id, player_id, elo, wins, losses from members where league_id = $1 and player_id = $2
+     on conflict (league_id, player_id) do update set elo = excluded.elo, wins = excluded.wins, losses = excluded.losses`,
+    [leagueId, pid]);
   await d.db.query('delete from members where league_id = $1 and player_id = $2', [leagueId, pid]);
   return { ok: true };
 }
@@ -206,6 +216,19 @@ function snapshot(f: Fighter, row: FighterRow, card: { id: string; image?: strin
   return { ...f, cardId: card.id, image: card.image, tier: card.tier, cardKey: row.card_key, grade: row.grade ?? undefined };
 }
 
+/**
+ * Takes one slot off a daily counter, atomically, and returns the new count — or null when the limit is already reached.
+ * A single guarded UPSERT (the conflicting row is locked before the `where` is checked) makes concurrent challenges
+ * serialize instead of racing, which counting the duels table did not.
+ */
+async function reserveDuel(d: Deps, challenger: number, defender: number, day: string, limit: number): Promise<number | null> {
+  const r = await d.db.query<{ n: number }>(
+    `insert into duel_quota (challenger, defender, day, n) values ($1, $2, $3, 1)
+     on conflict (challenger, defender, day) do update set n = duel_quota.n + 1 where duel_quota.n < $4
+     returning n`, [challenger, defender, day, limit]);
+  return r[0] ? num(r[0].n) : null;
+}
+
 export async function challenge(d: Deps, pid: number, leagueId: number, rivalId: number): Promise<Result<{
   duelId: number; winner: 'a' | 'b'; won: boolean; rounds: number; reason: string; log: unknown[]; battleVersion: number;
   me: unknown; foe: unknown; rival: string; eloChange: number; elo: number; today: { used: number; max: number };
@@ -218,11 +241,13 @@ export async function challenge(d: Deps, pid: number, leagueId: number, rivalId:
   const theirs = await fighterRow(d, rivalId);
   if (!theirs) { return fail('rival-no-fighter'); }
 
-  const day = iso(startOfDay(d.now()));
-  const total = num((await d.db.query<{ n: number }>('select count(*)::int as n from duels where challenger = $1 and created_at >= $2', [pid, day]))[0].n);
-  const vs = num((await d.db.query<{ n: number }>('select count(*)::int as n from duels where challenger = $1 and defender = $2 and created_at >= $3', [pid, rivalId, day]))[0].n);
-  const limit = checkDailyLimits(total, vs);
-  if (!limit.ok) { return fail(limit.error, 429); }
+  // Reserve a slot before doing any work, atomically (see duel_quota): firing many duels at once can no longer slip past
+  // the daily limits. The tighter per-rival counter is taken first; its only possible over-count is against a rival who
+  // is already capped for the day, which changes nothing.
+  const dayKey = iso(startOfDay(d.now())).slice(0, 10);
+  if (await reserveDuel(d, pid, rivalId, dayKey, DAILY_PER_RIVAL) === null) { return fail('rival-limit', 429); }
+  const dayN = await reserveDuel(d, pid, 0, dayKey, DAILY_DUELS);
+  if (dayN === null) { return fail('daily-limit', 429); }
 
   const cardA = await getCard(d.db, mine.card_key, d.fetchJson, d.now());
   const cardB = await getCard(d.db, theirs.card_key, d.fetchJson, d.now());
@@ -248,7 +273,7 @@ export async function challenge(d: Deps, pid: number, leagueId: number, rivalId:
   const rivalLogin = (await d.db.query<{ login: string }>('select login from players where id = $1', [rivalId]))[0].login;
   return {
     ok: true, duelId: num(row[0].id), winner: result.winner, won, rounds: result.rounds, reason: result.reason, log: result.log, battleVersion: result.version,
-    me: snapA, foe: snapB, rival: rivalLogin, eloChange: delta, elo: eloOf(pid) + delta, today: { used: total + 1, max: DAILY_DUELS },
+    me: snapA, foe: snapB, rival: rivalLogin, eloChange: delta, elo: eloOf(pid) + delta, today: { used: dayN, max: DAILY_DUELS },
   };
 }
 

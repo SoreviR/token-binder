@@ -61,13 +61,8 @@ export function eloDelta(ratingA: number, ratingB: number, aWon: boolean): numbe
   return aWon ? Math.max(1, delta) : Math.min(-1, delta);
 }
 
-export type LimitCheck = { ok: true } | { ok: false; error: 'daily-limit' | 'rival-limit' };
-
-export function checkDailyLimits(todayTotal: number, todayVsRival: number): LimitCheck {
-  if (todayTotal >= DAILY_DUELS) { return { ok: false, error: 'daily-limit' }; }
-  if (todayVsRival >= DAILY_PER_RIVAL) { return { ok: false, error: 'rival-limit' }; }
-  return { ok: true };
-}
+// The daily limits (DAILY_DUELS, DAILY_PER_RIVAL) are enforced in service.ts by an atomic counter (duel_quota), not by
+// counting rows and then checking: that left a gap a burst of concurrent duels could slip through.
 
 // Letters and digits that cannot be mistaken for each other (no 0/O, 1/I/L).
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';

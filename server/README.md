@@ -35,5 +35,7 @@ The tests need no server: `npm test` runs the whole flow against an in-memory Po
 
 ## Limits worth knowing
 
-- The server cannot see anyone's tokens, so levels are only checked for plausibility: a new player's level is capped and the cap rises each day (`lib/rules.ts`). It is a speed bump for friends, not protection against a determined cheater.
+- The server cannot see anyone's tokens or collection, so the fighter a player registers is taken on trust: the level is capped (and the cap rises each day, `lib/rules.ts`), but owning the card, its grade and its held item are not verified. It is a speed bump for friends, not protection against a determined cheater.
+- Leagues are invite-only, but anyone with a GitHub account can join one they have the code for; the ranking assumes the people in a league are not inventing extra accounts to farm Elo.
+- The daily duel limits are enforced with an atomic per-day counter (`duel_quota`), so firing many challenges at once can no longer slip past them, and leaving a league no longer resets your Elo (it is kept in `member_stats` and restored if you rejoin).
 - There is no rate limiting beyond the daily duel limits; Vercel's platform protections apply.

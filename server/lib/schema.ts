@@ -62,4 +62,24 @@ create table if not exists cards (
   k           text primary key,
   v           jsonb not null
 )`,
+  `-- One counter per challenger, per rival, per day, bumped atomically when a duel is reserved. 'defender = 0' is the
+  -- per-day total across every rival. This is what enforces the daily limits: counting the duels table left a gap
+  -- between the count and the insert, so firing many duels at once slipped past it.
+create table if not exists duel_quota (
+  challenger  bigint not null references players(id) on delete cascade,
+  defender    bigint not null,               -- 0 = the whole-day total across all rivals
+  day         date   not null,
+  n           int    not null default 0,
+  primary key (challenger, defender, day)
+)`,
+  `-- A member's standing kept when they leave, so rejoining a league restores their Elo and record instead of starting
+  -- fresh at 1000 (which let a losing player wipe their losses by leaving and coming back).
+create table if not exists member_stats (
+  league_id   int not null references leagues(id) on delete cascade,
+  player_id   bigint not null references players(id) on delete cascade,
+  elo         int not null,
+  wins        int not null,
+  losses      int not null,
+  primary key (league_id, player_id)
+)`,
 ];

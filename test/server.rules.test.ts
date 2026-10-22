@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { XP_PER_LEVEL } from '../src/game/engine';
 import {
-  BASE_LEVEL_CAP, DAILY_DUELS, DAILY_PER_RIVAL, ELO_K, LEVELS_PER_DAY,
-  checkClaim, checkDailyLimits, cleanLeagueName, eloDelta, inviteCode, levelCap, normalizeCode,
+  BASE_LEVEL_CAP, ELO_K, LEVELS_PER_DAY,
+  checkClaim, cleanLeagueName, eloDelta, inviteCode, levelCap, normalizeCode,
 } from '../server/lib/rules';
 import { signSession, verifySession } from '../server/lib/auth';
 
@@ -54,13 +54,6 @@ test('Elo: equal players trade 16 points, an upset pays more, and every duel mov
   assert.ok(eloDelta(1400, 1000, true) >= 1, 'a favorite who wins still gains a point');
   assert.ok(eloDelta(1400, 1000, false) < -16);
   assert.ok(eloDelta(3000, 1000, true) >= 1 && eloDelta(1000, 3000, false) <= -1);
-});
-
-test('daily limits: a total and a limit per rival', () => {
-  assert.deepEqual(checkDailyLimits(0, 0), { ok: true });
-  assert.deepEqual(checkDailyLimits(DAILY_DUELS - 1, DAILY_PER_RIVAL - 1), { ok: true });
-  assert.deepEqual(checkDailyLimits(DAILY_DUELS, 0), { ok: false, error: 'daily-limit' });
-  assert.deepEqual(checkDailyLimits(1, DAILY_PER_RIVAL), { ok: false, error: 'rival-limit' });
 });
 
 test('invite codes: unambiguous letters, typed in any case, with or without the dash', () => {

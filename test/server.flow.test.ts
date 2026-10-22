@@ -5,7 +5,7 @@ import { BATTLE_VERSION, simulate, makeFighter } from '../src/game/battle';
 import { XP_PER_LEVEL } from '../src/game/engine';
 import { parseCard } from '../src/game/cardData';
 import { route } from '../server/lib/router';
-import { DAILY_PER_RIVAL, MAX_MEMBERS } from '../server/lib/rules';
+import { DAILY_DUELS, DAILY_PER_RIVAL, MAX_MEMBERS } from '../server/lib/rules';
 
 import { CARDS, DAY, GITHUB, T0, World, world } from './helpers/leagueWorld';
 
@@ -172,16 +172,45 @@ test('the daily total stops a player at 10 challenges', async () => {
   await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8));
   await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 8));
   await w.call('tokC', 'PUT', '/fighter', claim('base1-58', 8));
-  const rivals = [2, 2, 3, 3];
-  for (const r of rivals) { assert.equal((await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: r })).status, 200); }
-  // Fill the rest of the day with older rows to reach the limit without needing more rivals.
-  for (let i = 0; i < 6; i++) {
-    await w.d.db.query(`insert into duels (league_id, challenger, defender, seed, battle_version, a, b, winner, elo_change, rounds, log, created_at)
-      values ($1, 1, 2, 1, $2, '{}', '{}', 'a', 1, 1, '[]', $3)`, [id, BATTLE_VERSION, new Date(w.clock.t).toISOString()]);
-  }
+  // Pretend the day's total is already spent: the limit now reads the counter, not the duels table.
+  const day = new Date(Math.floor(w.clock.t / DAY) * DAY).toISOString().slice(0, 10);
+  await w.d.db.query('insert into duel_quota (challenger, defender, day, n) values (1, 0, $1, $2)', [day, DAILY_DUELS]);
   const last = await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 3 });
   assert.equal(last.status, 429);
   assert.equal(last.body.error, 'daily-limit');
+});
+
+test('the per-rival limit holds even when the duels are fired all at once (the old count-then-insert race is gone)', async () => {
+  const w = await world();
+  const { id } = await league(w);
+  await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8));
+  await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 8));
+  const burst = await Promise.all(Array.from({ length: 12 }, () => w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 })));
+  const ok = burst.filter(r => r.status === 200).length;
+  assert.equal(ok, DAILY_PER_RIVAL, `only ${DAILY_PER_RIVAL} should go through, not ${ok}`);
+  assert.ok(burst.some(r => r.status === 429 && r.body.error === 'rival-limit'));
+  const saved = Number((await w.d.db.query<{ n: number }>('select count(*)::int as n from duels where challenger = 1'))[0].n);
+  assert.equal(saved, DAILY_PER_RIVAL, 'and no extra duels were saved');
+});
+
+test('leaving a league and rejoining keeps your Elo and record (you cannot wipe losses by leaving)', async () => {
+  const w = await world();
+  const { id, code } = await league(w);
+  await w.call('tokA', 'PUT', '/fighter', claim('base1-58', 1));   // weak
+  await w.call('tokB', 'PUT', '/fighter', claim('base1-4', 8));    // strong, so tokA's Elo moves
+  await w.call('tokB', 'POST', `/leagues/${id}/duel`, { rival: 1 });
+  await w.call('tokB', 'POST', `/leagues/${id}/duel`, { rival: 1 });
+  const me = async () => (await w.call('tokA', 'GET', `/leagues/${id}`)).body.members.find((m: any) => m.you);
+  const before = await me();
+  assert.equal(before.wins + before.losses, 2);
+  assert.notEqual(before.elo, 1000, 'two duels have moved the Elo away from the start');
+
+  assert.equal((await w.call('tokA', 'DELETE', `/leagues/${id}`)).status, 200);   // leave
+  assert.equal((await w.call('tokA', 'POST', '/leagues/join', { code })).status, 200);   // rejoin
+  const after = await me();
+  assert.equal(after.elo, before.elo, 'Elo is restored, not reset to 1000');
+  assert.equal(after.wins, before.wins);
+  assert.equal(after.losses, before.losses);
 });
 
 test('the public ranking page: reachable with the invite code, with logins and results only', async () => {

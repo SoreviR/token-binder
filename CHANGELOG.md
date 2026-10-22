@@ -2,6 +2,11 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## Unreleased
+
+- **League server, duel limit no longer bypassable:** the daily limits (10 a day, 2 per rival) were checked by counting the duels and then saving the new one, so firing many challenges at the same instant slipped past the count. They are now reserved with an atomic per-day counter (`duel_quota`), so a burst gets exactly the allowed number through.
+- **League server, Elo cannot be reset by leaving:** a member's standing is kept in `member_stats` when they leave, so rejoining a league restores their Elo and record instead of starting fresh at 1000 (which let a losing player wipe their losses). Deleting your data still removes everything.
+
 ## 1.13.0 - 2026-10-22
 
 - **Online leagues (opt-in, off by default):** a new **League** tab in the album. Create a private league, share its invite code and challenge your friends with the card you take to battle. Duels are asynchronous: the server plays the fight at once with the same rules as the Battle tab, moves the Elo of both players and your friend can watch the replay later. Limits: 10 challenges a day, 2 a day against the same player. Duels pay no coins; the card that fights earns battle XP as usual.
