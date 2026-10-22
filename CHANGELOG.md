@@ -2,6 +2,12 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## Unreleased
+- **League server, edited saves are caught (BUSTED):** the extension now reports its whole-save figures (coins, cards, items, levels, lifetime tokens) with the fighter, and the server flags a report that grew faster than real time allows since the last accepted one (the first report is judged against its own lifetime tokens, so a long honest history is never flagged). A BUSTED player is sorted to the bottom of every ranking and cannot challenge or be challenged. Two ways out: a **majority of the other members** vote them back in (in that league only), or they press **"I was a cheater and want to play again"**, which resets their local save to zero once the server has accepted it. Only growth is checked, so selling, mishaps or a reset never flag anyone. A client that does not send the report can no longer field a fighter.
+
+- **League server, duel limit no longer bypassable:** the daily limits (10 a day, 2 per rival) were checked by counting the duels and then saving the new one, so firing many challenges at the same instant slipped past the count. They are now reserved with an atomic per-day counter (`duel_quota`), so a burst gets exactly the allowed number through.
+- **League server, Elo cannot be reset by leaving:** a member's standing is kept in `member_stats` when they leave, so rejoining a league restores their Elo and record instead of starting fresh at 1000 (which let a losing player wipe their losses). Deleting your data still removes everything.
+
 ## 1.13.0 - 2026-10-22
 
 - **Online leagues (opt-in, off by default):** a new **League** tab in the album. Create a private league, share its invite code and challenge your friends with the card you take to battle. Duels are asynchronous: the server plays the fight at once with the same rules as the Battle tab, moves the Elo of both players and your friend can watch the replay later. Limits: 10 challenges a day, 2 a day against the same player. Duels pay no coins; the card that fights earns battle XP as usual.

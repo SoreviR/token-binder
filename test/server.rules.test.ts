@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { XP_PER_LEVEL } from '../src/game/engine';
 import {
-  BASE_LEVEL_CAP, DAILY_DUELS, DAILY_PER_RIVAL, ELO_K, LEVELS_PER_DAY,
-  checkClaim, checkDailyLimits, cleanLeagueName, eloDelta, inviteCode, levelCap, normalizeCode,
+  BASE_LEVEL_CAP, ELO_K, LEVELS_PER_DAY,
+  checkClaim, cleanLeagueName, eloDelta, inviteCode, isImplausible, isImplausibleFirst, levelCap, normalizeCode, readProfile,
 } from '../server/lib/rules';
 import { signSession, verifySession } from '../server/lib/auth';
 
@@ -56,11 +56,27 @@ test('Elo: equal players trade 16 points, an upset pays more, and every duel mov
   assert.ok(eloDelta(3000, 1000, true) >= 1 && eloDelta(1000, 3000, false) <= -1);
 });
 
-test('daily limits: a total and a limit per rival', () => {
-  assert.deepEqual(checkDailyLimits(0, 0), { ok: true });
-  assert.deepEqual(checkDailyLimits(DAILY_DUELS - 1, DAILY_PER_RIVAL - 1), { ok: true });
-  assert.deepEqual(checkDailyLimits(DAILY_DUELS, 0), { ok: false, error: 'daily-limit' });
-  assert.deepEqual(checkDailyLimits(1, DAILY_PER_RIVAL), { ok: false, error: 'rival-limit' });
+test('readProfile keeps only sane non-negative numbers', () => {
+  assert.deepEqual(readProfile({ coins: -5, cards: 'x', items: 3, xp: 10, tokens: 3 }), { coins: 0, cards: 0, items: 3, xp: 10, tokens: 3 });
+  assert.deepEqual(readProfile(null), { coins: 0, cards: 0, items: 0, xp: 0, tokens: 0 });
+});
+
+test('isImplausible: flags an edited save, allows an honest one, and never flags a shrink', () => {
+  const zero = { coins: 0, cards: 0, items: 0, xp: 0, tokens: 0 };
+  const honest = { coins: 500, cards: 25, items: 10, xp: 5_000_000, tokens: 6_000_000 };
+  assert.equal(isImplausible(honest, zero, 2 * DAY), false);
+  // each edited field on its own is enough to flag it (same honest token count)
+  assert.equal(isImplausible({ ...honest, coins: 900_000_000 }, zero, 2 * DAY), true, 'millions of coins');
+  assert.equal(isImplausible({ ...honest, cards: 30_000 }, zero, 2 * DAY), true, 'thousands of cards');
+  assert.equal(isImplausible({ ...honest, xp: 50_000_000_000 }, zero, 2 * DAY), true, 'every card maxed');
+  assert.equal(isImplausible({ ...honest, tokens: 5_000_000_000 }, zero, 1 * DAY), true, 'more token use than one day allows');
+  // only growth is checked: measured from a baseline that already holds a lot, the same report is fine
+  assert.equal(isImplausible({ ...honest, coins: 900_000_000 }, { ...honest, coins: 900_000_000 }, 0), false, 'a vouched baseline');
+  // a first report has no baseline: a long honest history is fine, an edited save is judged against its own lifetime tokens
+  assert.equal(isImplausibleFirst({ coins: 300, cards: 40, items: 5, xp: 3_000_000, tokens: 200_000_000 }), false, 'a veteran');
+  assert.equal(isImplausibleFirst({ coins: 900_000_000, cards: 40, items: 5, xp: 3_000_000, tokens: 5_000_000 }), true, 'edited coins');
+  // having less than before (sold, mishap, reset) is always fine
+  assert.equal(isImplausible({ coins: 0, cards: 1, items: 0, xp: 0, tokens: 6_000_000 }, honest, 2 * DAY), false);
 });
 
 test('invite codes: unambiguous letters, typed in any case, with or without the dash', () => {

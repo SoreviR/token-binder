@@ -105,8 +105,10 @@ export const en = {
   'mishap.rainSaved': 'TokenBinder: you went over the quota and got caught in the rain, but your sleeves and slabs kept all {0} cards dry!',
   'mishap.open': 'Open album',
   // online leagues
-  'league.consent': 'TokenBinder online leagues\n\nIf you continue, this is sent to the league server ({0}): your GitHub id and login, the card you take to battle (its level, grade and held item), roughly how much of your monthly quota you have used, and your duel results. Your token usage, your chats, your code and the rest of your collection never leave your computer.\n\nYou can delete everything the server holds about you at any time from the League tab.',
+  'league.consent': 'TokenBinder online leagues\n\nIf you continue, this is sent to the league server ({0}): your GitHub id and login, the card you take to battle (its level, grade and held item), roughly how much of your monthly quota you have used, a summary of your save (how many coins, cards, items and levels you have, to spot an edited save) and your duel results. Your token usage, your chats, your code and the rest of your collection never leave your computer.\n\nYou can delete everything the server holds about you at any time from the League tab.',
   'league.consentButton': 'Sign in with GitHub and continue',
+  'league.rebornConfirm': 'I was a cheater and I want to play again.\n\nThis wipes your local progress to zero (coins, cards, items and levels) and lifts the BUSTED flag. It cannot be undone.',
+  'league.rebornYes': 'Yes, start over',
   'league.leaveConfirm': 'Leave the league "{0}"? Your place in its ranking is lost.',
   'league.leave': 'Leave league',
   'league.deleteConfirm': 'Delete everything the league server holds about you (your account, leagues you are in, your fighter and your duels)? Your collection on this computer is not touched.',

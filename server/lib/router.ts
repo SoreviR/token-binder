@@ -31,6 +31,7 @@ export async function route(d: Deps, req: Req): Promise<Res> {
   if (!Number.isFinite(theirs) || theirs !== BATTLE_VERSION) { return { status: 426, body: { ok: false, error: 'update-required', battleVersion: BATTLE_VERSION } }; }
 
   if (a === 'me' && m === 'DELETE') { return send(await svc.deleteMe(d, pid)); }
+  if (a === 'me' && b === 'reborn' && m === 'POST') { return send(await svc.reborn(d, pid)); }
   if (a === 'me' && m === 'GET') { return send(await svc.myLeagues(d, pid).then(r => (r.ok ? { ...r, login: session.login, id: pid } : r))); }
   if (a === 'fighter' && m === 'PUT') { return send(await svc.registerFighter(d, pid, req.body)); }
   if (a === 'inbox' && m === 'GET') { return send(await svc.inbox(d, pid)); }
@@ -44,6 +45,7 @@ export async function route(d: Deps, req: Req): Promise<Res> {
       if (!c && m === 'GET') { return send(await svc.leagueView(d, pid, id)); }
       if (!c && m === 'DELETE') { return send(await svc.leaveLeague(d, pid, id)); }
       if (c === 'duel' && m === 'POST') { return send(await svc.challenge(d, pid, id, Number(req.body?.rival))); }
+      if (c === 'pardon' && m === 'POST') { return send(await svc.pardon(d, pid, id, Number(req.body?.subject))); }
     }
   }
   return err(404, 'not-found');

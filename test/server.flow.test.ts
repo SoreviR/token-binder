@@ -5,11 +5,15 @@ import { BATTLE_VERSION, simulate, makeFighter } from '../src/game/battle';
 import { XP_PER_LEVEL } from '../src/game/engine';
 import { parseCard } from '../src/game/cardData';
 import { route } from '../server/lib/router';
-import { DAILY_PER_RIVAL, MAX_MEMBERS } from '../server/lib/rules';
+import { DAILY_DUELS, DAILY_PER_RIVAL, MAX_MEMBERS } from '../server/lib/rules';
 
 import { CARDS, DAY, GITHUB, T0, World, world } from './helpers/leagueWorld';
 
-const claim = (key: string, level = 5, extra: object = {}) => ({ key, xp: (level - 1) * XP_PER_LEVEL, quotaPct: 60, ...extra });
+// An honest player's report by default: a save whose total XP covers the fighter's, with lifetime tokens to match.
+const claim = (key: string, level = 5, extra: object = {}) => {
+  const xp = (level - 1) * XP_PER_LEVEL;
+  return { key, xp, quotaPct: 60, profile: { coins: 100, cards: 5, items: 0, xp, tokens: xp + 1e6 }, ...extra };
+};
 
 async function league(w: World) {
   const created = await w.call('tokA', 'POST', '/leagues', { name: 'Pallet Town' });
@@ -172,16 +176,149 @@ test('the daily total stops a player at 10 challenges', async () => {
   await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8));
   await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 8));
   await w.call('tokC', 'PUT', '/fighter', claim('base1-58', 8));
-  const rivals = [2, 2, 3, 3];
-  for (const r of rivals) { assert.equal((await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: r })).status, 200); }
-  // Fill the rest of the day with older rows to reach the limit without needing more rivals.
-  for (let i = 0; i < 6; i++) {
-    await w.d.db.query(`insert into duels (league_id, challenger, defender, seed, battle_version, a, b, winner, elo_change, rounds, log, created_at)
-      values ($1, 1, 2, 1, $2, '{}', '{}', 'a', 1, 1, '[]', $3)`, [id, BATTLE_VERSION, new Date(w.clock.t).toISOString()]);
-  }
+  // Pretend the day's total is already spent: the limit now reads the counter, not the duels table.
+  const day = new Date(Math.floor(w.clock.t / DAY) * DAY).toISOString().slice(0, 10);
+  await w.d.db.query('insert into duel_quota (challenger, defender, day, n) values (1, 0, $1, $2)', [day, DAILY_DUELS]);
   const last = await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 3 });
   assert.equal(last.status, 429);
   assert.equal(last.body.error, 'daily-limit');
+});
+
+test('the per-rival limit holds even when the duels are fired all at once (the old count-then-insert race is gone)', async () => {
+  const w = await world();
+  const { id } = await league(w);
+  await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8));
+  await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 8));
+  const burst = await Promise.all(Array.from({ length: 12 }, () => w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 })));
+  const ok = burst.filter(r => r.status === 200).length;
+  assert.equal(ok, DAILY_PER_RIVAL, `only ${DAILY_PER_RIVAL} should go through, not ${ok}`);
+  assert.ok(burst.some(r => r.status === 429 && r.body.error === 'rival-limit'));
+  const saved = Number((await w.d.db.query<{ n: number }>('select count(*)::int as n from duels where challenger = 1'))[0].n);
+  assert.equal(saved, DAILY_PER_RIVAL, 'and no extra duels were saved');
+});
+
+test('leaving a league and rejoining keeps your Elo and record (you cannot wipe losses by leaving)', async () => {
+  const w = await world();
+  const { id, code } = await league(w);
+  await w.call('tokA', 'PUT', '/fighter', claim('base1-58', 1));   // weak
+  await w.call('tokB', 'PUT', '/fighter', claim('base1-4', 8));    // strong, so tokA's Elo moves
+  await w.call('tokB', 'POST', `/leagues/${id}/duel`, { rival: 1 });
+  await w.call('tokB', 'POST', `/leagues/${id}/duel`, { rival: 1 });
+  const me = async () => (await w.call('tokA', 'GET', `/leagues/${id}`)).body.members.find((m: any) => m.you);
+  const before = await me();
+  assert.equal(before.wins + before.losses, 2);
+  assert.notEqual(before.elo, 1000, 'two duels have moved the Elo away from the start');
+
+  assert.equal((await w.call('tokA', 'DELETE', `/leagues/${id}`)).status, 200);   // leave
+  assert.equal((await w.call('tokA', 'POST', '/leagues/join', { code })).status, 200);   // rejoin
+  const after = await me();
+  assert.equal(after.elo, before.elo, 'Elo is restored, not reset to 1000');
+  assert.equal(after.wins, before.wins);
+  assert.equal(after.losses, before.losses);
+});
+
+const godSave = { profile: { coins: 9e8, cards: 3000, xp: 2e9, tokens: 5e6 } };
+const bustedList = async (w: World, who: string, id: number) =>
+  ((await w.call(who, 'GET', `/leagues/${id}`)).body.members as any[]).filter(m => m.busted).map(m => m.login);
+
+test('an impossible save report flags the player BUSTED, drops them to the bottom, and a majority pardon lifts it in that league', async () => {
+  const w = await world();
+  const { id } = await league(w);   // tokA (owner), tokB, tokC
+  await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 5));
+  await w.call('tokC', 'PUT', '/fighter', claim('base1-58', 5));
+  const r = await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, godSave));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.busted, true);
+
+  const board = await w.call('tokB', 'GET', `/leagues/${id}`);
+  assert.equal(board.body.members.at(-1).login, 'ash', 'the cheater is sorted last');
+  assert.equal(board.body.members.at(-1).busted, true);
+  assert.equal(board.body.pardonNeed, 2, 'a majority of the other two members');
+
+  const first = await w.call('tokB', 'POST', `/leagues/${id}/pardon`, { subject: 1 });
+  assert.deepEqual([first.body.pardoned, first.body.votes], [false, 1]);
+  const second = await w.call('tokC', 'POST', `/leagues/${id}/pardon`, { subject: 1 });
+  assert.equal(second.body.pardoned, true);
+  assert.deepEqual(await bustedList(w, 'tokB', id), []);
+});
+
+test('a pardon only counts in the league that gave it (an alt cannot clean you everywhere)', async () => {
+  const w = await world();
+  const { id } = await league(w);                                    // league 1: tokA, tokB, tokC
+  const other = (await w.call('tokB', 'POST', '/leagues', { name: 'Viridian' })).body.league;
+  await w.call('tokA', 'POST', '/leagues/join', { code: other.code });   // league 2: tokB, tokA
+  await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, godSave));
+  await w.call('tokB', 'POST', `/leagues/${id}/pardon`, { subject: 1 });
+  await w.call('tokC', 'POST', `/leagues/${id}/pardon`, { subject: 1 });
+  assert.deepEqual(await bustedList(w, 'tokB', id), [], 'cleared where the members vouched for them');
+  assert.deepEqual(await bustedList(w, 'tokB', other.id), ['ash'], 'still BUSTED in the other league');
+});
+
+test('pardon votes from someone who has left the league do not count', async () => {
+  const w = await world();
+  const { id } = await league(w);
+  await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, godSave));
+  await w.call('tokB', 'POST', `/leagues/${id}/pardon`, { subject: 1 });
+  const tally = async () => (await w.call('tokC', 'GET', `/leagues/${id}`)).body.members.find((m: any) => m.login === 'ash').bustVotes;
+  assert.equal(await tally(), 1);
+  await w.call('tokB', 'DELETE', `/leagues/${id}`);
+  assert.equal(await tally(), 0, 'tokB left, so the vote went with them');
+});
+
+test('a BUSTED player cannot challenge, and cannot be challenged, in a league that has not pardoned them', async () => {
+  const w = await world();
+  const { id } = await league(w);
+  await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 5));
+  await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, godSave));
+  assert.equal((await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 })).body.error, 'busted');
+  assert.equal((await w.call('tokB', 'POST', `/leagues/${id}/duel`, { rival: 1 })).body.error, 'rival-busted');
+});
+
+test('an honest veteran with a long history is not BUSTED, neither on the first report nor after being reborn', async () => {
+  const w = await world();
+  await league(w);
+  const veteran = { profile: { coins: 300, cards: 40, items: 5, xp: 3e6, tokens: 200e6 } };
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 5, veteran))).body.busted, false);
+  assert.equal((await w.call('tokA', 'POST', '/me/reborn')).status, 200);
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 1, { profile: { coins: 0, cards: 1, items: 0, xp: 0, tokens: 200e6 } }))).body.busted, false);
+});
+
+test('being reborn clears BUSTED, but a save that was not really reset is flagged again at once', async () => {
+  const w = await world();
+  const { id } = await league(w);
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, godSave))).body.busted, true);
+  assert.equal((await w.call('tokA', 'POST', '/me/reborn')).status, 200);
+  assert.deepEqual(await bustedList(w, 'tokB', id), []);
+  // a genuine reset (near-zero) stays clean
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 2, { profile: { coins: 0, cards: 1, items: 0, xp: XP_PER_LEVEL, tokens: 0 } }))).body.busted, false);
+  // growing the save beyond what the time allows trips it again (the new baseline is the reset one)
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, godSave))).body.busted, true);
+  // and so does a reborn that did not wipe anything
+  assert.equal((await w.call('tokA', 'POST', '/me/reborn')).status, 200);
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, godSave))).body.busted, true);
+});
+
+test('a slow edit is caught too: each report is measured from the last accepted one', async () => {
+  const w = await world();
+  await league(w);
+  const at = (coins: number) => claim('base1-4', 5, { profile: { coins, cards: 5, items: 0, xp: 1.6e6, tokens: 2.6e6 } });
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', at(100))).body.busted, false);
+  w.clock.t += 20 * DAY;
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', at(500_000))).body.busted, false, 'honest growth over 20 days');
+  w.clock.t += 60_000;
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', at(9e8))).body.busted, true, 'then a jump a minute later');
+});
+
+test('a report with less than before never busts; a fighter with no profile is refused; a fighter bigger than the save is BUSTED', async () => {
+  const w = await world();
+  const { id } = await league(w);
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 5, { profile: { coins: 400, cards: 20, items: 0, xp: 3e6, tokens: 4e6 } }))).body.busted, false);
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 5, { profile: { coins: 0, cards: 1, items: 0, xp: 3e6, tokens: 4e6 } }))).body.busted, false);
+  const none = await w.call('tokA', 'PUT', '/fighter', { key: 'base1-4', xp: 3 * XP_PER_LEVEL, quotaPct: 60 });
+  assert.deepEqual([none.status, none.body.error], [426, 'update-required'], 'an old client that sends no profile');
+  assert.deepEqual(await bustedList(w, 'tokA', id), []);
+  // a fighter with 20M XP out of a save that totals 1M cannot be real
+  assert.equal((await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 50, { profile: { coins: 0, cards: 1, items: 0, xp: 1e6, tokens: 30e6 } }))).body.busted, true);
 });
 
 test('the public ranking page: reachable with the invite code, with logins and results only', async () => {
