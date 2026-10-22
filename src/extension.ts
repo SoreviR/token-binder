@@ -25,6 +25,8 @@ import { BATTLE_VERSION, Fighter, effectiveness, estimateWin, factorGaps, simula
 import { LeagueClient } from './online/client';
 import { LeagueController } from './online/controller';
 import { LEADERS, LEADER_BY_ID, REMATCH_DAILY_CAP, battleOf, dayKey, leaderFighter, leaderUnlocked, playerFighter, recordBattle, setFighter } from './game/leaders';
+import { GOALS, checkGoals, progressOf } from './game/goals';
+import { noteRecap, recapView } from './game/recap';
 import { MishapResult, ROCKET, dryCard, overageMishap, recordRocketBattle } from './game/mishaps';
 import { PROTECTORS, Protector, applyWear, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading, wearChance } from './game/grading';
 
@@ -163,6 +165,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
         lastEvolveTry = now;
         try { events.push(...await resolveDue(state, lifetime, mult, tcg.findNext)); } catch (e) { log.appendLine(`[error] evolution: ${e}`); }
       }
+      events.push(...checkGoals(state, now));
+      noteRecap(state, events, now);
       await game.save(state);
 
       await alerts(start, pct);
@@ -180,7 +184,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
   async function onMessage(m: WebviewMessage, from: 'side' | 'album'): Promise<void> {
     if (!state) { return; }
     const target = from === 'album' ? album : provider;
-    if (m.type === 'openAlbum') { album.show(m.tab === 'items' ? 'items' : undefined); }
+    if (m.type === 'openAlbum') { album.show(['items', 'goals', 'battle'].includes(m.tab as string) ? (m.tab as string) : undefined); }
+    else if (m.type === 'dismissRecap') { delete state.recap; await game.save(state); await tick(true); }
+    else if (m.type === 'tourDone') { state.tour = true; await game.save(state); await tick(true); }
     else if (m.type === 'openPack') { await openPack(m.kind === 'premium' || m.kind === 'ball' ? m.kind : 'pack'); }
     else if (m.type === 'buy' && typeof m.item === 'string') {
       if (buy(state, m.item as Item)) { await game.save(state); await tick(true); }
@@ -445,8 +451,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
       ...await cardView(o.card, 'low', false, p => album.uri(p)), count: o.count, firstAt: o.firstAt,
     })));
     return {
-      lang: lang(), items: s.items, boxes: s.boxes, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      lang: lang(), sound: cfg().get<boolean>('sound.enabled', false), items: s.items, boxes: s.boxes, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade) * conditionMultiplier(o.wear, o.grade, o.soaked), 0)),
+      goals: GOALS.map(g => ({ id: g.id, goal: g.goal, value: progressOf(s, g), reward: g.reward, done: s.goals?.[g.id] })),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };
   }
@@ -520,6 +527,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       daily: agg.daily,
       boxes: s.boxes, items: s.items, packs: s.packs, premium: s.premium, balls: s.balls, nextPack: nextPackProgress(s, lifetime, every),
       coins: Math.floor(s.coins), pace, shop, perDay: usage.tokensSince(Date.now() - 7 * 864e5) / 7,
+      sound: cfg().get<boolean>('sound.enabled', false), tour: s.tour !== false, recap: recapView(s), fighter: !!s.fighter, goalsDone: GOALS.filter(g => s.goals?.[g.id]).length, goalsTotal: GOALS.length,
       slots, recent, albumUnique: owned.length, albumTotal: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
     };
   }

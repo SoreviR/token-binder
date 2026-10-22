@@ -22,6 +22,7 @@
   "config.language": "Idioma de la interfaz de TokenBinder.",
   "command.checkForUpdates": "Buscar actualizaciones",
   "config.updates.check": "Buscar en GitHub una vez al día si hay una versión nueva de TokenBinder y ofrecer instalarla (nunca instala sin preguntar). Desactívalo para que no haga estas consultas.",
+  "config.sound.enabled": "Reproduce efectos de sonido cortos al abrir sobres, combatir y conseguir metas. Desactivado por defecto.",
   "config.mishaps.enabled": "Activa los percances por pasarte del cupo mensual: Team Rocket roba una carta sobrante (60 %, recupérala en un combate), tropiezas y pierdes copias sobrantes (30 %), o la lluvia empapa algunas cartas (10 %; las fundas y las slabs las mantienen secas, un Charmandryer salva una empapada). Las cartas en las que has invertido nunca se pierden. Desactivado por defecto; necesita que hayas fijado tu propio límite mensual, y el primer periodo tras activarlo es gratis.",
   "command.deleteOnlineData": "Borrar mis datos online (ligas)",
   "config.online.enabled": "Activa las ligas online: duelos contra amigos y un ranking compartido. Desactivado por defecto. Al activarlo te pregunta antes y luego entras con tu cuenta de GitHub de VS Code; el servidor solo recibe tu usuario de GitHub, tu carta de combate, más o menos cuánta cuota has gastado y los resultados de tus duelos.",

@@ -147,6 +147,9 @@ export interface GameState {
   items: Partial<Record<ItemId, number>>;   // item inventory
   mishapPeriod?: number;  // quota period in which the mishap for going over 100% already happened
   stolen?: Owned[];       // cards Team Rocket took, oldest first: each win against them brings one back
+  goals?: Record<string, number>;   // goals reached (id → when); missing in saves from before goals existed
+  recap?: { since: number; coins0: number; ev: string[] };   // events since the player last dismissed the "since last time" card
+  tour?: boolean;         // the first-use guide was seen
 }
 
 /* ───────── Packs ───────── */
@@ -260,13 +263,14 @@ export function newState(lifetime: number): GameState {
   // A welcome pack so there is something to open from the very first moment.
   return {
     v: 2, baseline: lifetime, packsGranted: 0, packs: 1, premium: 0, balls: 0, collection: {}, slots: [null], mastered: 0,
-    bonusPeriod: 0, coins: 0, lastLifetime: lifetime, luck: 0, boxes: 0, items: {}, battle: newBattleRecord(),
+    bonusPeriod: 0, coins: 0, lastLifetime: lifetime, luck: 0, boxes: 0, items: {}, battle: newBattleRecord(), goals: {}, tour: false,
   };
 }
 
 /** Fills in the fields added in newer versions to a previously saved state (without giving retroactive coins). */
 export function normalize(s: GameState, lifetime: number): GameState {
   s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime; s.boxes ??= 0; s.items ??= {}; s.battle ??= newBattleRecord(); s.battle.daily.xpFights ??= 0;
+  s.tour ??= Object.keys(s.collection).length > 0;   // players who already have cards do not need the guide
   for (const o of Object.values(s.collection)) { o.xp ??= 0; }
   // Cards that were already training receive the XP of everything trained so far (since they entered the slot).
   for (const t of s.slots) { if (t) { t.last ??= t.born; } }

@@ -156,8 +156,49 @@ window.PT = (function () {
   // Which item turns a card into which transformed form (the same table the host uses).
   const TRANSFORM_ITEM = { mega: 'mega-stone', vmax: 'dynamax-band', vstar: 'star-core', tera: 'tera-orb' };
 
+  /* ───── sound effects: synthesized with Web Audio (no files), only when tokenBinder.sound.enabled is on ───── */
+  let soundOn = false, audio = null;
+  const setSound = on => { soundOn = !!on; };
+  function tone(freq, dur, o = {}) {
+    const t0 = audio.currentTime + (o.at || 0), osc = audio.createOscillator(), gain = audio.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    if (o.to) osc.frequency.exponentialRampToValueAtTime(o.to, t0 + dur);
+    gain.gain.setValueAtTime(o.vol || 0.06, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain).connect(audio.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.02);
+  }
+  function noise(dur, vol) {
+    const n = Math.floor(audio.sampleRate * dur), buf = audio.createBuffer(1, n, audio.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+    const src = audio.createBufferSource(), gain = audio.createGain();
+    gain.gain.value = vol; src.buffer = buf; src.connect(gain).connect(audio.destination); src.start();
+  }
+  const run = (notes, step, o) => notes.forEach((f, i) => tone(f, 0.16, { ...o, at: i * step }));
+  const SFX = {
+    flip: () => tone(660, 0.07, { type: 'triangle' }),
+    pack: () => run([392, 523, 659], 0.08, { type: 'triangle' }),
+    rare: () => run([523, 659, 784, 1047], 0.09, { type: 'triangle', vol: 0.07 }),
+    hit: () => { noise(0.1, 0.07); tone(150, 0.12, { type: 'square', to: 60, vol: 0.05 }); },
+    crit: () => { noise(0.16, 0.1); tone(220, 0.2, { type: 'sawtooth', to: 70, vol: 0.06 }); tone(1200, 0.08, { at: 0.02, vol: 0.04 }); },
+    miss: () => tone(320, 0.18, { to: 140, vol: 0.03 }),
+    win: () => run([523, 659, 784, 1047], 0.11, { type: 'square', vol: 0.04 }),
+    lose: () => run([392, 330, 262, 196], 0.14, { type: 'triangle', vol: 0.05 }),
+    goal: () => run([784, 988, 1319], 0.1, { type: 'sine', vol: 0.06 }),
+    level: () => run([523, 784], 0.09, { type: 'triangle' }),
+  };
+  function sfx(name) {
+    if (!soundOn || !SFX[name]) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      if (audio.state === 'suspended') audio.resume();
+      SFX[name]();
+    } catch (e) { /* no audio available: stay silent */ }
+  }
+
   const TYPE_ICON = { Fire: '🔥', Water: '💧', Grass: '🍃', Lightning: '⚡', Psychic: '🔮', Fighting: '🥊', Darkness: '🌑', Metal: '⚙️', Dragon: '🐉', Fairy: '✨', Colorless: '⚪' };
   const typeName = x => t('type.' + x);
 
-  return { TCOLOR, TYPE_ICON, typeName, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM, slabEl, marksEl };
+  return { TCOLOR, TYPE_ICON, typeName, setSound, sfx, fmt, el, badge, cardEl, press, info, eta, statsEl, marketEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc, TRANSFORM_ITEM, slabEl, marksEl };
 })();

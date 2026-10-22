@@ -22,6 +22,7 @@
   "config.language": "Language of the TokenBinder interface.",
   "command.checkForUpdates": "Check for updates",
   "config.updates.check": "Check GitHub once a day for a newer TokenBinder release and offer to install it (never installs without asking). Turn off to stop these requests.",
+  "config.sound.enabled": "Play short sound effects when you open packs, fight and reach goals. Off by default.",
   "config.mishaps.enabled": "Turn on the mishaps of going over your monthly quota: Team Rocket steals a spare card (60%, win it back in a battle), you trip and drop spare copies (30%), or the rain soaks some cards (10%; sleeves and slabs keep cards dry, a Charmandryer saves a soaked one). Cards you invested in are never lost. Off by default; it needs your own monthly limit set, and the first quota period after turning it on is free.",
   "command.deleteOnlineData": "Delete my online data (leagues)",
   "config.online.enabled": "Turn on the online leagues: duels against friends and a shared ranking. Off by default. Turning it on asks first and then signs you in with your GitHub account in VS Code; the server only receives your GitHub login, your battle card, roughly how much of your quota you have used and your duel results.",

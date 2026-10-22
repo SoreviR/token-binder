@@ -1,6 +1,6 @@
 (function () {
   const vscode = acquireVsCodeApi();
-  const { TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc } = window.PT;
+  const { setSound, sfx, TCOLOR, fmt, el, badge, cardEl, press, info, eta, statsEl, t, setLang, eraName, variantName, itemIcon, itemName, itemDesc } = window.PT;
   const app = document.getElementById('app');
   const overlay = document.getElementById('overlay');
 
@@ -53,6 +53,7 @@
     const list = arr => arr.length ? arr.map(m => row(m.name, fmt(m.total))) : [el('div', { class: 'sub', text: t('nodata') })];
 
     app.replaceChildren(
+      ...[tourBox(), recapBox(), nextBox()].filter(Boolean),
       box(t('quota.title'), row(fmt(d.used) + unit, t('quota.of', q.toFixed(1), fmt(d.limit))),
         bar(q, q >= 100 ? 'err' : q >= 80 ? 'warn' : ''), row(t('quota.today'), fmt(d.today.total)), row(t('quota.month'), fmt(d.month.total))),
       packBox,
@@ -67,6 +68,48 @@
     if (q >= 80 && q < 100 && warned < 80) { warned = 80; toast(t('toast.warn', q.toFixed(0))); }
     if (q >= 100 && warned < 100) { warned = 100; toast(t('toast.quotaOut')); }
     if (q < 80) warned = 0;
+  }
+
+  /** First-use guide: three short steps, shown until the player dismisses it. */
+  function tourBox() {
+    if (S.tour) return null;
+    return box(t('tour.title'), ...['tour.s1', 'tour.s2', 'tour.s3'].map(k => el('div', { class: 'sub tourstep', text: t(k) })),
+      el('button', { class: 'btn', style: 'margin-top:8px', text: t('tour.ok'), onclick: () => send('tourDone') }));
+  }
+
+  /** What happened since the player last dismissed this card (packs, level ups, evolutions…). */
+  function recapBox() {
+    const r = S.recap;
+    if (!r) return null;
+    const lines = [];
+    if (r.packs) lines.push(t('recap.packs', r.packs));
+    if (r.coins) lines.push(t('recap.coins', r.coins));
+    if (r.levels.length) lines.push(t('recap.levels', r.levels.join(', ')));
+    if (r.evolved.length) lines.push(t('recap.evolved', r.evolved.join(', ')));
+    if (r.graduated.length) lines.push(t('recap.graduated', r.graduated.join(', ')));
+    if (r.graded) lines.push(t('recap.graded', r.graded));
+    if (r.goals.length) lines.push(t('recap.goals', r.goals.map(g => t('goal.' + g + '.name')).join(', ')));
+    if (!lines.length) return null;
+    return box(t('recap.title'), ...lines.map(x => el('div', { class: 'row' }, el('span', { text: x }))),
+      el('button', { class: 'btn ghost', style: 'margin-top:6px', text: t('recap.ok'), onclick: () => send('dismissRecap') }));
+  }
+
+  /** The one thing worth doing now, so it does not get lost among the boxes below. */
+  function nextBox() {
+    const d = S;
+    if (!d.tour) return null;   // the guide is showing
+    const kind = d.packs ? 'pack' : d.premium ? 'premium' : d.balls ? 'ball' : null;
+    const branching = d.slots.find(x => x && x.branches);
+    const affordable = d.shop.some(i => i.price !== null && d.coins >= i.price);
+    let text, btn;
+    if (branching) text = t('next.branch', branching.card.name);
+    else if (kind) { text = t('next.packs', d.packs + d.premium + d.balls); btn = [t('next.btn.open'), () => send('openPack', { kind })]; }
+    else if (d.albumUnique && freeSlot()) { text = t('next.train'); btn = [t('next.btn.album'), () => send('openAlbum')]; }
+    else if (d.boxes) { text = t('next.box', d.boxes); btn = [t('next.btn.open'), () => send('openBox')]; }
+    else if (d.albumUnique && !d.fighter) { text = t('next.fighter'); btn = [t('next.btn.album'), () => send('openAlbum', { tab: 'battle' })]; }
+    else if (affordable) { text = t('next.shop'); btn = [t('next.btn.shop'), () => { folds.shop = true; vscode.setState({ ...vscode.getState(), folds }); render(); }]; }
+    else text = t('next.idle');
+    return box(t('next.title'), el('div', { class: 'row' }, el('span', { text }), btn ? el('button', { class: 'btn', text: btn[0], onclick: btn[1] }) : null));
   }
 
   function slotView(s, perDay) {
@@ -123,14 +166,17 @@
     return box(t('album.title'),
       row(t('album.distinct', d.albumUnique), t('album.total', d.albumTotal)),
       row(t('album.lines'), String(d.mastered)),
+      row(t('goals.summary', d.goalsDone, d.goalsTotal), ''),
       recent,
-      el('button', { class: 'btn', style: 'width:100%;margin-top:8px', text: t('album.open'), onclick: () => send('openAlbum') }));
+      el('button', { class: 'btn', style: 'width:100%;margin-top:8px', text: t('album.open'), onclick: () => send('openAlbum') }),
+      el('button', { class: 'btn ghost', style: 'width:100%;margin-top:6px', text: t('goals.open'), onclick: () => send('openAlbum', { tab: 'goals' }) }));
   }
 
   function closeOverlay() { overlay.replaceChildren(); }
 
   /* ───── opening a pack ───── */
   function showOpening(kind) {
+    sfx('pack');
     overlay.replaceChildren(
       el('div', { class: 'hint', text: kind === 'ball' ? t('open.ball') : t('open.pack') }),
       el('div', { class: 'pack big shake' }, el('div', { class: 'ball' }), el('b', { text: 'BOOSTER' })));
@@ -145,6 +191,7 @@
       const back = press(el('div', { class: 'back', style: '--w:130px' }, el('div', { class: 'ball' })), () => flip(), t('reveal.flip'));
       function flip() {
         if (!back.isConnected) return;
+        sfx(c.tier >= 4 ? 'rare' : 'flip');
         const face = cardEl(c, 130); face.classList.add('reveal-in');
         back.replaceWith(face);
         cell.append(
@@ -181,13 +228,14 @@
         const [, grade, better, ...name] = e.split(':');
         toast(better === '1' ? t('toast.graded', name.join(':'), grade, t('grade.' + grade)) : t('toast.gradedSame', name.join(':'), grade, t('grade.' + grade)));
       }
-      else if (e.startsWith('level:')) { const [, name, lv] = e.split(':'); toast(t('toast.level', name, lv)); }
+      else if (e.startsWith('goal:')) sfx('goal'), toast(t('toast.goal', t('goal.' + e.slice(5) + '.name')));
+      else if (e.startsWith('level:')) { const [, name, lv] = e.split(':'); sfx('level'); toast(t('toast.level', name, lv)); }
     }
   }
 
   window.addEventListener('message', ev => {
     const m = ev.data || {};
-    if (m.type === 'state') { S = m.data; setLang(S.lang); render(); }
+    if (m.type === 'state') { S = m.data; setLang(S.lang); setSound(S.sound); render(); }
     else if (m.type === 'opening') showOpening(m.kind);
     else if (m.type === 'reveal') showReveal(m.cards);
     else if (m.type === 'boxOpened') showBox(m.item);

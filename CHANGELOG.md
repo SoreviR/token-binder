@@ -2,6 +2,15 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.16.0 - 2026-10-22
+
+- **Clearer battles:** a super effective hit shows ▲ and a not very effective one ▼ next to the damage; a critical hit flashes the arena and gets a beat of its own; fighters walk in at the start and the loser drops when the fight ends. The HP bar is also backed by an icon (♥ healthy, ⚠ hurt, ❗ critical, ☠ fainted) and is exposed to screen readers as a progress bar, so it does not depend on telling colours apart. Keyboard focus is visible on tabs, chips, thumbnails and buttons.
+- **Optional sound effects (off by default):** `tokenBinder.sound.enabled` plays short sounds when you flip a card or open a pack (rarer cards get a flourish), hit or miss in a fight, win or lose, level up and reach a goal. They are generated in the webview: there are no audio files.
+- **Goals tab:** 19 long-term goals (collection size, every type, rare finds, battle wins and streaks, gym badges, completed lines, card levels, graded cards…) with a progress bar and a reward (coins, mystery boxes or packs) the first time you reach each one. The side panel shows how many you have and links to the tab. Saves from before this version record the goals they already meet without paying for them.
+- **"Since last time" card:** the side panel keeps a summary of what happened (new packs, coins earned, level ups, evolutions, completed lines, graded cards, goals) until you dismiss it, instead of only showing toasts you may miss.
+- **Next step:** a box at the top of the side panel points at the one thing worth doing now (open your packs, choose an evolution, fill a training slot, open a mystery box, pick a battle card, spend your coins).
+- **First-use guide:** new players get a three-step welcome card. Players who already own cards do not see it.
+
 ## 1.15.0 - 2026-10-22
 
 - **Lighter side panel:** the shop, the daily chart and the usage by model are collapsible boxes (closed by default, the shop summary shows your coins and how many items you can afford); the panel remembers which ones you opened.

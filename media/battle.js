@@ -1,7 +1,7 @@
 // The "Battle" tab of the album: your fighter, the gym ladder, the animated 1v1 arena and the result explained.
 // The extension host simulates the fight and sends the whole log; this file only plays it back.
 window.PTBattle = (function () {
-  const { el, t, cardEl, marksEl, itemDesc, TYPE_ICON } = window.PT;
+  const { el, t, cardEl, marksEl, itemDesc, TYPE_ICON, sfx } = window.PT;
   const FACTORS = ['level', 'demand', 'rarity', 'stage', 'grade', 'tokens'];
   const typeIcons = types => (types || []).map(x => TYPE_ICON[x] || '').join(' ');
   const pct = f => (f >= 1 ? '+' : '−') + Math.abs(Math.round((f - 1) * 100)) + '%';
@@ -112,6 +112,7 @@ window.PTBattle = (function () {
   function side(f, cls) {
     const hpText = el('span', { class: 'hptext', text: f.hp + ' / ' + f.hp });
     const hp = bar(1, 'big');
+    hp.setAttribute('role', 'progressbar'); hp.setAttribute('aria-label', t('stats.hp') + ' ' + f.name); hp.setAttribute('aria-valuemin', '0'); hp.setAttribute('aria-valuemax', String(f.hp)); hp.setAttribute('aria-valuenow', String(f.hp));
     const card = cardEl({ name: f.name, tier: f.tier, src: f.src, variant: f.variant, care: f.care, grade: f.grade }, 170);
     const wrap = el('div', { class: 'arena-side ' + cls }, el('div', { class: 'arena-card' }, card),
       el('div', { class: 'row' }, el('b', { text: f.name }), el('span', { class: 'sub', text: t('stats.level', f.level) + ' ' + typeIcons(f.types) })), hp, hpText);
@@ -135,7 +136,12 @@ window.PTBattle = (function () {
     skipBtn.focus();
 
     const by = s => (s === 'a' ? me : foe), nameOf = s => (s === 'a' ? r.me.name : r.foe.name);
-    const setHp = (who, hp) => { const f = Math.max(0, hp / who.max); who.hp.style.width = (f * 100).toFixed(1) + '%'; who.hp.parentNode.dataset.level = f > 0.5 ? 'high' : f > 0.2 ? 'mid' : 'low'; who.hpText.textContent = Math.max(0, hp) + ' / ' + who.max; };
+    // The bar colour is backed by an icon and the numbers, so it does not rely on telling green from red.
+    const setHp = (who, hp) => {
+      const f = Math.max(0, hp / who.max), level = f > 0.5 ? 'high' : f > 0.2 ? 'mid' : 'low';
+      who.hp.style.width = (f * 100).toFixed(1) + '%'; who.hp.parentNode.dataset.level = level; who.hp.parentNode.setAttribute('aria-valuenow', String(Math.max(0, hp)));
+      who.hpText.textContent = (hp <= 0 ? '☠' : level === 'high' ? '♥' : level === 'mid' ? '⚠' : '❗') + ' ' + Math.max(0, hp) + ' / ' + who.max;
+    };
     const line = (text, cls) => { logBox.append(el('div', { class: 'logline ' + (cls || ''), text })); while (logBox.children.length > 7) logBox.firstChild.remove(); logBox.scrollTop = logBox.scrollHeight; };
 
     /** The move's effect, drawn over the arena between the two cards. A miss flies past the target. */
@@ -186,7 +192,10 @@ window.PTBattle = (function () {
         timers.push(setTimeout(() => {
           setHp(me, ev.hp.a); setHp(foe, ev.hp.b);
           if (ev.dmg > 0) { target.card.classList.add('hit'); timers.push(setTimeout(() => target.card.classList.remove('hit'), 350 / speed)); if (ev.crit) arena.classList.add('quake'); timers.push(setTimeout(() => arena.classList.remove('quake'), 350 / speed)); }
-          const pop = el('div', { class: 'dmg' + (ev.crit ? ' crit' : '') + (ev.miss ? ' miss' : ''), text: ev.miss ? t('battle.missShort') : '−' + ev.dmg });
+          const mark = ev.miss ? '' : ev.eff === 'weak' ? ' ▲' : ev.eff === 'resist' ? ' ▼' : '';   // super effective / not very effective, as in the games
+          const pop = el('div', { class: 'dmg' + (ev.crit ? ' crit' : '') + (ev.miss ? ' miss' : '') + (ev.eff && !ev.miss ? ' eff-' + ev.eff : ''), text: ev.miss ? t('battle.missShort') : '−' + ev.dmg + mark });
+          sfx(ev.miss ? 'miss' : ev.crit ? 'crit' : 'hit');
+          if (ev.crit && !ev.miss) { arena.classList.add('flash'); timers.push(setTimeout(() => arena.classList.remove('flash'), 260 / speed)); }
           target.card.append(pop); timers.push(setTimeout(() => pop.remove(), 900 / speed));
         }, still ? 0 : IMPACT_DELAY / speed));
       }
@@ -201,6 +210,7 @@ window.PTBattle = (function () {
       if (skipped) { for (; i < r.log.length; i++) { const ev = r.log[i]; if (ev.t === 'attack') applyAttack(ev, false); } }
       setHp(me, r.log[r.log.length - 1].hp.a); setHp(foe, r.log[r.log.length - 1].hp.b);
       (r.won ? foe : me).card.classList.add('fainted');
+      sfx(r.won ? 'win' : 'lose');
       speedBtn.remove(); skipBtn.remove();
       resultBox.replaceChildren(...result(r));
       resultBox.querySelector('.btn')?.focus();
@@ -210,7 +220,7 @@ window.PTBattle = (function () {
       if (finished) return;
       if (i >= r.log.length) return finish(false);
       const ev = r.log[i++];
-      if (ev.t === 'attack') { applyAttack(ev, true); timers.push(setTimeout(next, 900 / speed)); }
+      if (ev.t === 'attack') { applyAttack(ev, true); timers.push(setTimeout(next, (ev.crit && !ev.miss ? 1350 : 900) / speed)); }   // a critical hit gets a beat of its own
       else if (ev.t === 'end') finish(false);
       else next();
     }

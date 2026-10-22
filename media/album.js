@@ -67,18 +67,22 @@
   const tabBattle = el('button', { class: 'tab', onclick: () => showTab('battle') });
   const tabLeague = el('button', { class: 'tab', onclick: () => showTab('league') });
   const leagueView = el('div', { style: 'display:none' });
+  const tabGoals = el('button', { class: 'tab', onclick: () => showTab('goals') });
+  const goalsView = el('div', { style: 'display:none' });
   function showTab(name) {
     tab = name;
     albumView.style.display = name === 'album' ? '' : 'none';
     itemsView.style.display = name === 'items' ? '' : 'none';
     battleView.style.display = name === 'battle' ? '' : 'none';
     leagueView.style.display = name === 'league' ? '' : 'none';
+    goalsView.style.display = name === 'goals' ? '' : 'none';
+    tabGoals.classList.toggle('on', name === 'goals');
     tabAlbum.classList.toggle('on', name === 'album'); tabItems.classList.toggle('on', name === 'items'); tabBattle.classList.toggle('on', name === 'battle'); tabLeague.classList.toggle('on', name === 'league');
     if (name === 'league') send('leagueOpen');
     if (name !== 'album') closeViewer();
   }
   albumView.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), sellAll), dock, el('div', { class: 'toolbar' }, search, eraSel, typeSel, condSel, gearSel, sorter), chips, grid);
-  app.append(el('div', { class: 'tabs', role: 'tablist' }, tabAlbum, tabItems, tabBattle, tabLeague), albumView, itemsView, battleView, leagueView);
+  app.append(el('div', { class: 'tabs', role: 'tablist' }, tabAlbum, tabItems, tabBattle, tabGoals, tabLeague), albumView, itemsView, battleView, goalsView, leagueView);
   window.PTBattle.init({ root: battleView, stage: document.getElementById('stage'), send });
   window.PTLeague.init({ root: leagueView, send });
 
@@ -88,6 +92,7 @@
     tabItems.textContent = t('tab.items');
     tabBattle.textContent = t('tab.battle');
     tabLeague.textContent = t('tab.league');
+    tabGoals.textContent = t('tab.goals');
     sellAll.textContent = t('album.sellAll');
     sellAll.title = t('album.sellAllTip');
     search.placeholder = t('album.searchPlaceholder');
@@ -223,6 +228,7 @@
 
   function render() {
     setLang(D.lang);
+    window.PT.setSound(D.sound);
     labelToolbar();
     window.PTBattle.setData(D.battle);
     summary.textContent = t('album.summary', D.unique, D.total, D.mastered) + (D.value ? t('album.value', D.value.toLocaleString(D.lang)) : '');
@@ -233,6 +239,7 @@
     renderChips();
     renderGrid();
     renderItems();
+    renderGoals();
     if (viewing) { if (D.album.find(c => c.id === viewing)) openViewer(viewing, true); else closeViewer(); }
   }
 
@@ -251,6 +258,20 @@
         el('div', { class: 'igrid' }, ids.map(id => el('div', { class: 'icard' },
           el('div', { class: 'ic-top' }, el('div', { class: 'ic-icon', text: itemIcon(id) }), el('div', { class: 'ic-name', text: itemName(id) }), el('span', { class: 'ic-n', text: '×' + have(id) })),
           el('div', { class: 'ic-desc', text: itemDesc(id) })))))));
+  }
+
+  /* ───── goals tab: long-term targets with progress and the reward they pay ───── */
+  const rewardText = r => [r.coins ? '🪙 ' + r.coins : '', r.boxes ? '🎁 ' + r.boxes : '', r.packs ? '📦 ' + r.packs : ''].filter(Boolean).join('  ');
+  function renderGoals() {
+    const goals = D.goals || [];
+    const done = goals.filter(g => g.done).length;
+    goalsView.replaceChildren(
+      el('div', { class: 'albumhead' }, el('div', {}, el('h2', { text: t('goals.title') }), el('div', { class: 'sub', text: t('goals.progress', done, goals.length) }))),
+      el('div', { class: 'igrid' }, goals.map(g => el('div', { class: 'icard goal' + (g.done ? ' done' : '') },
+        el('div', { class: 'ic-top' }, el('div', { class: 'ic-icon', text: g.done ? '🏆' : '🎯' }), el('div', { class: 'ic-name', text: t('goal.' + g.id + '.name') }), el('span', { class: 'ic-n', text: g.done ? t('goals.done') : rewardText(g.reward) })),
+        el('div', { class: 'ic-desc', text: t('goal.' + g.id + '.desc') }),
+        el('div', { class: 'barwrap lv' }, el('i', { style: 'width:' + (g.value / g.goal * 100).toFixed(1) + '%' })),
+        el('div', { class: 'sub', text: g.value + ' / ' + g.goal })))));
   }
 
   function showBox(id) {
