@@ -8,7 +8,7 @@ import { getCard } from './cards';
 import type { Db } from './db';
 import {
   DAILY_DUELS, DAILY_PER_RIVAL, MAX_JOINED_LEAGUES, MAX_MEMBERS, MAX_OWNED_LEAGUES,
-  checkClaim, cleanLeagueName, eloDelta, inviteCode, isImplausible, isImplausibleFirst, normalizeCode, readProfile,
+  SEASON_PODIUM, checkClaim, cleanLeagueName, eloDelta, inviteCode, isImplausible, isImplausibleFirst, normalizeCode, readProfile, seasonEnd, seasonOf, softElo,
 } from './rules';
 
 export interface Deps { db: Db; now: () => number; rng: () => number; fetchJson: FetchJson; secret: string }
@@ -79,7 +79,7 @@ export async function createLeague(d: Deps, pid: number, rawName: unknown): Prom
   if (await countJoined(d, pid) >= MAX_JOINED_LEAGUES) { return fail('too-many-joined'); }
   for (let attempt = 0; attempt < 8; attempt++) {
     const code = inviteCode(d.rng);
-    const row = await d.db.query<{ id: number }>('insert into leagues (name, code, owner, created_at) values ($1, $2, $3, $4) on conflict (code) do nothing returning id', [name, code, pid, iso(d.now())]);
+    const row = await d.db.query<{ id: number }>('insert into leagues (name, code, owner, created_at, season) values ($1, $2, $3, $4, $5) on conflict (code) do nothing returning id', [name, code, pid, iso(d.now()), seasonOf(d.now())]);
     if (!row[0]) { continue; }
     const id = num(row[0].id);
     await d.db.query('insert into members (league_id, player_id, joined_at) values ($1, $2, $3)', [id, pid, iso(d.now())]);
@@ -223,9 +223,53 @@ interface FighterRow { player_id: number; card_key: string; xp: number; grade: n
 const fighterRow = async (d: Deps, pid: number): Promise<FighterRow | undefined> =>
   (await d.db.query<FighterRow>('select player_id, card_key, xp, grade, held, quota_pct from fighters where player_id = $1', [pid]))[0];
 
+/* ───── seasons ───── */
+
+export interface SeasonView { id: string; endsAt: string }
+export interface Podium { season: string; entries: { rank: number; login: string; elo: number; wins: number; losses: number }[] }
+const seasonView = (now: number): SeasonView => ({ id: seasonOf(now), endsAt: iso(seasonEnd(now)) });
+
+/**
+ * Moves a league to the current month. Whoever flips `leagues.season` first (one guarded UPDATE, so concurrent requests cannot both
+ * do it) archives the finished season's podium and pulls everyone's Elo halfway back to the start with a clean record. Players
+ * flagged BUSTED, and players who never fought, do not make the podium. A league from before seasons (no season yet) just adopts the
+ * current one, and a league that sat idle for months archives only the last season it played.
+ */
+async function rollSeason(d: Deps, leagueId: number): Promise<void> {
+  const cur = seasonOf(d.now());
+  const flipped = await d.db.query<{ prev: string | null }>(
+    `with old as (select season from leagues where id = $2)
+     update leagues set season = $1 where id = $2 and season is distinct from $1 returning (select season from old) as prev`, [cur, leagueId]);
+  const prev = flipped[0]?.prev;
+  if (!flipped[0] || !prev) { return; }
+  const top = await d.db.query<{ player_id: number; login: string; elo: number; wins: number; losses: number }>(
+    `select m.player_id, p.login, m.elo, m.wins, m.losses from members m join players p on p.id = m.player_id
+      where m.league_id = $1 and not (p.busted and not m.pardoned) and m.wins + m.losses > 0
+      order by m.elo desc, m.wins desc, p.login limit $2`, [leagueId, SEASON_PODIUM]);
+  for (let i = 0; i < top.length; i++) {
+    const r = top[i];
+    await d.db.query(
+      'insert into league_seasons (league_id, season, rank, player_id, login, elo, wins, losses) values ($1, $2, $3, $4, $5, $6, $7, $8) on conflict do nothing',
+      [leagueId, prev, i + 1, num(r.player_id), r.login, num(r.elo), num(r.wins), num(r.losses)]);
+  }
+  for (const table of ['members', 'member_stats']) {
+    const rows = await d.db.query<{ player_id: number; elo: number }>(`select player_id, elo from ${table} where league_id = $1`, [leagueId]);
+    for (const r of rows) { await d.db.query(`update ${table} set elo = $1, wins = 0, losses = 0 where league_id = $2 and player_id = $3`, [softElo(num(r.elo)), leagueId, num(r.player_id)]); }
+  }
+}
+
+/** The podium of the last finished season of a league, if there has been one. */
+async function podium(d: Deps, leagueId: number): Promise<Podium | null> {
+  const last = (await d.db.query<{ season: string }>('select season from league_seasons where league_id = $1 order by season desc limit 1', [leagueId]))[0];
+  if (!last) { return null; }
+  const rows = await d.db.query<{ rank: number; login: string; elo: number; wins: number; losses: number }>(
+    'select rank, login, elo, wins, losses from league_seasons where league_id = $1 and season = $2 order by rank', [leagueId, last.season]);
+  return { season: last.season, entries: rows.map(r => ({ rank: num(r.rank), login: r.login, elo: num(r.elo), wins: num(r.wins), losses: num(r.losses) })) };
+}
+
 /* ───── the league board ───── */
 
-export interface MemberView { id: number; login: string; elo: number; wins: number; losses: number; fighter?: FighterView; you: boolean; busted: boolean; bustVotes?: number; youPardoned?: boolean }
+export interface MemberView { id: number; login: string; elo: number; wins: number; losses: number; fighter?: FighterView; you: boolean; busted: boolean; crowns: number; bustVotes?: number; youPardoned?: boolean }
 export interface DuelLine { id: number; challenger: string; defender: string; winner: string; rounds: number; eloChange: number; at: string; you?: 'challenger' | 'defender' }
 
 async function recentDuels(d: Deps, leagueId: number, limit: number, pid?: number): Promise<DuelLine[]> {
@@ -242,14 +286,15 @@ async function recentDuels(d: Deps, leagueId: number, limit: number, pid?: numbe
 
 async function membersOf(d: Deps, leagueId: number, me?: number): Promise<MemberView[]> {
   // Busted players are forced to the bottom of the ranking, whatever their Elo.
-  const rows = await d.db.query<{ id: number; login: string; busted: boolean; elo: number; wins: number; losses: number; card_key: string | null; xp: number | null; grade: number | null; held: string | null; data: any }>(
-    `select p.id, p.login, (p.busted and not m.pardoned) as busted, m.elo, m.wins, m.losses, f.card_key, f.xp, f.grade, f.held, c.data
+  const rows = await d.db.query<{ id: number; login: string; busted: boolean; elo: number; wins: number; losses: number; crowns: number; card_key: string | null; xp: number | null; grade: number | null; held: string | null; data: any }>(
+    `select p.id, p.login, (p.busted and not m.pardoned) as busted, m.elo, m.wins, m.losses, f.card_key, f.xp, f.grade, f.held, c.data,
+            (select count(*)::int from league_seasons s where s.league_id = m.league_id and s.player_id = p.id and s.rank = 1) as crowns
        from members m join players p on p.id = m.player_id
        left join fighters f on f.player_id = p.id
        left join cards c on c.id = split_part(f.card_key, '#', 1)
       where m.league_id = $1 order by (p.busted and not m.pardoned) asc, m.elo desc, m.wins desc, p.login`, [leagueId]);
   return rows.map(r => ({
-    id: num(r.id), login: r.login, busted: !!r.busted, elo: num(r.elo), wins: num(r.wins), losses: num(r.losses), you: me !== undefined && num(r.id) === me,
+    id: num(r.id), login: r.login, busted: !!r.busted, elo: num(r.elo), wins: num(r.wins), losses: num(r.losses), crowns: num(r.crowns), you: me !== undefined && num(r.id) === me,
     fighter: r.card_key && r.data ? {
       cardId: r.data.id, image: r.data.image, key: r.card_key, name: r.data.name, types: r.data.types ?? [], tier: r.data.tier,
       level: levelOf(num(r.xp)), grade: r.grade ?? undefined, held: r.held ?? undefined,
@@ -258,8 +303,9 @@ async function membersOf(d: Deps, leagueId: number, me?: number): Promise<Member
 }
 
 export async function leagueView(d: Deps, pid: number, leagueId: number):
-  Promise<Result<{ league: { id: number; name: string; code: string }; members: MemberView[]; duels: DuelLine[]; today: { used: number; max: number }; pardonNeed: number }>> {
+  Promise<Result<{ league: { id: number; name: string; code: string }; members: MemberView[]; duels: DuelLine[]; today: { used: number; max: number }; pardonNeed: number; season: SeasonView; podium: Podium | null }>> {
   if (!(await isMember(d, leagueId, pid))) { return fail('not-member', 404); }
+  await rollSeason(d, leagueId);
   const l = (await d.db.query<{ id: number; name: string; code: string }>('select id, name, code from leagues where id = $1', [leagueId]))[0];
   const used = num((await d.db.query<{ n: number }>('select count(*)::int as n from duels where challenger = $1 and created_at >= $2', [pid, iso(startOfDay(d.now()))]))[0].n);
   const members = await membersOf(d, leagueId, pid);
@@ -278,16 +324,18 @@ export async function leagueView(d: Deps, pid: number, leagueId: number):
   return {
     ok: true, league: { id: num(l.id), name: l.name, code: l.code }, members,
     duels: await recentDuels(d, leagueId, 10, pid), today: { used, max: DAILY_DUELS }, pardonNeed: need,
+    season: seasonView(d.now()), podium: await podium(d, leagueId),
   };
 }
 
 /** For the web page: whoever has the invite code can read the ranking (logins and results only). */
-export async function publicLeague(d: Deps, rawCode: string): Promise<Result<{ name: string; members: Omit<MemberView, 'id' | 'you'>[]; duels: DuelLine[] }>> {
+export async function publicLeague(d: Deps, rawCode: string): Promise<Result<{ name: string; members: Omit<MemberView, 'id' | 'you'>[]; duels: DuelLine[]; season: SeasonView; podium: Podium | null }>> {
   const code = normalizeCode(rawCode);
   const l = code ? (await d.db.query<{ id: number; name: string }>('select id, name from leagues where code = $1', [code]))[0] : undefined;
   if (!l) { return fail('unknown-code', 404); }
+  await rollSeason(d, num(l.id));
   const members = (await membersOf(d, num(l.id))).map(({ id: _id, you: _you, ...m }) => m);
-  return { ok: true, name: l.name, members, duels: await recentDuels(d, num(l.id), 15) };
+  return { ok: true, name: l.name, members, duels: await recentDuels(d, num(l.id), 15), season: seasonView(d.now()), podium: await podium(d, num(l.id)) };
 }
 
 /* ───── duels ───── */
@@ -316,6 +364,7 @@ export async function challenge(d: Deps, pid: number, leagueId: number, rivalId:
   if (!Number.isInteger(rivalId) || rivalId === pid) { return fail('invalid-rival'); }
   if (!(await isMember(d, leagueId, pid))) { return fail('not-member', 404); }
   if (!(await isMember(d, leagueId, rivalId))) { return fail('rival-not-member', 404); }
+  await rollSeason(d, leagueId);
   if (await bustedIn(d, leagueId, pid)) { return fail('busted', 403); }
   if (await bustedIn(d, leagueId, rivalId)) { return fail('rival-busted', 403); }
   const mine = await fighterRow(d, pid);

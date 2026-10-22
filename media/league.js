@@ -57,6 +57,13 @@ window.PTLeague = (function () {
     return box(t('league.yourFighter'), ...rows);
   }
 
+  const MEDAL = ['🥇', '🥈', '🥉'];
+  /** "ends in 12 d" from the season's end date, or "ends today". */
+  function endsText(endsAt) {
+    const days = Math.ceil((new Date(endsAt).getTime() - Date.now()) / 864e5);
+    return days <= 1 ? t('league.endsToday') : t('league.endsIn', days);
+  }
+
   function rankBox(d) {
     const b = d.board;
     if (!b) return null;
@@ -68,11 +75,14 @@ window.PTLeague = (function () {
           el('button', { class: 'btn ghost', text: t('league.copy'), onclick: () => send('leagueCopy', { code: b.league.code }) }),
           el('button', { class: 'btn ghost', text: t('league.page'), onclick: () => send('leaguePage', { code: b.league.code }) }),
           el('button', { class: 'btn ghost', text: t('league.leave'), onclick: () => send('leagueLeave', { id: b.league.id }) }))),
+      b.season ? el('div', { class: 'sub', title: t('league.seasonHint'), text: t('league.season', b.season.id, endsText(b.season.endsAt)) }) : null,
+      b.podium && b.podium.entries.length ? el('div', { class: 'sub', text: t('league.podium', b.podium.season) + ': ' + b.podium.entries.map(e => MEDAL[e.rank - 1] + ' ' + e.login + ' (' + e.elo + ')').join(' · ') }) : null,
       ...b.members.map((m, i) => el('div', { class: 'leader' + (m.you ? ' earned' : '') + (m.busted ? ' busted' : '') },
         el('div', { class: 'rankn', text: '#' + (i + 1) }),
         el('div', { class: 'lthumb' }, m.fighter && m.fighter.src ? el('img', { src: m.fighter.src, alt: '' }) : el('div', { class: 'nm', text: m.fighter ? m.fighter.name : '?' })),
         el('div', { class: 'linfo' },
           el('div', { class: 'row', style: 'justify-content:flex-start;gap:8px' }, el('b', { text: m.login + (m.you ? ' ' + t('league.you') : '') }),
+            m.crowns ? el('span', { title: t('league.crowns', m.crowns), text: '🏆' + (m.crowns > 1 ? '×' + m.crowns : '') }) : null,
             m.busted ? el('span', { class: 'bustflag', title: t('league.bustedTip'), text: t('league.busted') }) : null,
             el('span', { class: 'sub', text: 'Elo ' + m.elo + ' · ' + m.wins + '–' + m.losses })),
           el('div', { class: 'sub', text: m.fighter ? t('league.fighterLine', m.fighter.name, m.fighter.level) + (m.fighter.grade ? ' · TBGS ' + m.fighter.grade : '') + (m.fighter.held ? ' · ' + window.PT.itemIcon(m.fighter.held) : '') : t('league.noFighter') })),

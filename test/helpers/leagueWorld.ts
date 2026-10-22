@@ -19,7 +19,7 @@ export const CARDS: Record<string, any> = {
 };
 export const GITHUB: Record<string, { id: number; login: string }> = { tokA: { id: 1, login: 'ash' }, tokB: { id: 2, login: 'misty' }, tokC: { id: 3, login: 'brock' } };
 
-export interface World { d: Deps; clock: { t: number }; call: (who: string | undefined, method: string, path: string, body?: any, headers?: Record<string, string>) => Promise<{ status: number; body: any }> }
+export interface World { d: Deps; clock: { t: number }; forget: () => void; call: (who: string | undefined, method: string, path: string, body?: any, headers?: Record<string, string>) => Promise<{ status: number; body: any }> }
 
 export async function world(): Promise<World> {
   const pg = new PGlite();
@@ -53,6 +53,6 @@ export async function world(): Promise<World> {
     for (const [k, v] of new URLSearchParams(q ?? '')) { req.query[k] = v; }
     return route(d, req);
   };
-  return { d, clock, call };
+  return { d, clock, call, forget: () => { for (const k of Object.keys(sessions)) { delete sessions[k]; } } };   // sessions expire: log everybody in again after moving the clock far
 }
 

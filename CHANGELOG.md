@@ -2,6 +2,10 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.18.0 - 2026-10-22
+
+- **League seasons:** each league now plays by calendar month. When a new month starts, the top three of the season (players who fought and are not flagged BUSTED) are archived, and everybody's Elo goes halfway back to 1000 with a clean win-loss record (also for members who left, so rejoining cannot bring back an old high). The League tab and the public ranking page show the current season, when it ends, last season's podium and a 🏆 next to each player's seasons won. Deleting your online data removes your trophies. The server archives with one guarded update, so concurrent requests cannot do it twice. **Needs the league server updated** (it is deployed from `main`).
+
 ## 1.17.0 - 2026-10-22
 
 - **Weekly boss:** a new boss every Monday (level 40-50, the same for everybody) in the Battle tab. Three attempts a week; the first victory of the week pays 🪙 400 and a mystery box. The tab shows your odds before you fight.

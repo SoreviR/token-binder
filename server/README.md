@@ -4,9 +4,13 @@ A small server for the online leagues of the extension: private leagues with an 
 
 The server contains no game rules of its own: it imports the extension's engine (`../src/game`) so a duel is played with exactly the same rules as the Battle tab. If those rules change (`BATTLE_VERSION`), extensions with other rules are told to update before they can play online.
 
+## Seasons
+
+A league plays by calendar month (UTC), named like `2026-10`. The first request of a new month (anyone's: the board, the ranking page or a duel) closes the previous season: the top three (players who fought and are not flagged BUSTED) are archived in `league_seasons`, and everybody's Elo is pulled halfway back to 1000 with a clean win-loss record, also for members who left (`member_stats`). One guarded `UPDATE` on `leagues.season` decides who does it, so concurrent requests cannot archive twice. A league that sat idle for months archives only the last season it played, and a league from before seasons just adopts the current one. The board and the ranking page show the current season, when it ends, last season's podium and a 🏆 next to each player's seasons won. Deleting your data removes your trophies.
+
 ## What it stores
 
-Only what the League tab says: your GitHub id and login, the card you take to battle (level, grade, held item), roughly how much of your quota you used, a summary of your save (how many coins, cards, items and levels you have — counts only, used to spot an edited save; never what the cards are), and the duels. `DELETE /api/v1/me` removes all of it. The GitHub token is checked once against `api.github.com` and never stored.
+Only what the League tab says: your GitHub id and login, the card you take to battle (level, grade, held item), roughly how much of your quota you used, a summary of your save (how many coins, cards, items and levels you have — counts only, used to spot an edited save; never what the cards are), the duels and the podium places you won. `DELETE /api/v1/me` removes all of it. The GitHub token is checked once against `api.github.com` and never stored.
 
 ## Layout
 

@@ -28,6 +28,8 @@
   .duel:last-child { border-bottom: 0; }
   .when { color: var(--muted); font-size: 12px; }
   .empty { padding: 18px 12px; color: var(--muted); }
+  .season { font-size: 13px; color: var(--muted); }
+  .season b { color: var(--fg); }
   footer { margin-top: 32px; color: var(--muted); font-size: 12px; }
 </style>
 </head>
@@ -35,6 +37,7 @@
 <main>
   <h1 id="name">TokenBinder league</h1>
   <div class="sub" id="sub">Loading…</div>
+  <div class="season" id="season"></div>
   <h2>Ranking</h2>
   <div class="panel"><table><thead><tr><th class="rank">#</th><th>Player</th><th class="num">Elo</th><th class="num">W–L</th></tr></thead><tbody id="rank"></tbody></table></div>
   <h2>Recent duels</h2>
@@ -51,10 +54,18 @@
     document.title = data.name + ' · TokenBinder';
     $('name').textContent = data.name;
     $('sub').textContent = data.members.length + ' player' + (data.members.length === 1 ? '' : 's');
+    if (data.season) {
+      const days = Math.ceil((new Date(data.season.endsAt).getTime() - Date.now()) / 864e5);
+      $('season').append(text('b', 'Season ' + data.season.id), document.createTextNode(' · ' + (days <= 1 ? 'ends today' : 'ends in ' + days + ' days') + '. Each month the ranking is archived and everyone\'s Elo goes halfway back to 1000.'));
+      if (data.podium && data.podium.entries.length) {
+        const medals = ['🥇', '🥈', '🥉'];
+        $('season').append(document.createElement('br'), document.createTextNode('Last season (' + data.podium.season + '): ' + data.podium.entries.map(e => medals[e.rank - 1] + ' ' + e.login + ' (' + e.elo + ')').join(' · ')));
+      }
+    }
     $('rank').replaceChildren(...data.members.map((m, i) => {
       const tr = document.createElement('tr');
       const who = document.createElement('td');
-      who.append(text('div', m.login));
+      who.append(text('div', m.login + (m.crowns ? ' 🏆' + (m.crowns > 1 ? '×' + m.crowns : '') : '')));
       if (m.fighter) who.append(text('div', m.fighter.name + ' · Lv. ' + m.fighter.level + (m.fighter.grade ? ' · TBGS ' + m.fighter.grade : ''), 'fighter'));
       tr.append(text('td', String(i + 1), 'rank'), who, text('td', String(m.elo), 'num'), text('td', m.wins + '–' + m.losses, 'num'));
       return tr;

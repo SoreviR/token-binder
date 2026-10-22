@@ -90,6 +90,21 @@ create table if not exists member_stats (
   `alter table players add column if not exists allow_profile jsonb not null default '{}'`,
   `alter table players add column if not exists allow_at timestamptz not null default now()`,
   `alter table members add column if not exists pardoned boolean not null default false`,
+  // Seasons: a league plays by calendar month. `leagues.season` is the one being played (null on leagues from before seasons existed,
+  // which simply adopt the current one); when it changes the top of the ranking is archived here and Elo is softened.
+  `alter table leagues add column if not exists season text`,
+  `-- The podium of every finished season of a league. It goes with the player (and with the league) when either is deleted.
+create table if not exists league_seasons (
+  league_id   int not null references leagues(id) on delete cascade,
+  season      text not null,
+  rank        int not null,
+  player_id   bigint not null references players(id) on delete cascade,
+  login       text not null,
+  elo         int not null,
+  wins        int not null,
+  losses      int not null,
+  primary key (league_id, season, rank)
+)`,
   `-- Votes from the other members of a league to lift a player's BUSTED flag. A majority of them clears it.
 create table if not exists pardons (
   league_id   int not null references leagues(id) on delete cascade,

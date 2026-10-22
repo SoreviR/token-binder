@@ -10,6 +10,12 @@ export const DAILY_PER_RIVAL = 2;     // ... and at most this many against the s
 export const MAX_OWNED_LEAGUES = 3;
 export const MAX_JOINED_LEAGUES = 5;
 export const MAX_MEMBERS = 30;
+export const SEASON_PODIUM = 3;       // players recorded for each finished season
+
+/** A season is a calendar month (UTC), named like "2026-10". When it ends the ranking is archived and everyone's Elo is pulled halfway back to the start. */
+export const seasonOf = (now: number): string => new Date(now).toISOString().slice(0, 7);
+export const seasonEnd = (now: number): number => { const d = new Date(now); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1); };
+export const softElo = (elo: number): number => ELO_START + Math.round((elo - ELO_START) / 2);
 
 /**
  * Speed bump against inflated cards (the server cannot see the player's tokens): a new player may field a card up to this level,
