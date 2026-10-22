@@ -2,6 +2,12 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.17.0 - 2026-10-22
+
+- **Weekly boss:** a new boss every Monday (level 40-50, the same for everybody) in the Battle tab. Three attempts a week; the first victory of the week pays 🪙 400 and a mystery box. The tab shows your odds before you fight.
+- **Daily cup:** three fights in a row against rivals a bit stronger than your card, one cup a day. Entry 🪙 30; 2 wins pay 🪙 45 and 3 wins pay 🪙 120 and a mystery box. If the rivals' cards cannot be downloaded, nothing is charged.
+- **Card frames:** five cosmetic frames (Gold, Neon, Flame, Frost, Rainbow; 🪙 200-800) sold in the Items tab, drawn around the thumbnails and the card viewer. A way to spend coins once everything else is bought.
+
 ## 1.16.0 - 2026-10-22
 
 - **Clearer battles:** a super effective hit shows ▲ and a not very effective one ▼ next to the damage; a critical hit flashes the arena and gets a beat of its own; fighters walk in at the start and the loser drops when the fight ends. The HP bar is also backed by an icon (♥ healthy, ⚠ hurt, ❗ critical, ☠ fainted) and is exposed to screen readers as a progress bar, so it does not depend on telling colours apart. Keyboard focus is visible on tabs, chips, thumbnails and buttons.

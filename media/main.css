@@ -390,3 +390,12 @@ body.drag-from-dock .agrid { outline: 2px dashed var(--vscode-focusBorder); outl
 @media (prefers-reduced-motion: reduce) { .arena-side, .arena-card.fainted, .arena.flash::before { animation: none !important; } }
 /* visible keyboard focus on the clickable pieces */
 .tab:focus-visible, .chip:focus-visible, .thumb:focus-visible, .mini:focus-visible, button.btn:focus-visible { outline: 2px solid var(--vscode-focusBorder, #4da3ff); outline-offset: 2px; }
+
+/* card frames (bought with coins): drawn around the thumbnails and the card viewer */
+.framesw { width: 34px; height: 46px; border-radius: 4px; background: #222; flex: none; }
+.thumb.frame-gold, .card3d.frame-gold, .framesw.frame-gold { border-color: #ffd54a; box-shadow: 0 0 0 2px #8a6a00, 0 0 12px rgba(255,213,74,.7); }
+.thumb.frame-neon, .card3d.frame-neon, .framesw.frame-neon { border-color: #39ff14; box-shadow: 0 0 0 1px #0a3a05, 0 0 14px #39ff14, inset 0 0 8px rgba(57,255,20,.6); }
+.thumb.frame-flame, .card3d.frame-flame, .framesw.frame-flame { border-color: #ff7a1a; box-shadow: 0 0 0 2px #8a2a00, 0 0 14px #ff5a00, 0 -6px 14px rgba(255,200,40,.6); }
+.thumb.frame-frost, .card3d.frame-frost, .framesw.frame-frost { border-color: #bfe8ff; box-shadow: 0 0 0 2px #3a7aa8, 0 0 14px #8fd3ff, inset 0 0 8px rgba(255,255,255,.55); }
+.thumb.frame-rainbow, .card3d.frame-rainbow, .framesw.frame-rainbow { border-color: transparent; box-shadow: 0 0 0 3px #ff4d4d, 0 0 0 6px #ffd54a, 0 0 0 9px #4dd2ff, 0 0 16px rgba(180,100,255,.8); }
+.card3d[class*="frame-"] { border-radius: 4% / 2.9%; }

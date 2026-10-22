@@ -150,6 +150,9 @@ export interface GameState {
   goals?: Record<string, number>;   // goals reached (id → when); missing in saves from before goals existed
   recap?: { since: number; coins0: number; ev: string[] };   // events since the player last dismissed the "since last time" card
   tour?: boolean;         // the first-use guide was seen
+  boss?: { week: string; attempts: number; won: boolean };   // this week's boss: attempts used and whether it was beaten
+  cup?: { day: string };  // day of the last daily cup
+  cosmetics?: { owned: string[]; frame?: string };   // card frames bought and the one in use
 }
 
 /* ───────── Packs ───────── */

@@ -142,6 +142,16 @@ What the card prints only changes *how* it fights: a card with more HP than dama
 
 **Fighting also trains.** The card that fights earns **10,000 XP for a win and 4,000 for a defeat** (the first 5 fights of each day, about an eighth of a level at most). It does not replace training with tokens: a card still needs a training slot to level up steadily.
 
+### Weekly boss and daily cup
+
+- **Weekly boss:** the Battle tab shows one boss a week (the same for everybody, a new one every Monday) at level 40-50. You get **3 attempts a week**; the **first victory of the week** pays 🪙 400 and a mystery box. It is meant for a well trained card, and the tab shows your odds first.
+- **Daily cup:** three fights in a row against rivals a little stronger than your card, **one cup a day**. Entry costs 🪙 30; winning 2 rounds pays 🪙 45 and winning all 3 pays 🪙 120 and a mystery box. It is a coin sink as much as a reward: on average it costs a bit more than it pays. If the rivals' cards cannot be downloaded (offline) nothing is charged.
+- Both count in your record and history like any fight, and the card that fights earns battle XP as usual (within the daily limit).
+
+### Card frames
+
+Once you have bought everything else, **card frames** (Gold, Neon, Flame, Frost, Rainbow; 🪙 200-800) are a cosmetic way to spend coins. They are in the **Items** tab and only change how your cards look in the album.
+
 ## Mystery boxes, items and evolutions
 
 A **mystery box** (120 coins in the shop) gives one random item. Open it from the side panel or from the **Items** tab of the album, where every item you own is shown as a card with what it does.

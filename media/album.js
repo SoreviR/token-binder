@@ -145,7 +145,7 @@
       grid.replaceChildren(el('div', { class: 'sub', style: 'grid-column:1/-1', text: D.album.length ? t('album.noMatch') : t('album.emptyHint') }));
       return;
     }
-    grid.replaceChildren(...cards.map(c => draggable(c.id, 'grid', press(el('div', { class: 'thumb' + (D.trainingIds.includes(c.id) ? ' training' : '') + (c.variant ? ' v-' + c.variant : ''), style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name + ' · ' + c.rarity },
+    grid.replaceChildren(...cards.map(c => draggable(c.id, 'grid', press(el('div', { class: 'thumb' + (D.frame ? ' frame-' + D.frame : '') + (D.trainingIds.includes(c.id) ? ' training' : '') + (c.variant ? ' v-' + c.variant : ''), style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name + ' · ' + c.rarity },
       c.src ? el('img', { src: c.src, alt: '', loading: 'lazy' }) : el('div', { class: 'nm', text: c.name }),
       c.count > 1 ? el('span', { class: 'n', text: '×' + c.count }) : null,
       c.variant ? el('span', { class: 'vt', text: t('variant.tag.' + c.variant) }) : null,
@@ -252,6 +252,13 @@
         el('div', { class: 'bb-icon', text: '🎁' }),
         el('div', { class: 'bb-text' }, el('b', { text: t('items.boxes', D.boxes || 0) }), el('div', { class: 'sub', text: t('items.boxHint') })),
         el('button', { class: 'btn', ...(D.boxes ? {} : { disabled: '' }), text: t('box.open', D.boxes || 0), onclick: () => send('openBox') })),
+      el('div', { class: 'igroup' }, t('frames.title'), el('small', { text: t('frames.hint') })),
+      el('div', { class: 'igrid' }, (D.frames || []).map(f => el('div', { class: 'icard' },
+        el('div', { class: 'ic-top' }, el('div', { class: 'framesw frame-' + f.id }), el('div', { class: 'ic-name', text: t('frame.' + f.id + '.name') }),
+          f.owned
+            ? (D.frame === f.id ? el('span', { class: 'ic-n', text: t('frames.inUse') }) : el('button', { class: 'btn ghost', text: t('frames.equip'), onclick: () => send('equipFrame', { id: f.id }) }))
+            : el('button', { class: 'btn', ...(D.coins >= f.price ? {} : { disabled: '' }), text: t('frames.buy', f.price), onclick: () => send('buyFrame', { id: f.id }) }))))),
+      D.frame ? el('div', { class: 'row', style: 'justify-content:flex-start;margin:6px 0 12px' }, el('button', { class: 'btn ghost', text: t('frames.remove'), onclick: () => send('equipFrame', { id: '' }) })) : null,
       ...(groups.length ? [] : [el('div', { class: 'sub', text: t('items.emptyAlbum') })]),
       ...groups.map(([kind, ids]) => el('div', {},
         el('div', { class: 'igroup' }, t('items.group.' + kind), el('small', { text: t('items.hint.' + kind) })),
@@ -291,6 +298,7 @@
     const training = D.trainingIds.includes(id);
     const label = training ? t('album.training') : D.freeSlots ? t('reveal.train') : t('viewer.noSlots');
     const card = cardEl(c, 300);
+    if (D.frame) card.classList.add('frame-' + D.frame);
     const framed = c.grade ? slabEl(card, c) : card;
     const img = card.querySelector('img');
     if (prevSrc && img) img.src = prevSrc; // do not flicker to low resolution on refresh
@@ -376,6 +384,7 @@
     else if (m.type === 'boxOpened') { showBox(m.item); }
     else if (m.type === 'showTab') { showTab(m.tab); }
     else if (m.type === 'league') { window.PTLeague.setData(m.data); }
+    else if (m.type === 'cupResult') { showTab('battle'); window.PTBattle.playCup(m.rounds); }
     else if (m.type === 'battleResult') { showTab('battle'); window.PTBattle.play(m.data); }
     else if (m.type === 'high' && viewing === m.id) {
       const img = overlay.querySelector('.card3d img');

@@ -26,7 +26,9 @@ import { LeagueClient } from './online/client';
 import { LeagueController } from './online/controller';
 import { LEADERS, LEADER_BY_ID, REMATCH_DAILY_CAP, battleOf, dayKey, leaderFighter, leaderUnlocked, playerFighter, recordBattle, setFighter } from './game/leaders';
 import { GOALS, checkGoals, progressOf } from './game/goals';
+import { BOSS_ATTEMPTS, BOSS_REWARD, CUP_FEE, CUP_PRIZE, CUP_ROUNDS, bossOfWeek, bossStatus, cupPlayedToday, cupRivals, enterCup, finishCup, recordBossBattle, recordCupRound } from './game/modes';
 import { noteRecap, recapView } from './game/recap';
+import { FRAMES, buyFrame, equipFrame, isFrameId } from './game/cosmetics';
 import { MishapResult, ROCKET, dryCard, overageMishap, recordRocketBattle } from './game/mishaps';
 import { PROTECTORS, Protector, applyWear, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading, wearChance } from './game/grading';
 
@@ -185,6 +187,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
     if (!state) { return; }
     const target = from === 'album' ? album : provider;
     if (m.type === 'openAlbum') { album.show(['items', 'goals', 'battle'].includes(m.tab as string) ? (m.tab as string) : undefined); }
+    else if (m.type === 'startCup') { await startCup(); }
+    else if (m.type === 'buyFrame' && isFrameId(m.id)) { if (buyFrame(state, m.id)) { await game.save(state); await tick(true); } }
+    else if (m.type === 'equipFrame' && typeof m.id === 'string') { if (equipFrame(state, m.id)) { await game.save(state); await tick(true); } }
     else if (m.type === 'dismissRecap') { delete state.recap; await game.save(state); await tick(true); }
     else if (m.type === 'tourDone') { state.tour = true; await game.save(state); await tick(true); }
     else if (m.type === 'openPack') { await openPack(m.kind === 'premium' || m.kind === 'ball' ? m.kind : 'pack'); }
@@ -284,7 +289,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     void (async () => {
       let changed = false;
       try {
-        for (const d of state?.stolen?.length ? [...LEADERS, ROCKET] : LEADERS) {
+        for (const d of [...LEADERS, bossOfWeek(Date.now()), ...(state?.stolen?.length ? [ROCKET] : [])]) {
           const card = await tcg.leaderCard(d.id, d.species);
           if (card && !tcg.cachedImage(card, 'low')) { await tcg.image(card, 'low'); changed = true; }
         }
@@ -311,7 +316,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
         edge: me.ok && foe ? (effectiveness(me.fighter, foe).eff === 'weak' ? 'me' : effectiveness(foe, me.fighter).eff === 'weak' ? 'foe' : undefined) : undefined,
       };
     }));
-    const today = dayKey(Date.now());
+    const now = Date.now();
+    const bs = bossStatus(s, now);
+    const bossCard = await tcg.cachedLeaderCard(bs.def.id);
+    const bossFoe = bossCard ? leaderFighter(bs.def, bossCard) : undefined;
+    const bossArt = bossCard ? tcg.cachedImage(bossCard, 'low') : undefined;
+    const today = dayKey(now);
     const rocketCard = s.stolen?.length ? await tcg.cachedLeaderCard(ROCKET.id) : undefined;
     const rocketFoe = rocketCard ? leaderFighter(ROCKET, rocketCard) : undefined;
     const rocketArt = rocketCard ? tcg.cachedImage(rocketCard, 'low') : undefined;
@@ -322,6 +332,12 @@ export function activate(ctx: vscode.ExtensionContext): void {
       record: { wins: rec.wins, losses: rec.losses, streak: rec.streak, best: rec.best, badges: rec.badges },
       rewardsLeft: rec.daily.day === today ? Math.max(0, REMATCH_DAILY_CAP - rec.daily.rewarded) : REMATCH_DAILY_CAP,
       history: rec.history,
+      boss: {
+        id: bs.def.id, name: bs.def.name, level: bs.def.level, attemptsLeft: bs.attemptsLeft, attempts: BOSS_ATTEMPTS, won: bs.won, reward: BOSS_REWARD,
+        card: bossCard?.name, src: bossArt ? album.uri(bossArt) : undefined, types: bossFoe?.types ?? [],
+        odds: me.ok && bossFoe ? estimateWin(me.fighter, bossFoe, 200, 21) : undefined,
+      },
+      cup: { fee: CUP_FEE, rounds: CUP_ROUNDS, prize: CUP_PRIZE, played: cupPlayedToday(s, now), canPay: s.coins >= CUP_FEE },
       leaders,
       rocket: s.stolen?.length ? {
         id: ROCKET.id, name: ROCKET.name, species: ROCKET.species, level: ROCKET.level, stolen: s.stolen.map(o => o.card.name),
@@ -334,9 +350,11 @@ export function activate(ctx: vscode.ExtensionContext): void {
   /** One battle against a gym leader: simulate, record, pay and send the whole fight to the screen to be played back. */
   async function startBattle(leaderId: string): Promise<void> {
     const rocket = leaderId === ROCKET.id;
-    const def = rocket ? ROCKET : LEADER_BY_ID[leaderId];
-    if (!state || !def) { return; }
-    if (rocket ? !state.stolen?.length : !leaderUnlocked(state, LEADERS.indexOf(def))) { void vscode.window.showWarningMessage(t(rocket ? 'rocket.none' : 'battle.locked')); return; }
+    const boss = leaderId.startsWith('boss:');
+    const def = rocket ? ROCKET : boss ? bossOfWeek(Date.now()) : LEADER_BY_ID[leaderId];
+    if (!state || !def || (boss && def.id !== leaderId)) { return; }
+    if (boss) { if (!bossStatus(state, Date.now()).attemptsLeft) { void vscode.window.showWarningMessage(t('boss.noAttempts')); return; } }
+    else if (rocket ? !state.stolen?.length : !leaderUnlocked(state, LEADERS.indexOf(def))) { void vscode.window.showWarningMessage(t(rocket ? 'rocket.none' : 'battle.locked')); return; }
     const me = playerFighter(state, lastQuotaPct);
     if (!me.ok) { void vscode.window.showWarningMessage(t(me.reason === 'grading' ? 'battle.grading' : me.reason === 'soaked' ? 'battle.soaked' : 'battle.noFighter')); return; }
     const card = await tcg.leaderCard(def.id, def.species);
@@ -349,19 +367,64 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const rocketFight = rocket ? recordRocketBattle(state, me.fighter.name, won, result.rounds) : null;
     const outcome = rocketFight
       ? { coins: 0, firstWin: false, capped: false, xp: rocketFight.xp, levelUp: rocketFight.levelUp, recovered: rocketFight.card?.name }
-      : recordBattle(state, def, me.fighter.name, won, result.rounds);
+      : boss ? recordBossBattle(state, def, me.fighter.name, won, result.rounds)
+        : recordBattle(state, def, me.fighter.name, won, result.rounds);
     const worn = applyWear(state, state.fighter!, Math.random);   // the card that fought may lose condition
     await game.save(state);
     album.send({
       type: 'battleResult',
       data: {
-        leader: { id: def.id, name: def.name, level: def.level },
+        leader: { id: def.id, name: def.name, level: def.level, kind: boss ? 'boss' : undefined },
         me: await fighterView(me.fighter, state.collection[state.fighter!].card, true), foe: await fighterView(foe, card, true),
         odds, won, rounds: result.rounds, reason: result.reason, log: result.log, outcome, worn,
         gaps: factorGaps(me.fighter, foe).slice(0, 3),
         typeEdge: effectiveness(me.fighter, foe).eff === 'weak' ? 'me' : effectiveness(foe, me.fighter).eff === 'weak' ? 'foe' : undefined,
       },
     });
+    await tick(true);
+  }
+
+  /** The daily cup: three fights in a row against rivals a bit stronger than your card; the fee is paid up front, the prize by rounds won. */
+  async function startCup(): Promise<void> {
+    if (!state) { return; }
+    const me = playerFighter(state, lastQuotaPct);
+    if (!me.ok) { void vscode.window.showWarningMessage(t(me.reason === 'grading' ? 'battle.grading' : me.reason === 'soaked' ? 'battle.soaked' : 'battle.noFighter')); return; }
+    const now = Date.now();
+    if (cupPlayedToday(state, now)) { void vscode.window.showWarningMessage(t('cup.played')); return; }
+    if (state.coins < CUP_FEE) { void vscode.window.showWarningMessage(t('cup.noCoins', CUP_FEE)); return; }
+    // The rivals' cards are fetched before anything is charged: offline, the cup simply does not start.
+    const rivals = cupRivals(me.fighter.level);
+    const cards: Card[] = [];
+    for (const r of rivals) {
+      const c = await tcg.leaderCard(r.id, r.species);
+      if (!c) { void vscode.window.showWarningMessage(t('battle.offline')); return; }
+      cards.push(c);
+    }
+    if (!enterCup(state, now).ok) { return; }
+    const mine = await fighterView(me.fighter, state.collection[state.fighter!].card, true);
+    const rounds: unknown[] = [];
+    let wins = 0;
+    for (let i = 0; i < rivals.length; i++) {
+      const foe = leaderFighter(rivals[i], cards[i]);
+      const odds = estimateWin(me.fighter, foe, 200, 50 + i);
+      const result = simulate(me.fighter, foe, (Math.random() * 4294967296) >>> 0);
+      const won = result.winner === 'a';
+      const { xp, levelUp } = recordCupRound(state, rivals[i], me.fighter.name, won, result.rounds, now);
+      if (won) { wins++; }
+      const last = !won || i === rivals.length - 1;
+      rounds.push({
+        leader: { id: rivals[i].id, name: rivals[i].name, level: rivals[i].level, kind: 'cup' }, cup: { round: i + 1, of: rivals.length },
+        me: mine, foe: await fighterView(foe, cards[i], true), odds, won, rounds: result.rounds, reason: result.reason, log: result.log,
+        outcome: { coins: 0, firstWin: false, capped: false, xp, ...(levelUp ? { levelUp } : {}) },
+        gaps: factorGaps(me.fighter, foe).slice(0, 3),
+        typeEdge: effectiveness(me.fighter, foe).eff === 'weak' ? 'me' : effectiveness(foe, me.fighter).eff === 'weak' ? 'foe' : undefined,
+        ...(last ? { cupSummary: { wins, fee: CUP_FEE, ...finishCup(state, wins) } } : {}),
+      });
+      if (!won) { break; }
+    }
+    (rounds[rounds.length - 1] as { worn?: number }).worn = applyWear(state, state.fighter!, Math.random);   // once, after the whole cup
+    await game.save(state);
+    album.send({ type: 'cupResult', rounds });
     await tick(true);
   }
 
@@ -453,6 +516,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     return {
       lang: lang(), sound: cfg().get<boolean>('sound.enabled', false), items: s.items, boxes: s.boxes, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade) * conditionMultiplier(o.wear, o.grade, o.soaked), 0)),
+      frame: s.cosmetics?.frame, frames: FRAMES.map(f => ({ id: f.id, price: f.price, owned: !!s.cosmetics?.owned.includes(f.id) })),
       goals: GOALS.map(g => ({ id: g.id, goal: g.goal, value: progressOf(s, g), reward: g.reward, done: s.goals?.[g.id] })),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };

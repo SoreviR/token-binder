@@ -9,6 +9,7 @@ import { es } from '../src/i18n/es';
 import { ERAS } from '../src/game/engine';
 import { ITEM_IDS } from '../src/game/items';
 import { GOALS } from '../src/game/goals';
+import { FRAMES } from '../src/game/cosmetics';
 
 const root = path.join(__dirname, '..');
 const read = (f: string) => fs.readFileSync(path.join(root, f), 'utf8');
@@ -79,6 +80,7 @@ test('webview: every static PT.t / t key used in media/*.js exists, and so do th
     ...['level', 'demand', 'rarity', 'stage', 'grade', 'tokens', 'total'].map(f => 'factor.' + f),
     ...[0, 1, 2, 3, 4].map(w => 'condition.' + w),
     ...GOALS.flatMap(g => ['goal.' + g.id + '.name', 'goal.' + g.id + '.desc']),
+    ...FRAMES.map(f => 'frame.' + f.id + '.name'),
   ];
   for (const k of dynamic) { assert.ok(k in d.en, `missing "${k}"`); }
 });

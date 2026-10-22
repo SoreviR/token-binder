@@ -89,6 +89,9 @@ export const en = {
   'battle.locked': 'TokenBinder: beat the previous gym leader first.',
   'battle.soaked': 'TokenBinder: your battle card is soaked. Dry it with a Charmandryer or choose another one.',
   'rocket.none': 'TokenBinder: Team Rocket has none of your cards.',
+  'boss.noAttempts': 'TokenBinder: you used all your attempts against this week\'s boss. A new one arrives on Monday.',
+  'cup.played': 'TokenBinder: you already played today\'s cup. Come back tomorrow.',
+  'cup.noCoins': 'TokenBinder: you need {0} coins to enter the cup.',
   'battle.offline': 'TokenBinder: could not find the leader\'s card (offline?). Try again with a connection.',
 
   // grading

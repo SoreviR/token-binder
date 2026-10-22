@@ -141,6 +141,16 @@ Lo que imprime la carta solo cambia *cómo* pelea: una con más PS que daño es 
 
 **Combatir también entrena.** La carta que pelea gana **10 000 de XP por victoria y 4 000 por derrota** (los 5 primeros combates de cada día, como mucho un octavo de nivel). No sustituye al entrenamiento por tokens: una carta sigue necesitando un hueco de entrenamiento para subir de nivel con regularidad.
 
+### Jefe semanal y copa diaria
+
+- **Jefe semanal:** la pestaña Combate muestra un jefe por semana (el mismo para todos; cada lunes llega uno nuevo) de nivel 40-50. Tienes **3 intentos a la semana** y la **primera victoria de la semana** da 🪙 400 y una caja misteriosa. Está pensado para una carta bien entrenada, y la pestaña te muestra primero tus probabilidades.
+- **Copa diaria:** tres combates seguidos contra rivales algo más fuertes que tu carta, **una copa al día**. La entrada cuesta 🪙 30; ganar 2 rondas da 🪙 45 y ganar las 3 da 🪙 120 y una caja misteriosa. Es tanto un premio como un sumidero de monedas: de media cuesta algo más de lo que paga. Si no se pueden descargar las cartas de los rivales (sin conexión) no se cobra nada.
+- Ambos cuentan en tu récord e historial como cualquier combate, y la carta que lucha gana XP de combate como siempre (dentro del límite diario).
+
+### Marcos de carta
+
+Cuando ya lo has comprado todo, los **marcos de carta** (Oro, Neón, Llama, Escarcha, Arcoíris; 🪙 200-800) son una forma cosmética de gastar monedas. Están en la pestaña **Objetos** y solo cambian cómo se ven tus cartas en el álbum.
+
 ## Cajas misteriosas, objetos y evoluciones
 
 Una **caja misteriosa** (120 monedas en la tienda) da un objeto al azar. Se abre desde el panel lateral o desde la pestaña **Objetos** del álbum, donde cada objeto que tienes aparece como una tarjeta que explica qué hace.

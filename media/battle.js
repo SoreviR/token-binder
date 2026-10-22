@@ -66,6 +66,34 @@ window.PTBattle = (function () {
       el('button', { class: 'btn', ...(canFight ? {} : { disabled: '' }), text: t('battle.challenge'), onclick: () => send('startBattle', { leader: l.id }) }));
   }
 
+  /** This week's boss: one fight at a time, three attempts, a big reward for the first victory. */
+  function bossBox(d) {
+    const b = d.boss;
+    if (!b) return null;
+    const canFight = !!d.fighter && !!b.card && b.attemptsLeft > 0;
+    return box(t('boss.title'), el('div', { class: 'leader boss' + (b.won ? ' earned' : '') },
+      el('div', { class: 'lthumb' }, b.src ? el('img', { src: b.src, alt: '' }) : el('div', { class: 'nm', text: b.name })),
+      el('div', { class: 'linfo' },
+        el('div', { class: 'row', style: 'justify-content:flex-start;gap:8px' }, el('b', { text: b.name }), el('span', { class: 'sub', text: (b.won ? '🏅 ' : '') + t('stats.level', b.level) + ' ' + typeIcons(b.types) })),
+        el('div', { class: 'sub', text: t('boss.reward', b.reward.coins, b.reward.boxes) }),
+        b.odds !== undefined ? bar(b.odds, b.odds >= 0.5 ? '' : 'warn') : null,
+        el('div', { class: 'sub', text: (b.won ? t('boss.beaten') + ' · ' : '') + t('boss.attempts', b.attemptsLeft, b.attempts) + (b.odds !== undefined ? ' · ' + t('battle.odds', Math.round(b.odds * 100)) : (b.card ? '' : ' · ' + t('battle.downloading'))) }),
+        el('div', { class: 'sub', text: t('boss.new') })),
+      el('button', { class: 'btn', ...(canFight ? {} : { disabled: '' }), text: t('battle.challenge'), onclick: () => send('startBattle', { leader: b.id }) })));
+  }
+
+  /** The daily cup: three fights in a row, a small fee and a prize that grows with the rounds won. */
+  function cupBox(d) {
+    const c = d.cup;
+    if (!c) return null;
+    const note = c.played ? t('cup.playedToday') : !c.canPay ? t('cup.needCoins', c.fee) : '';
+    return box(t('cup.title'),
+      el('div', { class: 'sub', text: t('cup.desc', c.fee, c.prize[2], c.prize[3]) }),
+      note ? el('div', { class: 'sub warnline', text: note }) : null,
+      el('div', { class: 'row', style: 'justify-content:flex-start;margin-top:6px' },
+        el('button', { class: 'btn', ...(d.fighter && !c.played && c.canPay ? {} : { disabled: '' }), text: t('cup.enter', c.fee), onclick: () => send('startCup') })));
+  }
+
   function ladderBox(d) { return box(t('battle.ladder'), ...d.leaders.map(l => leaderRow(d, l))); }
 
   /** Team Rocket shows up only while they hold one of your cards (stolen for going over the quota). */
@@ -85,14 +113,15 @@ window.PTBattle = (function () {
   function historyBox(d) {
     if (!d.history.length) { return box(t('battle.history'), el('div', { class: 'sub', text: t('battle.noHistory') })); }
     const names = Object.assign({ rocket: 'Team Rocket' }, Object.fromEntries(d.leaders.map(l => [l.id, l.name])));
+    const nameOf = id => names[id] || id.replace(/^(boss|cup):/, '').replace(/^./, c => c.toUpperCase());   // boss and cup rivals are named by their species
     return box(t('battle.history'), ...d.history.slice(0, 10).map(h => el('div', { class: 'hrow ' + (h.won ? 'won' : 'lost') },
-      el('span', { text: (h.won ? '✔ ' : '✘ ') + t('battle.historyRow', names[h.leader] || h.leader, h.card) }),
+      el('span', { text: (h.won ? '✔ ' : '✘ ') + t('battle.historyRow', nameOf(h.leader), h.card) }),
       el('span', { class: 'sub', text: t('battle.rounds', h.rounds) + (h.coins ? ' · 🪙 ' + h.coins : '') }))));
   }
 
   function render() {
     if (!data || !root) return;
-    root.replaceChildren(...[recordBox(data), fighterBox(data), rocketBox(data), ladderBox(data), historyBox(data)].filter(Boolean));
+    root.replaceChildren(...[recordBox(data), fighterBox(data), rocketBox(data), bossBox(data), cupBox(data), ladderBox(data), historyBox(data)].filter(Boolean));
   }
 
   /* ───── the arena: background by environment, attack effects by type ───── */
@@ -107,7 +136,7 @@ window.PTBattle = (function () {
 
   /* ───── the arena ───── */
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
-  function closeArena() { clearTimers(); stage.replaceChildren(); }
+  function closeArena() { clearTimers(); cupQueue = []; stage.replaceChildren(); }
 
   function side(f, cls) {
     const hpText = el('span', { class: 'hptext', text: f.hp + ' / ' + f.hp });
@@ -119,8 +148,12 @@ window.PTBattle = (function () {
     return { wrap, hp: hp.querySelector('i'), hpText, max: f.hp, card: wrap.querySelector('.arena-card') };
   }
 
+  let cupQueue = [];
+  /** The cup: its rounds are played one after the other, each started from the previous result screen. */
+  function playCup(rounds) { cupQueue = rounds.slice(1); play(rounds[0]); }
+
   function play(r) {
-    closeArena();
+    clearTimers(); stage.replaceChildren();   // not closeArena(): that would also drop the rest of a cup
     const me = side(r.me, 'me'), foe = side(r.foe, 'foe');
     const logBox = el('div', { class: 'blog', 'aria-live': 'polite' });
     let speed = 1, i = 0, finished = false;
@@ -129,7 +162,7 @@ window.PTBattle = (function () {
     const resultBox = el('div', { class: 'bresult' });
     const fxLayer = el('div', { class: 'fx-layer' });
     const arena = el('div', { class: 'arena' },
-      el('div', { class: 'arena-title', text: t('battle.vs', r.leader.name, t('stats.level', r.leader.level)) }),
+      el('div', { class: 'arena-title', text: r.leader.kind === 'cup' ? t('battle.vsCup', r.cup.round, r.cup.of, r.leader.name, t('stats.level', r.leader.level)) : t(r.leader.kind === 'boss' ? 'battle.vsBoss' : 'battle.vs', r.leader.name, t('stats.level', r.leader.level)) }),
       el('div', { class: 'arena-fighters scene-' + sceneOf(r) }, foe.wrap, el('div', { class: 'vs', text: 'VS' }), me.wrap),
       logBox, el('div', { class: 'row', style: 'gap:8px;justify-content:center' }, speedBtn, skipBtn), resultBox, fxLayer);
     stage.replaceChildren(arena);
@@ -242,7 +275,11 @@ window.PTBattle = (function () {
     const o = r.outcome;
     const lines = [];
     if (o.coins) lines.push(el('div', { class: 'reward', text: t('battle.reward', o.coins) }));
-    if (o.firstWin) lines.push(el('div', { class: 'reward', text: t('battle.badgeEarned', r.leader.name) }));
+    if (o.boxes) lines.push(el('div', { class: 'reward', text: t('battle.boxReward', o.boxes) }));
+    if (o.firstWin) lines.push(el('div', { class: 'reward', text: r.leader.kind === 'boss' ? t('boss.beatenNow') : t('battle.badgeEarned', r.leader.name) }));
+    const cs = r.cupSummary;
+    if (cs) lines.push(el('div', { class: 'reward', text: t('cup.result', cs.wins, r.cup.of) }), el('div', { class: 'sub', text: t('cup.feeLine', cs.fee) }),
+      cs.coins || cs.boxes ? el('div', { class: 'reward', text: [cs.coins ? t('cup.prizeLine', cs.coins) : '', cs.boxes ? t('battle.boxReward', cs.boxes) : ''].filter(Boolean).join(' · ') }) : el('div', { class: 'sub', text: t('cup.noPrize') }));
     if (o.xp) lines.push(el('div', { class: 'reward xp', text: t('battle.xp', o.xp.toLocaleString()) + (o.levelUp ? ' · ' + t('battle.levelUp', r.me.name, o.levelUp) : '') }));
     if (o.recovered) lines.push(el('div', { class: 'reward', text: t('battle.recovered', o.recovered) }));
     if (r.duel) lines.push(el('div', { class: 'reward', text: t('battle.elo', o.eloChange > 0 ? '+' + o.eloChange : String(o.eloChange), r.duel.league) }));
@@ -255,12 +292,13 @@ window.PTBattle = (function () {
       el('div', { class: 'sub center', style: 'margin-top:6px', text: t(r.won ? 'battle.whyWon' : 'battle.whyLost') }),
       el('ul', { class: 'why' }, ...why),
       el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px' },
-        r.duel ? null : el('button', { class: 'btn', text: t('battle.rematch'), onclick: () => { closeArena(); send('startBattle', { leader: r.leader.id }); } }),
+        r.cup ? (r.won && !r.cupSummary ? el('button', { class: 'btn', text: t('cup.next'), onclick: () => { const next = cupQueue.shift(); if (next) play(next); } }) : null)
+          : r.duel ? null : el('button', { class: 'btn', text: t('battle.rematch'), onclick: () => { closeArena(); send('startBattle', { leader: r.leader.id }); } }),
         el('button', { class: 'btn ghost', text: t('battle.close'), onclick: closeArena })),
     ];
   }
 
   window.addEventListener('keydown', e => { if (e.key === 'Escape' && stage && stage.firstChild) closeArena(); });
 
-  return { init, setData, play, close: closeArena };
+  return { init, setData, play, playCup, close: closeArena };
 })();
