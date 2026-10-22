@@ -404,3 +404,15 @@ body.drag-from-dock .agrid { outline: 2px dashed var(--vscode-focusBorder); outl
 .dz.dz-team { flex: 0 1 200px; }
 .trio { display: flex; gap: 4px; flex: none; }
 .trio .lthumb { width: 44px; }
+
+/* league showcase: the card a player shows off, next to their row */
+.lthumb.showc { position: relative; flex: none; border: 2px solid #ffd54a; box-shadow: 0 0 8px rgba(255,213,74,.6); }
+.lthumb.showc.graded { border-color: #e8f0f7; }
+.lthumb.showc .star { position: absolute; right: -2px; top: -4px; font-size: 12px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.8)); }
+
+/* the showcase in the album header */
+.albumhead { align-items: center; gap: 16px; }
+.showslot { display: flex; align-items: center; gap: 10px; margin-left: auto; }
+.showthumb { width: 52px; flex: none; border-color: #ffd54a; box-shadow: 0 0 10px rgba(255,213,74,.55); cursor: pointer; }
+.showthumb.graded { border-color: #e8f0f7; }
+.showtxt .sub { margin: 0; }

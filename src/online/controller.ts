@@ -3,6 +3,7 @@
 import { Fighter, estimateWin, effectiveness, factorGaps } from '../game/battle';
 import type { GameState } from '../game/engine';
 import { battleOf, grantBattleXp, playerFighter, rollDaily } from '../game/leaders';
+import { showcaseKey } from '../game/showcase';
 import type { LeagueClient } from './client';
 
 export interface LeagueHost {
@@ -58,6 +59,8 @@ export class LeagueController {
   private board: any;
   private registered: { name: string; level: number; clamped: boolean; levelCap: number; busted: boolean } | undefined;
   private lastSync = 0;
+  private showcaseStatus = '';   // '', 'ok', 'old' (the server has no such route yet) or 'error:<code>'
+  private sentShowcase = '';   // the showcase as last sent, so it is only sent again when it changes
 
   constructor(private h: LeagueHost) {
     this.selected = h.memory.get<number | undefined>(SELECTED, undefined);
@@ -75,9 +78,10 @@ export class LeagueController {
     return {
       configured: this.h.client.configured, enabled: this.h.enabled(), connected: this.connected, login: this.login, busy: this.busy,
       error: this.error, notice: this.notice, leagues: this.leagues, selected: this.selected,
-      board: this.board && { ...this.board, members: this.board.members.map((m: any) => ({ ...m, fighter: this.decorate(m.fighter) })) },
+      board: this.board && { ...this.board, members: this.board.members.map((m: any) => ({ ...m, fighter: this.decorate(m.fighter), showcase: m.showcase && { ...m.showcase, src: this.h.thumb({ id: m.showcase.cardId, image: m.showcase.image }) } })) },
       local: local ? (local.ok ? { ok: true, name: local.fighter.name, level: local.fighter.level } : { ok: false, reason: local.reason }) : { ok: false, reason: 'none' },
       registered: this.registered,
+      showcase: this.localShowcase(s),
       replays: this.replays().map(({ log: _l, me: _m, foe: _f, ...r }) => r),
       server: this.h.serverUrl().replace(/\/+$/, ''),
     };
@@ -142,6 +146,7 @@ export class LeagueController {
   private async syncInner(_force: boolean): Promise<void> {
     this.lastSync = this.h.now();
     await this.registerFighter();
+    await this.syncShowcase();
     const me = await this.h.client.call<{ leagues: LeagueRow[]; login?: string }>('GET', '/me');
     if (!me.ok) { return this.handleFailure(me); }
     this.leagues = me.leagues; this.login = me.login ?? this.login;
@@ -157,6 +162,27 @@ export class LeagueController {
       coins: Math.floor(s.coins), cards: cards.length, items: Object.values(s.items ?? {}).reduce((n, c) => n + (c ?? 0), 0),
       xp: cards.reduce((n, o) => n + (o.xp ?? 0), 0), tokens: this.h.lifetime(),
     };
+  }
+
+  /** The player's own showcase as the League tab shows it, with whether the server has it. */
+  private localShowcase(s: GameState | undefined) {
+    const key = s ? showcaseKey(s) : undefined;
+    const o = s && key ? s.collection[key] : undefined;
+    return o ? { name: o.card.name, grade: o.grade, src: this.h.thumb({ id: o.card.id, image: o.card.image }), status: this.showcaseStatus } : undefined;
+  }
+
+  /** Tells the server which card to show off. Sent only when it changes (or when forced, e.g. after reconnecting). */
+  async syncShowcase(force = false, reload = false): Promise<void> {
+    const s = this.h.getState();
+    const key = s ? showcaseKey(s) : undefined;
+    if (!s || !key) { return; }
+    const grade = s.collection[key].grade;
+    const sig = `${key}|${grade ?? ''}`;
+    if (!force && sig === this.sentShowcase) { return; }
+    const r = await this.h.client.call('PUT', '/showcase', { key, grade });
+    if (r.ok) { this.sentShowcase = sig; this.showcaseStatus = 'ok'; if (reload && this.connected) { await this.loadBoard(); this.push(); } }
+    else if (r.status === 426 || r.status === 401) { this.handleFailure(r); }
+    else { this.showcaseStatus = r.status === 404 && r.error === 'not-found' ? 'old' : 'error:' + r.error; if (reload) { this.push(); } }
   }
 
   /** Puts the card the player takes to battle on the server, with its current level, grade and item. */
@@ -233,7 +259,7 @@ export class LeagueController {
       if (!r.ok && r.error !== 'unknown-player' && r.error !== 'not-connected') { return this.handleFailure(r); }
       await this.h.client.disconnect();
       await this.h.memory.set(SELECTED, undefined); await this.h.memory.set(REPLAYS, []);
-      this.connected = false; this.leagues = []; this.board = undefined; this.selected = undefined; this.registered = undefined; this.login = '';
+      this.connected = false; this.leagues = []; this.board = undefined; this.selected = undefined; this.registered = undefined; this.login = ''; this.sentShowcase = ''; this.showcaseStatus = '';
       this.notice = 'deleted';
       done = true;
     });

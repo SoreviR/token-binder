@@ -2,13 +2,15 @@
 // so the whole flow can be tested against an in-memory database.
 import { BattleEvent, Fighter, makeFighter, simulate, BATTLE_VERSION } from '../../src/game/battle';
 import { levelOf } from '../../src/game/engine';
+import { gradeMultiplier } from '../../src/game/grading';
+import { marketValue } from '../../src/game/market';
 import { tokensBonus } from '../../src/game/strength';
 import { FetchJson, SESSION_DAYS, githubUser, signSession } from './auth';
 import { getCard } from './cards';
 import type { Db } from './db';
 import {
   DAILY_DUELS, DAILY_PER_RIVAL, MAX_JOINED_LEAGUES, MAX_MEMBERS, MAX_OWNED_LEAGUES,
-  SEASON_PODIUM, checkClaim, cleanLeagueName, eloDelta, inviteCode, isImplausible, isImplausibleFirst, normalizeCode, readProfile, seasonEnd, seasonOf, softElo,
+  SEASON_PODIUM, checkClaim, isCardKey, cleanLeagueName, eloDelta, inviteCode, isImplausible, isImplausibleFirst, normalizeCode, readProfile, seasonEnd, seasonOf, softElo,
 } from './rules';
 
 export interface Deps { db: Db; now: () => number; rng: () => number; fetchJson: FetchJson; secret: string }
@@ -269,7 +271,8 @@ async function podium(d: Deps, leagueId: number): Promise<Podium | null> {
 
 /* ───── the league board ───── */
 
-export interface MemberView { id: number; login: string; elo: number; wins: number; losses: number; fighter?: FighterView; you: boolean; busted: boolean; crowns: number; bustVotes?: number; youPardoned?: boolean }
+export interface ShowcaseView { cardId: string; image?: string; key: string; name: string; tier: number; rarity?: string; set?: string; grade?: number; value?: number }
+export interface MemberView { id: number; login: string; elo: number; wins: number; losses: number; fighter?: FighterView; showcase?: ShowcaseView; you: boolean; busted: boolean; crowns: number; bustVotes?: number; youPardoned?: boolean }
 export interface DuelLine { id: number; challenger: string; defender: string; winner: string; rounds: number; eloChange: number; at: string; you?: 'challenger' | 'defender' }
 
 async function recentDuels(d: Deps, leagueId: number, limit: number, pid?: number): Promise<DuelLine[]> {
@@ -286,12 +289,15 @@ async function recentDuels(d: Deps, leagueId: number, limit: number, pid?: numbe
 
 async function membersOf(d: Deps, leagueId: number, me?: number): Promise<MemberView[]> {
   // Busted players are forced to the bottom of the ranking, whatever their Elo.
-  const rows = await d.db.query<{ id: number; login: string; busted: boolean; elo: number; wins: number; losses: number; crowns: number; card_key: string | null; xp: number | null; grade: number | null; held: string | null; data: any }>(
+  const rows = await d.db.query<{ id: number; login: string; busted: boolean; elo: number; wins: number; losses: number; crowns: number; card_key: string | null; xp: number | null; grade: number | null; held: string | null; data: any; sc_key: string | null; sc_grade: number | null; sc_data: any }>(
     `select p.id, p.login, (p.busted and not m.pardoned) as busted, m.elo, m.wins, m.losses, f.card_key, f.xp, f.grade, f.held, c.data,
-            (select count(*)::int from league_seasons s where s.league_id = m.league_id and s.player_id = p.id and s.rank = 1) as crowns
+            (select count(*)::int from league_seasons s where s.league_id = m.league_id and s.player_id = p.id and s.rank = 1) as crowns,
+            sc.card_key as sc_key, sc.grade as sc_grade, c2.data as sc_data
        from members m join players p on p.id = m.player_id
        left join fighters f on f.player_id = p.id
        left join cards c on c.id = split_part(f.card_key, '#', 1)
+       left join showcases sc on sc.player_id = p.id
+       left join cards c2 on c2.id = split_part(sc.card_key, '#', 1)
       where m.league_id = $1 order by (p.busted and not m.pardoned) asc, m.elo desc, m.wins desc, p.login`, [leagueId]);
   return rows.map(r => ({
     id: num(r.id), login: r.login, busted: !!r.busted, elo: num(r.elo), wins: num(r.wins), losses: num(r.losses), crowns: num(r.crowns), you: me !== undefined && num(r.id) === me,
@@ -299,7 +305,33 @@ async function membersOf(d: Deps, leagueId: number, me?: number): Promise<Member
       cardId: r.data.id, image: r.data.image, key: r.card_key, name: r.data.name, types: r.data.types ?? [], tier: r.data.tier,
       level: levelOf(num(r.xp)), grade: r.grade ?? undefined, held: r.held ?? undefined,
     } : undefined,
+    // A player flagged BUSTED shows nothing: a vanity card from an edited save would be the point of cheating.
+    showcase: !r.busted && r.sc_key && r.sc_data ? showcaseView(r.sc_key, r.sc_grade, r.sc_data) : undefined,
   }));
+}
+
+function showcaseView(key: string, grade: number | null, data: { id: string; image?: string; name: string; tier: number; rarity?: string; set?: string; price?: { eur?: number; usd?: number } }): ShowcaseView {
+  const base = marketValue({ price: data.price });
+  const value = base === undefined ? undefined : Math.round(base * gradeMultiplier(grade ?? undefined) * 100) / 100;
+  return { cardId: data.id, image: data.image, key, name: data.name, tier: data.tier, rarity: data.rarity, set: data.set, grade: grade ?? undefined, value };
+}
+
+/** The player's showcase card: any card TCGdex knows, with its grade. Only a claim, so it is checked for form and nothing else. */
+export async function setShowcase(d: Deps, pid: number, raw: unknown): Promise<Result<{ showcase: ShowcaseView }>> {
+  const r = (raw ?? {}) as Record<string, unknown>;
+  if (!isCardKey(r.key)) { return fail('invalid-card'); }
+  let grade: number | undefined;
+  if (r.grade !== undefined && r.grade !== null) {
+    grade = Number(r.grade);
+    if (!Number.isInteger(grade) || grade < 1 || grade > 10) { return fail('invalid-grade'); }
+  }
+  const card = await getCard(d.db, r.key, d.fetchJson, d.now());
+  if (!card) { return fail('card-unavailable', 422); }
+  await d.db.query(
+    `insert into showcases (player_id, card_key, grade, updated_at) values ($1, $2, $3, $4)
+     on conflict (player_id) do update set card_key = excluded.card_key, grade = excluded.grade, updated_at = excluded.updated_at`,
+    [pid, r.key, grade ?? null, iso(d.now())]);
+  return { ok: true, showcase: showcaseView(r.key, grade ?? null, card as never) };
 }
 
 export async function leagueView(d: Deps, pid: number, leagueId: number):

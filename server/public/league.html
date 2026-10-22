@@ -29,6 +29,13 @@
   .when { color: var(--muted); font-size: 12px; }
   .empty { padding: 18px 12px; color: var(--muted); }
   .season { font-size: 13px; color: var(--muted); }
+  .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+  .gcard { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px; text-align: center; font-size: 12px; }
+  .gcard img { width: 100%; aspect-ratio: 63 / 88; object-fit: cover; border-radius: 6px; display: block; margin-bottom: 6px; background: var(--line); }
+  .gcard .who { font-weight: 600; font-size: 13px; }
+  .gcard .meta { color: var(--muted); }
+  .gcard .grade { display: inline-block; margin-top: 2px; padding: 0 6px; border-radius: 3px; background: #1b2530; color: #f4f7f9; font-weight: 700; font-size: 11px; }
+  .gcard .grade.g10 { background: linear-gradient(135deg, #fff3b0, #e0a800); color: #3a2a00; }
   .season b { color: var(--fg); }
   footer { margin-top: 32px; color: var(--muted); font-size: 12px; }
 </style>
@@ -38,11 +45,12 @@
   <h1 id="name">TokenBinder league</h1>
   <div class="sub" id="sub">Loading…</div>
   <div class="season" id="season"></div>
+  <div id="showcase" hidden><h2>Showcase</h2><div class="gallery" id="gallery"></div></div>
   <h2>Ranking</h2>
   <div class="panel"><table><thead><tr><th class="rank">#</th><th>Player</th><th class="num">Elo</th><th class="num">W–L</th></tr></thead><tbody id="rank"></tbody></table></div>
   <h2>Recent duels</h2>
   <div class="panel" id="duels"></div>
-  <footer>Only GitHub logins and results are shown. The ranking is private to whoever has the invite code.</footer>
+  <footer>Only GitHub logins, results and each player's showcase card are shown. The ranking is private to whoever has the invite code.</footer>
 </main>
 <script>
 (function () {
@@ -61,6 +69,20 @@
         const medals = ['🥇', '🥈', '🥉'];
         $('season').append(document.createElement('br'), document.createTextNode('Last season (' + data.podium.season + '): ' + data.podium.entries.map(e => medals[e.rank - 1] + ' ' + e.login + ' (' + e.elo + ')').join(' · ')));
       }
+    }
+    const shown = data.members.filter(m => m.showcase);
+    if (shown.length) {
+      $('showcase').hidden = false;
+      $('gallery').replaceChildren(...shown.map(m => {
+        const sc = m.showcase, card = document.createElement('div');
+        card.className = 'gcard';
+        if (sc.image && /^https:\/\//.test(sc.image)) { const img = document.createElement('img'); img.src = sc.image + '/low.webp'; img.alt = sc.name; img.loading = 'lazy'; card.append(img); }
+        card.append(text('div', m.login, 'who'), text('div', sc.name, 'meta'));
+        if (sc.set) card.append(text('div', sc.set, 'meta'));
+        if (sc.grade) card.append(text('span', 'TBGS ' + sc.grade, 'grade' + (sc.grade === 10 ? ' g10' : '')));
+        if (sc.value !== undefined) card.append(text('div', '≈ €' + sc.value.toFixed(2), 'meta'));
+        return card;
+      }));
     }
     $('rank').replaceChildren(...data.members.map((m, i) => {
       const tr = document.createElement('tr');

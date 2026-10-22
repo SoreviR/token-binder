@@ -81,6 +81,7 @@ export interface FighterClaim { key: string; xp: number; grade?: number; held?: 
 export type ClaimCheck = { ok: true; claim: FighterClaim; clamped: boolean; cap: number } | { ok: false; error: string };
 
 const KEY = /^[\w.-]{1,40}(#(shadowless|first))?$/;
+export const isCardKey = (x: unknown): x is string => typeof x === 'string' && KEY.test(x);
 
 /** Validates what the extension says about the player's fighter and clamps what is not plausible. */
 export function checkClaim(raw: unknown, joinedAt: number, now: number): ClaimCheck {

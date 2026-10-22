@@ -2,6 +2,10 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.20.0 - 2026-10-22
+
+- **League showcase:** each player shows off one card in their leagues: the one you pin with **⭐ Pin as showcase** in the card viewer, or otherwise your most valuable card (market value x grade x condition; "Choose automatically" goes back to that). It is always visible in the **album header** (whether or not you play online), the League tab has a **Your showcase** box that tells you if the server has it, and it appears next to your row in the League tab and in a new **Showcase** gallery on the public ranking page (`/l/<code>`), with its grade and an estimated value that the server works out from the TCGdex price. It is a claim: the server only checks that the card exists and the grade is valid, and players flagged BUSTED show none. The card is stored on the league server and removed with **Delete my online data**. **Needs the league server updated** (it is deployed from `main`).
+
 ## 1.19.0 - 2026-10-22
 
 - **Teams of three and the Elite Four:** the battle card can now be backed up by two more cards (a new **Team** zone above the album, a button in the card viewer; a wet card or one out for grading leaves the team by itself). Once you hold all 8 gym badges (the Battle tab says so and shows how many you have), it opens the **Elite Four** (Lorelei, Bruno, Agatha, Lance), each with a team of three cards (levels 34-48). The fight is a series of 1v1 duels where the winner keeps its remaining HP and the loser is replaced by the next card. The first win over each trainer pays 🪙 1,200-2,500 and 1-3 mystery boxes, and rematches pay 🪙 10 (3 a day). The leading card earns battle XP and the backup cards half of it. The battle simulator can now start a fight with a fighter already hurt (`startHp`); fights without it, and league duels, are unchanged.

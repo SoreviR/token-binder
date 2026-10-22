@@ -33,6 +33,7 @@ export async function route(d: Deps, req: Req): Promise<Res> {
   if (a === 'me' && m === 'DELETE') { return send(await svc.deleteMe(d, pid)); }
   if (a === 'me' && b === 'reborn' && m === 'POST') { return send(await svc.reborn(d, pid)); }
   if (a === 'me' && m === 'GET') { return send(await svc.myLeagues(d, pid).then(r => (r.ok ? { ...r, login: session.login, id: pid } : r))); }
+  if (a === 'showcase' && m === 'PUT') { return send(await svc.setShowcase(d, pid, req.body)); }
   if (a === 'fighter' && m === 'PUT') { return send(await svc.registerFighter(d, pid, req.body)); }
   if (a === 'inbox' && m === 'GET') { return send(await svc.inbox(d, pid)); }
 

@@ -57,11 +57,26 @@ window.PTLeague = (function () {
     return box(t('league.yourFighter'), ...rows);
   }
 
+  /** The card a player shows off: a small card next to their row, with name, grade and estimated value on hover. */
+  function showcaseEl(sc) {
+    const tip = t('league.showcase') + ': ' + sc.name + (sc.grade ? ' · TBGS ' + sc.grade : '') + (sc.value !== undefined ? ' · ≈ €' + sc.value : '');
+    return el('div', { class: 'lthumb showc' + (sc.grade ? ' graded' : ''), title: tip },
+      sc.src ? el('img', { src: sc.src, alt: tip }) : el('div', { class: 'nm', text: sc.name }), el('span', { class: 'star', text: '⭐' }));
+  }
+
   const MEDAL = ['🥇', '🥈', '🥉'];
   /** "ends in 12 d" from the season's end date, or "ends today". */
   function endsText(endsAt) {
     const days = Math.ceil((new Date(endsAt).getTime() - Date.now()) / 864e5);
     return days <= 1 ? t('league.endsToday') : t('league.endsIn', days);
+  }
+
+  /** Your own showcase, with whether the league server has it (so you can tell a missing update from a missing card). */
+  function myShowcaseBox(d) {
+    const sc = d.showcase;
+    if (!sc) return null;
+    const status = sc.status === 'ok' ? t('league.showcaseOk') : sc.status === 'old' ? t('league.showcaseOld') : sc.status && sc.status.startsWith('error:') ? t('league.showcaseFail', sc.status.slice(6)) : t('league.showcasePending');
+    return box(t('league.myShowcase'), el('div', { class: 'leader' }, showcaseEl(sc), el('div', { class: 'linfo' }, el('b', { text: sc.name + (sc.grade ? ' · TBGS ' + sc.grade : '') }), el('div', { class: 'sub' + (sc.status === 'ok' ? '' : ' warnline'), text: status }))));
   }
 
   function rankBox(d) {
@@ -86,6 +101,7 @@ window.PTLeague = (function () {
             m.busted ? el('span', { class: 'bustflag', title: t('league.bustedTip'), text: t('league.busted') }) : null,
             el('span', { class: 'sub', text: 'Elo ' + m.elo + ' · ' + m.wins + '–' + m.losses })),
           el('div', { class: 'sub', text: m.fighter ? t('league.fighterLine', m.fighter.name, m.fighter.level) + (m.fighter.grade ? ' · TBGS ' + m.fighter.grade : '') + (m.fighter.held ? ' · ' + window.PT.itemIcon(m.fighter.held) : '') : t('league.noFighter') })),
+        m.showcase ? showcaseEl(m.showcase) : null,
         m.you ? null
           : m.busted ? el('button', { class: 'btn ghost', ...(m.youPardoned ? { disabled: '' } : {}), title: t('league.bustVoteTip'), text: t(m.youPardoned ? 'league.bustVoted' : 'league.bustVote', m.bustVotes || 0, b.pardonNeed), onclick: () => send('leaguePardon', { subject: m.id }) })
           : el('button', { class: 'btn', ...(canDuel && m.fighter ? {} : { disabled: '' }), text: t('league.challenge'), onclick: () => send('leagueChallenge', { rival: m.id }) }))));
@@ -117,7 +133,7 @@ window.PTLeague = (function () {
     if (d.error) parts.push(el('div', { class: 'bbox errbox', role: 'alert', text: errText(d.error) }));
     if (d.notice === 'deleted') parts.push(el('div', { class: 'bbox', text: t('league.deletedNote') }));
     if (!d.connected) parts.push(intro(d));
-    else parts.push(header(d), leaguesBox(d), fighterBox(d), rankBox(d), duelsBox(d), replaysBox(d));
+    else parts.push(header(d), leaguesBox(d), fighterBox(d), myShowcaseBox(d), rankBox(d), duelsBox(d), replaysBox(d));
     root.replaceChildren(...parts.filter(Boolean));
     if (typing) { const again = [...root.querySelectorAll('input')].find(i => i.placeholder === typing); if (again) { again.focus(); const n = again.value.length; again.setSelectionRange(n, n); } }
   }

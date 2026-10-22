@@ -29,6 +29,7 @@ import { GOALS, checkGoals, progressOf } from './game/goals';
 import { BOSS_ATTEMPTS, BOSS_REWARD, CUP_FEE, CUP_PRIZE, CUP_ROUNDS, bossOfWeek, bossStatus, cupPlayedToday, cupRivals, enterCup, finishCup, recordBossBattle, recordCupRound } from './game/modes';
 import { noteRecap, recapView } from './game/recap';
 import { FRAMES, buyFrame, equipFrame, isFrameId } from './game/cosmetics';
+import { clearShowcase, pinShowcase, showcaseKey } from './game/showcase';
 import { ELITE, ELITE_BY_ID, eliteBeaten, eliteCards, eliteUnlocked, recordEliteBattle } from './game/elite';
 import { TEAM_SIZE, addToTeam, estimateTeamWin, removeFromTeam, simulateTeam, teamKeys } from './game/team';
 import { MishapResult, ROCKET, dryCard, overageMishap, recordRocketBattle } from './game/mishaps';
@@ -190,6 +191,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const target = from === 'album' ? album : provider;
     if (m.type === 'openAlbum') { album.show(['items', 'goals', 'battle'].includes(m.tab as string) ? (m.tab as string) : undefined); }
     else if (m.type === 'startCup') { await startCup(); }
+    else if (m.type === 'pinShowcase' && typeof m.id === 'string') { if (pinShowcase(state, m.id)) { await game.save(state); await tick(true); void league.syncShowcase(false, true); } }
+    else if (m.type === 'clearShowcase') { clearShowcase(state); await game.save(state); await tick(true); void league.syncShowcase(false, true); }
     else if (m.type === 'startElite' && typeof m.id === 'string') { await startElite(m.id); }
     else if (m.type === 'teamAdd' && typeof m.id === 'string') { if (addToTeam(state, m.id)) { await game.save(state); await tick(true); } }
     else if (m.type === 'teamRemove' && typeof m.id === 'string') { if (removeFromTeam(state, m.id)) { await game.save(state); await tick(true); } }
@@ -577,6 +580,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     return {
       lang: lang(), sound: cfg().get<boolean>('sound.enabled', false), items: s.items, boxes: s.boxes, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade) * conditionMultiplier(o.wear, o.grade, o.soaked), 0)),
+      showcaseId: showcaseKey(s), showcasePinned: !!s.showcase && !!s.collection[s.showcase] && !s.collection[s.showcase].soaked,
       teamIds: teamKeys(s).slice(1), frame: s.cosmetics?.frame, frames: FRAMES.map(f => ({ id: f.id, price: f.price, owned: !!s.cosmetics?.owned.includes(f.id) })),
       goals: GOALS.map(g => ({ id: g.id, goal: g.goal, value: progressOf(s, g), reward: g.reward, done: s.goals?.[g.id] })),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,

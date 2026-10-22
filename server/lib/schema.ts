@@ -93,6 +93,15 @@ create table if not exists member_stats (
   // Seasons: a league plays by calendar month. `leagues.season` is the one being played (null on leagues from before seasons existed,
   // which simply adopt the current one); when it changes the top of the ranking is archived here and Elo is softened.
   `alter table leagues add column if not exists season text`,
+  `-- The card each player shows off in their leagues. It is a claim (the server cannot see anyone's album): it only checks that the
+  -- card exists and the grade is 1-10. It goes with the player when they delete their data.
+create table if not exists showcases (
+  player_id   bigint primary key references players(id) on delete cascade,
+  card_key    text not null,
+  grade       int,
+  updated_at  timestamptz not null default now()
+)`,
+  `alter table leagues add column if not exists season text`,
   `-- The podium of every finished season of a league. It goes with the player (and with the league) when either is deleted.
 create table if not exists league_seasons (
   league_id   int not null references leagues(id) on delete cascade,

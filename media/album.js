@@ -81,7 +81,8 @@
     if (name === 'league') send('leagueOpen');
     if (name !== 'album') closeViewer();
   }
-  albumView.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), sellAll), dock, el('div', { class: 'toolbar' }, search, eraSel, typeSel, condSel, gearSel, sorter), chips, grid);
+  const showSlot = el('div', { class: 'showslot' });
+  albumView.append(el('div', { class: 'albumhead' }, el('div', {}, title, summary), showSlot, sellAll), dock, el('div', { class: 'toolbar' }, search, eraSel, typeSel, condSel, gearSel, sorter), chips, grid);
   app.append(el('div', { class: 'tabs', role: 'tablist' }, tabAlbum, tabItems, tabBattle, tabGoals, tabLeague), albumView, itemsView, battleView, goalsView, leagueView);
   window.PTBattle.init({ root: battleView, stage: document.getElementById('stage'), send });
   window.PTLeague.init({ root: leagueView, send });
@@ -109,6 +110,15 @@
     gearSel.replaceChildren(el('option', { value: '', text: t('filter.allGear') }), el('option', { value: 'any', text: t('filter.anyGear') }), el('option', { value: 'none', text: t('filter.noGear') }),
       ...HELD.map(id => el('option', { value: id, text: itemIcon(id) + ' ' + itemName(id) })));
     gearSel.value = gear;
+  }
+
+  /** The showcase in the album header: the card you show off in your leagues (it is visible here whether or not you play online). */
+  function renderShowcase() {
+    const c = D.album.find(x => x.id === D.showcaseId);
+    if (!c) { showSlot.replaceChildren(); return; }
+    showSlot.replaceChildren(
+      press(el('div', { class: 'thumb showthumb' + (c.grade ? ' graded' : ''), style: '--tc:var(' + TCOLOR[c.tier] + ')', title: c.name }, c.src ? el('img', { src: c.src, alt: '' }) : el('div', { class: 'nm', text: c.name })), () => openViewer(c.id), c.name),
+      el('div', { class: 'showtxt' }, el('b', { text: '⭐ ' + t('showcase.title') }), el('div', { class: 'sub', text: c.name + (c.grade ? ' · TBGS ' + c.grade : '') }), el('div', { class: 'sub', text: t(D.showcasePinned ? 'showcase.pinned' : 'showcase.auto') })));
   }
 
   function renderEras() {
@@ -243,6 +253,7 @@
     window.PTBattle.setData(D.battle);
     summary.textContent = t('album.summary', D.unique, D.total, D.mastered) + (D.value ? t('album.value', D.value.toLocaleString(D.lang)) : '');
     sellAll.style.display = D.total > D.unique ? '' : 'none';
+    renderShowcase();
     renderEras();
     renderTypes();
     renderDock();
@@ -329,6 +340,10 @@
         c.id !== D.fighterId ? el('div', { class: 'row', style: 'justify-content:center;margin-top:6px' }, D.teamIds.includes(id)
           ? el('button', { class: 'btn ghost', text: t('viewer.removeTeam'), onclick: () => send('teamRemove', { id }) })
           : el('button', { class: 'btn ghost', ...(c.soaked || c.grading || D.teamIds.length >= 2 ? { disabled: '' } : {}), text: t('viewer.addTeam'), onclick: () => send('teamAdd', { id }) })) : null,
+        el('div', { class: 'row', style: 'justify-content:center;gap:8px;margin-top:6px;flex-wrap:wrap' },
+          c.id === D.showcaseId
+            ? [el('span', { class: 'sub', text: t(D.showcasePinned ? 'viewer.isShowcase' : 'viewer.showcaseAutoNote') }), D.showcasePinned ? el('button', { class: 'btn ghost', text: t('viewer.showcaseAuto'), onclick: () => send('clearShowcase') }) : null]
+            : el('button', { class: 'btn ghost', ...(c.soaked ? { disabled: '' } : {}), text: t('viewer.pinShowcase'), onclick: () => send('pinShowcase', { id }) })),
         c.count > 1 ? el('div', { class: 'sub center', text: t('viewer.copies', c.count) }) : null,
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap' },
           training
