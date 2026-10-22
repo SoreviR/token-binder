@@ -59,9 +59,9 @@ export function leaderFighter(def: LeaderDef, card: Card): Fighter {
 export type FighterCheck = { ok: true; fighter: Fighter } | { ok: false; reason: 'none' | 'grading' | 'soaked' };
 
 /** Builds the player's fighter from the card they chose: its level, grade and the token-usage bonus. */
-export function playerFighter(s: GameState, quotaPct: number): FighterCheck {
-  const o = s.fighter ? s.collection[s.fighter] : undefined;
-  if (!o || !s.fighter) { return { ok: false, reason: 'none' }; }
+export function playerFighter(s: GameState, quotaPct: number, key: string | undefined = s.fighter): FighterCheck {
+  const o = key ? s.collection[key] : undefined;
+  if (!o || !key) { return { ok: false, reason: 'none' }; }
   if (o.grading) { return { ok: false, reason: 'grading' }; }
   if (o.soaked) { return { ok: false, reason: 'soaked' }; }
   return { ok: true, fighter: makeFighter(keyOf(o.card), o.card, o.xp, { grade: o.grade, tokensBonus: tokensBonus(quotaPct, LADDER_REFERENCE_PCT), held: o.held }) };

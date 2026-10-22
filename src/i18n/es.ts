@@ -91,6 +91,8 @@ export const es: Record<Key, string> = {
   'boss.noAttempts': 'TokenBinder: ya usaste todos tus intentos contra el jefe de esta semana. El lunes llega uno nuevo.',
   'cup.played': 'TokenBinder: ya jugaste la copa de hoy. Vuelve mañana.',
   'cup.noCoins': 'TokenBinder: necesitas {0} monedas para entrar en la copa.',
+  'elite.locked': 'TokenBinder: consigue primero las medallas de todos los gimnasios y luego vence al Alto Mando en orden.',
+  'elite.team': 'TokenBinder: el Alto Mando lucha en equipos de tres: tu carta de combate más dos (arrástralas a la zona Equipo del álbum).',
   'battle.offline': 'TokenBinder: no se pudo encontrar la carta del líder (¿sin conexión?). Inténtalo de nuevo con conexión.',
   'battle.soaked': 'TokenBinder: tu carta de combate está empapada. Sécala con un Charmandryer o elige otra.',
   'rocket.none': 'TokenBinder: el Team Rocket no tiene ninguna carta tuya.',

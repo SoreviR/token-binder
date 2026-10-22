@@ -147,6 +147,11 @@ Lo que imprime la carta solo cambia *cómo* pelea: una con más PS que daño es 
 - **Copa diaria:** tres combates seguidos contra rivales algo más fuertes que tu carta, **una copa al día**. La entrada cuesta 🪙 30; ganar 2 rondas da 🪙 45 y ganar las 3 da 🪙 120 y una caja misteriosa. Es tanto un premio como un sumidero de monedas: de media cuesta algo más de lo que paga. Si no se pueden descargar las cartas de los rivales (sin conexión) no se cobra nada.
 - Ambos cuentan en tu récord e historial como cualquier combate, y la carta que lucha gana XP de combate como siempre (dentro del límite diario).
 
+### Equipos y Alto Mando
+
+- **Equipo de tres:** tu carta de combate va delante y puedes añadir **dos cartas más** (arrástralas a la zona **Equipo** sobre el álbum, o usa el botón del visor de carta; arrastra una de vuelta a la cuadrícula para quitarla). Una carta mojada o en gradeo sale sola del equipo.
+- **Alto Mando** (pestaña Combate, cuando tengas las **8 medallas de gimnasio**): Lorelei, Bruno, Agatha y Lance, en orden, cada uno con un equipo de tres cartas (niveles 34-48). El combate es una serie de duelos 1 contra 1: **el ganador conserva la vida que le queda** y el perdedor es sustituido por la siguiente carta, hasta que un equipo se queda sin nadie en pie. La primera victoria sobre cada entrenador da 🪙 1 200 a 2 500 y 1-3 cajas misteriosas; las revanchas dan 🪙 10, hasta 3 al día. Tu carta líder gana la XP de combate de siempre y las de apoyo la mitad. Las probabilidades que se muestran son las de todo el combate por equipos.
+
 ### Marcos de carta
 
 Cuando ya lo has comprado todo, los **marcos de carta** (Oro, Neón, Llama, Escarcha, Arcoíris; 🪙 200-800) son una forma cosmética de gastar monedas. Están en la pestaña **Objetos** y solo cambian cómo se ven tus cartas en el álbum.

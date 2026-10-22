@@ -29,6 +29,8 @@ import { GOALS, checkGoals, progressOf } from './game/goals';
 import { BOSS_ATTEMPTS, BOSS_REWARD, CUP_FEE, CUP_PRIZE, CUP_ROUNDS, bossOfWeek, bossStatus, cupPlayedToday, cupRivals, enterCup, finishCup, recordBossBattle, recordCupRound } from './game/modes';
 import { noteRecap, recapView } from './game/recap';
 import { FRAMES, buyFrame, equipFrame, isFrameId } from './game/cosmetics';
+import { ELITE, ELITE_BY_ID, eliteBeaten, eliteCards, eliteUnlocked, recordEliteBattle } from './game/elite';
+import { TEAM_SIZE, addToTeam, estimateTeamWin, removeFromTeam, simulateTeam, teamKeys } from './game/team';
 import { MishapResult, ROCKET, dryCard, overageMishap, recordRocketBattle } from './game/mishaps';
 import { PROTECTORS, Protector, applyWear, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading, wearChance } from './game/grading';
 
@@ -188,6 +190,9 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const target = from === 'album' ? album : provider;
     if (m.type === 'openAlbum') { album.show(['items', 'goals', 'battle'].includes(m.tab as string) ? (m.tab as string) : undefined); }
     else if (m.type === 'startCup') { await startCup(); }
+    else if (m.type === 'startElite' && typeof m.id === 'string') { await startElite(m.id); }
+    else if (m.type === 'teamAdd' && typeof m.id === 'string') { if (addToTeam(state, m.id)) { await game.save(state); await tick(true); } }
+    else if (m.type === 'teamRemove' && typeof m.id === 'string') { if (removeFromTeam(state, m.id)) { await game.save(state); await tick(true); } }
     else if (m.type === 'buyFrame' && isFrameId(m.id)) { if (buyFrame(state, m.id)) { await game.save(state); await tick(true); } }
     else if (m.type === 'equipFrame' && typeof m.id === 'string') { if (equipFrame(state, m.id)) { await game.save(state); await tick(true); } }
     else if (m.type === 'dismissRecap') { delete state.recap; await game.save(state); await tick(true); }
@@ -289,7 +294,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
     void (async () => {
       let changed = false;
       try {
-        for (const d of [...LEADERS, bossOfWeek(Date.now()), ...(state?.stolen?.length ? [ROCKET] : [])]) {
+        const elite = state && LEADERS.every(l => battleOf(state!).badges.includes(l.id)) ? ELITE.flatMap(eliteCards) : [];   // only once the Elite Four are open
+        for (const d of [...LEADERS, bossOfWeek(Date.now()), ...(state?.stolen?.length ? [ROCKET] : []), ...elite]) {
           const card = await tcg.leaderCard(d.id, d.species);
           if (card && !tcg.cachedImage(card, 'low')) { await tcg.image(card, 'low'); changed = true; }
         }
@@ -321,6 +327,19 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const bossCard = await tcg.cachedLeaderCard(bs.def.id);
     const bossFoe = bossCard ? leaderFighter(bs.def, bossCard) : undefined;
     const bossArt = bossCard ? tcg.cachedImage(bossCard, 'low') : undefined;
+    const keys = teamKeys(s);
+    const mineTeam = keys.map(k => playerFighter(s, lastQuotaPct, k)).flatMap(r => (r.ok ? [r.fighter] : []));
+    const elite = await Promise.all(ELITE.map(async (tr, i) => {
+      const defs = eliteCards(tr);
+      const cards = await Promise.all(defs.map(d => tcg.cachedLeaderCard(d.id)));
+      const foes = cards.every(Boolean) ? defs.map((d, j) => leaderFighter(d, cards[j]!)) : [];
+      const unlocked = eliteUnlocked(s, i);
+      return {
+        id: tr.id, name: tr.name, unlocked, beaten: eliteBeaten(s).includes(tr.id), reward: tr.reward,
+        cards: defs.map((d, j) => { const art = cards[j] ? tcg.cachedImage(cards[j]!, 'low') : undefined; return { name: d.species, level: d.level, src: art ? album.uri(art) : undefined, types: foes[j]?.types ?? [] }; }),
+        odds: unlocked && foes.length === TEAM_SIZE && mineTeam.length === TEAM_SIZE ? estimateTeamWin(mineTeam, foes, 40, 31 + i) : undefined,
+      };
+    }));
     const today = dayKey(now);
     const rocketCard = s.stolen?.length ? await tcg.cachedLeaderCard(ROCKET.id) : undefined;
     const rocketFoe = rocketCard ? leaderFighter(ROCKET, rocketCard) : undefined;
@@ -337,6 +356,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
         card: bossCard?.name, src: bossArt ? album.uri(bossArt) : undefined, types: bossFoe?.types ?? [],
         odds: me.ok && bossFoe ? estimateWin(me.fighter, bossFoe, 200, 21) : undefined,
       },
+      elite, team: { size: keys.length, need: TEAM_SIZE, names: keys.map(k => s.collection[k].card.name) },
       cup: { fee: CUP_FEE, rounds: CUP_ROUNDS, prize: CUP_PRIZE, played: cupPlayedToday(s, now), canPay: s.coins >= CUP_FEE },
       leaders,
       rocket: s.stolen?.length ? {
@@ -424,6 +444,47 @@ export function activate(ctx: vscode.ExtensionContext): void {
     }
     (rounds[rounds.length - 1] as { worn?: number }).worn = applyWear(state, state.fighter!, Math.random);   // once, after the whole cup
     await game.save(state);
+    album.send({ type: 'cupResult', rounds });
+    await tick(true);
+  }
+
+  /** An Elite Four trainer: your team of three against theirs, a series of 1v1 duels where the winner keeps its HP. */
+  async function startElite(id: string): Promise<void> {
+    const tr = ELITE_BY_ID[id];
+    if (!state || !tr) { return; }
+    if (!eliteUnlocked(state, ELITE.indexOf(tr))) { void vscode.window.showWarningMessage(t('elite.locked')); return; }
+    const keys = teamKeys(state);
+    const mine = keys.map(k => playerFighter(state!, lastQuotaPct, k)).flatMap(r => (r.ok ? [r.fighter] : []));
+    if (mine.length < TEAM_SIZE) { void vscode.window.showWarningMessage(t('elite.team')); return; }
+    const defs = eliteCards(tr);
+    const cards: Card[] = [];
+    for (const d of defs) {
+      const c = await tcg.leaderCard(d.id, d.species);
+      if (!c) { void vscode.window.showWarningMessage(t('battle.offline')); return; }
+      cards.push(c);
+    }
+    const foes = defs.map((d, i) => leaderFighter(d, cards[i]));
+    const result = simulateTeam(mine, foes, (Math.random() * 4294967296) >>> 0);
+    const won = result.winner === 'a';
+    const outcome = recordEliteBattle(state, tr, mine[0].name, won, result.duels.length);
+    for (const k of keys.slice(1)) { const o = state.collection[k]; if (o && outcome.xp) { o.xp += Math.floor(outcome.xp / 2); } }   // the backup cards learn too, half as much
+    const worn = applyWear(state, keys[0], Math.random);
+    for (const k of keys.slice(1)) { applyWear(state, k, Math.random); }
+    await game.save(state);
+    const rounds: unknown[] = [];
+    for (let i = 0; i < result.duels.length; i++) {
+      const d = result.duels[i];
+      const last = i === result.duels.length - 1;
+      rounds.push({
+        leader: { id: 'elite:' + tr.id, name: tr.name, level: defs[d.b].level, kind: 'elite' }, elite: { duel: i + 1, last, aliveA: result.aliveA, aliveB: result.aliveB },
+        me: await fighterView(mine[d.a], state.collection[keys[d.a]].card, true), foe: await fighterView(foes[d.b], cards[d.b], true),
+        odds: estimateWin(mine[d.a], foes[d.b], 100, 70 + i), won: d.result.winner === 'a', rounds: d.result.rounds, reason: d.result.reason, log: d.result.log,
+        outcome: last ? outcome : { coins: 0, firstWin: false, capped: false, xp: 0 },
+        gaps: factorGaps(mine[d.a], foes[d.b]).slice(0, 3),
+        typeEdge: effectiveness(mine[d.a], foes[d.b]).eff === 'weak' ? 'me' : effectiveness(foes[d.b], mine[d.a]).eff === 'weak' ? 'foe' : undefined,
+        ...(last ? { eliteSummary: { won, alive: result.aliveA, outcome }, worn } : {}),
+      });
+    }
     album.send({ type: 'cupResult', rounds });
     await tick(true);
   }
@@ -516,7 +577,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     return {
       lang: lang(), sound: cfg().get<boolean>('sound.enabled', false), items: s.items, boxes: s.boxes, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade) * conditionMultiplier(o.wear, o.grade, o.soaked), 0)),
-      frame: s.cosmetics?.frame, frames: FRAMES.map(f => ({ id: f.id, price: f.price, owned: !!s.cosmetics?.owned.includes(f.id) })),
+      teamIds: teamKeys(s).slice(1), frame: s.cosmetics?.frame, frames: FRAMES.map(f => ({ id: f.id, price: f.price, owned: !!s.cosmetics?.owned.includes(f.id) })),
       goals: GOALS.map(g => ({ id: g.id, goal: g.goal, value: progressOf(s, g), reward: g.reward, done: s.goals?.[g.id] })),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };

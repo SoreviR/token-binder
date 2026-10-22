@@ -92,6 +92,8 @@ export const en = {
   'boss.noAttempts': 'TokenBinder: you used all your attempts against this week\'s boss. A new one arrives on Monday.',
   'cup.played': 'TokenBinder: you already played today\'s cup. Come back tomorrow.',
   'cup.noCoins': 'TokenBinder: you need {0} coins to enter the cup.',
+  'elite.locked': 'TokenBinder: win every gym badge first, then beat the Elite Four in order.',
+  'elite.team': 'TokenBinder: the Elite Four fight in teams of three: your battle card plus two more (drag them to the Team zone of the album).',
   'battle.offline': 'TokenBinder: could not find the leader\'s card (offline?). Try again with a connection.',
 
   // grading

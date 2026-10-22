@@ -170,7 +170,7 @@
       e.dataTransfer.effectAllowed = 'move';
       node.classList.add('dragging');
       document.body.classList.add('dragging-card');
-      document.body.classList.toggle('drag-from-dock', from === 'dock');
+      document.body.classList.toggle('drag-from-dock', from !== 'grid');
     });
     node.addEventListener('dragend', () => {
       drag = null;
@@ -194,9 +194,9 @@
     zone.addEventListener('dragleave', e => { if (!zone.contains(e.relatedTarget)) zone.classList.remove('drop-ok', 'drop-no'); });
     zone.addEventListener('drop', e => {
       e.preventDefault();
-      const id = drag && drag.id;
+      const id = drag && drag.id, from = drag && drag.from;
       zone.classList.remove('drop-ok', 'drop-no');
-      if (id && !verdict()) act(id);
+      if (id && !verdict()) act(id, from);
     });
     return zone;
   }
@@ -221,10 +221,20 @@
         el('div', { class: 'dz-body' }, fighter ? miniThumb(fighter) : el('div', { class: 'mini empty', title: t('dock.drop'), text: '+' }), el('span', { class: 'sub', text: fighter ? fighter.name : t('dock.noFighter') }))),
       c => c.id === D.fighterId ? t('dock.already') : c.soaked ? t('care.tipSoaked') : c.grading ? t('battle.grading') : '',
       id => send('setFighter', { id }));
-    dock.replaceChildren(trainZone, fightZone);
+    const team = D.teamIds.map(id => D.album.find(c => c.id === id)).filter(Boolean);
+    const teamZone = dropZone(
+      el('div', { class: 'dz dz-team' },
+        el('div', { class: 'dz-title', text: '👥 ' + t('dock.team') + ' (' + team.length + '/2)' }),
+        el('div', { class: 'dz-body' },
+          ...team.map(c => draggable(c.id, 'team', miniThumb(c))),
+          ...Array.from({ length: 2 - team.length }, () => el('div', { class: 'mini empty', title: t('dock.drop'), text: '+' })))),
+      c => c.id === D.fighterId || D.teamIds.includes(c.id) ? t('dock.already') : c.soaked ? t('care.tipSoaked') : c.grading ? t('battle.grading') : D.teamIds.length >= 2 ? t('dock.teamFull') : '',
+      id => send('teamAdd', { id }));
+    dock.replaceChildren(trainZone, fightZone, teamZone);
   }
   // Dragging a card out of the training zone and dropping it on the grid takes it out of training.
-  dropZone(grid, c => (drag && drag.from === 'dock' && D.trainingIds.includes(c.id) ? '' : t('dock.cannot')), id => send('untrain', { id }));
+  dropZone(grid, c => (drag && ((drag.from === 'dock' && D.trainingIds.includes(c.id)) || (drag.from === 'team' && D.teamIds.includes(c.id))) ? '' : t('dock.cannot')),
+    (id, from) => send(from === 'team' ? 'teamRemove' : 'untrain', { id }));
 
   function render() {
     setLang(D.lang);
@@ -316,6 +326,9 @@
         c.id === D.fighterId
           ? el('div', { class: 'sub center', style: 'margin-top:6px', text: t('battle.isFighter') })
           : el('div', { class: 'row', style: 'justify-content:center;margin-top:6px' }, el('button', { class: 'btn ghost', ...(c.soaked || c.grading ? { disabled: '' } : {}), text: '⚔ ' + t('battle.takeTo'), onclick: () => send('setFighter', { id: c.id }) })),
+        c.id !== D.fighterId ? el('div', { class: 'row', style: 'justify-content:center;margin-top:6px' }, D.teamIds.includes(id)
+          ? el('button', { class: 'btn ghost', text: t('viewer.removeTeam'), onclick: () => send('teamRemove', { id }) })
+          : el('button', { class: 'btn ghost', ...(c.soaked || c.grading || D.teamIds.length >= 2 ? { disabled: '' } : {}), text: t('viewer.addTeam'), onclick: () => send('teamAdd', { id }) })) : null,
         c.count > 1 ? el('div', { class: 'sub center', text: t('viewer.copies', c.count) }) : null,
         el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap' },
           training

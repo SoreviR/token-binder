@@ -153,6 +153,8 @@ export interface GameState {
   boss?: { week: string; attempts: number; won: boolean };   // this week's boss: attempts used and whether it was beaten
   cup?: { day: string };  // day of the last daily cup
   cosmetics?: { owned: string[]; frame?: string };   // card frames bought and the one in use
+  team?: string[];        // keys of the cards that back up the battle card in team fights (see team.ts)
+  elite?: { beaten: string[]; daily: { day: string; n: number } };   // Elite Four trainers beaten and today's paid rematches
 }
 
 /* ───────── Packs ───────── */

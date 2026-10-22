@@ -106,10 +106,11 @@ export function effectiveness(attacker: Fighter, defender: Fighter): { mult: num
   return { mult: 1 };
 }
 
-export function simulate(a: Fighter, b: Fighter, seed: number): BattleResult {
+/** `startHp` lets a fighter begin hurt (team fights carry the winner's HP over); the bars and the timeout rule still use the full HP. */
+export function simulate(a: Fighter, b: Fighter, seed: number, startHp: { a?: number; b?: number } = {}): BattleResult {
   const rng = mulberry32(seed);
-  const hp = { a: Math.max(1, a.hp), b: Math.max(1, b.hp) };
-  const max = { a: hp.a, b: hp.b };
+  const max = { a: Math.max(1, a.hp), b: Math.max(1, b.hp) };
+  const hp = { a: Math.max(1, Math.min(max.a, startHp.a ?? max.a)), b: Math.max(1, Math.min(max.b, startHp.b ?? max.b)) };
   const fighters = { a, b };
   const log: BattleEvent[] = [{ t: 'start', a: { name: a.name, hp: hp.a }, b: { name: b.name, hp: hp.b } }];
   let rounds = 0;

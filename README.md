@@ -148,6 +148,11 @@ What the card prints only changes *how* it fights: a card with more HP than dama
 - **Daily cup:** three fights in a row against rivals a little stronger than your card, **one cup a day**. Entry costs 🪙 30; winning 2 rounds pays 🪙 45 and winning all 3 pays 🪙 120 and a mystery box. It is a coin sink as much as a reward: on average it costs a bit more than it pays. If the rivals' cards cannot be downloaded (offline) nothing is charged.
 - Both count in your record and history like any fight, and the card that fights earns battle XP as usual (within the daily limit).
 
+### Teams and the Elite Four
+
+- **Team of three:** your battle card leads and you can add **two more cards** (drag them onto the **Team** zone above the album, or use the button in the card viewer; drag one back to the grid to remove it). A card that is wet or out for grading drops out of the team on its own.
+- **Elite Four** (Battle tab, once you hold all **8 gym badges**): Lorelei, Bruno, Agatha and Lance, in order, each with a team of three cards (levels 34-48). The fight is a series of 1v1 duels: **the winner keeps the HP it has left** and the loser is replaced by the next card, until one team has nobody standing. The first victory over each trainer pays 🪙 1,200 to 2,500 and 1-3 mystery boxes; rematches pay 🪙 10, up to 3 a day. Your leading card earns the usual battle XP and the backup cards half of it. The odds shown are for the whole team fight.
+
 ### Card frames
 
 Once you have bought everything else, **card frames** (Gold, Neon, Flame, Frost, Rainbow; 🪙 200-800) are a cosmetic way to spend coins. They are in the **Items** tab and only change how your cards look in the album.

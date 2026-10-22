@@ -399,3 +399,8 @@ body.drag-from-dock .agrid { outline: 2px dashed var(--vscode-focusBorder); outl
 .thumb.frame-frost, .card3d.frame-frost, .framesw.frame-frost { border-color: #bfe8ff; box-shadow: 0 0 0 2px #3a7aa8, 0 0 14px #8fd3ff, inset 0 0 8px rgba(255,255,255,.55); }
 .thumb.frame-rainbow, .card3d.frame-rainbow, .framesw.frame-rainbow { border-color: transparent; box-shadow: 0 0 0 3px #ff4d4d, 0 0 0 6px #ffd54a, 0 0 0 9px #4dd2ff, 0 0 16px rgba(180,100,255,.8); }
 .card3d[class*="frame-"] { border-radius: 4% / 2.9%; }
+
+/* team of three: the Team zone of the dock and the Elite Four rows */
+.dz.dz-team { flex: 0 1 200px; }
+.trio { display: flex; gap: 4px; flex: none; }
+.trio .lthumb { width: 44px; }
