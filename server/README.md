@@ -27,7 +27,7 @@ Only what the League tab says: your GitHub id and login, the card you take to ba
 | `lib/auth.ts` | signed sessions and the GitHub check |
 | `lib/cards.ts` | card cache from TCGdex (both duelists use the same data and prices) |
 | `lib/schema.ts` | tables, created on first use |
-| `public/league.html` | the ranking page (`/l/<invite code>`) |
+| `public/league.html`, `league.css`, `league.js` | the ranking page (`/l/<invite code>`): podium, sortable ranking with card art, showcase gallery with a lightbox, season bar and last season's podium, duels by day with their Elo change (click a player to filter). English or Spanish by the browser language, light and dark, refreshed every minute. It builds the DOM as text nodes (never as HTML) and `vercel.json` serves it with a strict Content-Security-Policy (scripts and styles only from the site itself, images only from `assets.tcgdex.net`); `test/server.page.test.ts` guards both |
 
 ## Deploy your own
 
