@@ -2,7 +2,7 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
-## Unreleased
+## 1.15.0 - 2026-10-22
 
 - **Lighter side panel:** the shop, the daily chart and the usage by model are collapsible boxes (closed by default, the shop summary shows your coins and how many items you can afford); the panel remembers which ones you opened.
 - **Drag and drop in the album:** a bar above the album has a **Training** zone and a **Battle card** zone. Drag a card onto them to train it or take it to battle, and drag a card from the training zone back onto the grid to retire it. Zones turn green or red depending on whether the card can go there. The viewer buttons still work.
