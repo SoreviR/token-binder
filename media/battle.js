@@ -100,6 +100,7 @@ window.PTBattle = (function () {
     const teamReady = d.team && d.team.size >= d.team.need;
     return box(t('elite.title'),
       el('div', { class: 'sub', text: t('elite.desc') }),
+      d.elite[0] && !d.elite[0].unlocked ? el('div', { class: 'sub warnline', text: t('elite.badges', d.record.badges.length, d.leaders.length) }) : null,
       el('div', { class: 'sub', text: d.team && d.team.size > 1 ? t('elite.team', d.team.names.join(', ')) : t('elite.teamNone') }),
       ...d.elite.map((e, i) => {
         const prev = d.elite[i - 1];
