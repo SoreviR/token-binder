@@ -81,6 +81,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
     save: async () => { if (state) { await game.save(state); } },
     refresh: () => tick(true),
     quotaPct: () => lastQuotaPct,
+    lifetime: () => usage.lifetimeTokens(),
+    rebirth: async () => { state = newState(usage.lifetimeTokens()); await game.save(state); await tick(true); },
     enabled: () => cfg().get<boolean>('online.enabled', false),
     setEnabled: on => Promise.resolve(cfg().update('online.enabled', on, vscode.ConfigurationTarget.Global)),
     confirmConsent: async () => (await vscode.window.showInformationMessage(t('league.consent', leagueClient.host), { modal: true }, t('league.consentButton'))) === t('league.consentButton'),

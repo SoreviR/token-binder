@@ -298,3 +298,7 @@ body.album #overlay { justify-content: center; cursor: pointer; }
 .rankn { flex: none; width: 30px; font-weight: 700; opacity: .7; text-align: center; }
 .leader.earned { background: rgba(26,111,212,.08); border-radius: 6px; }
 .errbox { border-color: var(--vscode-editorError-foreground, #c0392b); }
+
+.leader.busted { opacity: .75; }
+.leader.busted .lthumb { filter: grayscale(.7); }
+.bustflag { font-size: 10px; font-weight: 800; letter-spacing: .5px; padding: 1px 6px; border-radius: 6px; color: #fff; background: #c0392b; cursor: help; }

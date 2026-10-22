@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { XP_PER_LEVEL } from '../src/game/engine';
 import {
   BASE_LEVEL_CAP, ELO_K, LEVELS_PER_DAY,
-  checkClaim, cleanLeagueName, eloDelta, inviteCode, levelCap, normalizeCode,
+  checkClaim, cleanLeagueName, eloDelta, inviteCode, isImplausible, levelCap, normalizeCode, readProfile,
 } from '../server/lib/rules';
 import { signSession, verifySession } from '../server/lib/auth';
 
@@ -54,6 +54,26 @@ test('Elo: equal players trade 16 points, an upset pays more, and every duel mov
   assert.ok(eloDelta(1400, 1000, true) >= 1, 'a favorite who wins still gains a point');
   assert.ok(eloDelta(1400, 1000, false) < -16);
   assert.ok(eloDelta(3000, 1000, true) >= 1 && eloDelta(1000, 3000, false) <= -1);
+});
+
+test('readProfile keeps only sane non-negative numbers', () => {
+  assert.deepEqual(readProfile({ coins: -5, cards: 'x', items: 3, xp: 10, tokens: 3 }), { coins: 0, cards: 0, items: 3, xp: 10, tokens: 3 });
+  assert.deepEqual(readProfile(null), { coins: 0, cards: 0, items: 0, xp: 0, tokens: 0 });
+});
+
+test('isImplausible: flags an edited save, allows an honest one, and never flags a shrink', () => {
+  const zero = { coins: 0, cards: 0, items: 0, xp: 0, tokens: 0 };
+  const honest = { coins: 500, cards: 25, items: 10, xp: 5_000_000, tokens: 6_000_000 };
+  assert.equal(isImplausible(honest, zero, 2 * DAY), false);
+  // each edited field on its own is enough to flag it (same honest token count)
+  assert.equal(isImplausible({ ...honest, coins: 900_000_000 }, zero, 2 * DAY), true, 'millions of coins');
+  assert.equal(isImplausible({ ...honest, cards: 3000 }, zero, 2 * DAY), true, 'thousands of cards');
+  assert.equal(isImplausible({ ...honest, xp: 2_000_000_000 }, zero, 2 * DAY), true, 'every card maxed');
+  assert.equal(isImplausible({ ...honest, tokens: 5_000_000_000 }, zero, 1 * DAY), true, 'more token use than one day allows');
+  // only growth is checked: measured from a baseline that already holds a lot, the same report is fine
+  assert.equal(isImplausible({ ...honest, coins: 900_000_000 }, { ...honest, coins: 900_000_000 }, 0), false, 'a vouched baseline');
+  // having less than before (sold, mishap, reset) is always fine
+  assert.equal(isImplausible({ coins: 0, cards: 1, items: 0, xp: 0, tokens: 6_000_000 }, honest, 2 * DAY), false);
 });
 
 test('invite codes: unambiguous letters, typed in any case, with or without the dash', () => {

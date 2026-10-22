@@ -213,6 +213,52 @@ test('leaving a league and rejoining keeps your Elo and record (you cannot wipe 
   assert.equal(after.losses, before.losses);
 });
 
+const godSave = { profile: { coins: 9e8, cards: 3000, xp: 2e9, tokens: 5e6 } };
+
+test('an impossible save report flags the player BUSTED, drops them to the bottom, and a majority pardon lifts it', async () => {
+  const w = await world();
+  const { id } = await league(w);   // tokA (owner), tokB, tokC
+  await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 5));
+  await w.call('tokC', 'PUT', '/fighter', claim('base1-58', 5));
+  const r = await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, godSave));
+  assert.equal(r.status, 200);
+  assert.equal(r.body.busted, true);
+
+  const board = await w.call('tokB', 'GET', `/leagues/${id}`);
+  assert.equal(board.body.members.at(-1).login, 'ash', 'the cheater is sorted last');
+  assert.equal(board.body.members.at(-1).busted, true);
+  assert.equal(board.body.pardonNeed, 2, 'a majority of the other two members');
+
+  const first = await w.call('tokB', 'POST', `/leagues/${id}/pardon`, { subject: 1 });
+  assert.deepEqual([first.body.pardoned, first.body.votes], [false, 1]);
+  const second = await w.call('tokC', 'POST', `/leagues/${id}/pardon`, { subject: 1 });
+  assert.equal(second.body.pardoned, true);
+  assert.ok(!(await w.call('tokB', 'GET', `/leagues/${id}`)).body.members.some((m: any) => m.busted));
+  // a later honest report stays clean (the pardon accepted the current state as the baseline)
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, { profile: { coins: 5e6, cards: 30, xp: 5e6, tokens: 5e6 } }))).body.busted, false);
+});
+
+test('being reborn clears BUSTED, but a save that was not really reset is flagged again at once', async () => {
+  const w = await world();
+  const { id } = await league(w);
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, godSave))).body.busted, true);
+  assert.equal((await w.call('tokA', 'POST', '/me/reborn')).status, 200);
+  assert.ok(!(await w.call('tokB', 'GET', `/leagues/${id}`)).body.members.some((m: any) => m.busted));
+  // a genuine reset (near-zero) stays clean
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 2, { profile: { coins: 0, cards: 1, xp: 0, tokens: 0 } }))).body.busted, false);
+  // the same god save again → busted again
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8, godSave))).body.busted, true);
+});
+
+test('a report with less than before, and a report with no profile at all, never bust', async () => {
+  const w = await world();
+  const { id } = await league(w);
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 5, { profile: { coins: 400, cards: 20, xp: 3e6, tokens: 4e6 } }))).body.busted, false);
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 5, { profile: { coins: 0, cards: 1, xp: 0, tokens: 4e6 } }))).body.busted, false);
+  assert.equal((await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 5))).body.busted, false, 'no profile sent');
+  assert.ok(!(await w.call('tokA', 'GET', `/leagues/${id}`)).body.members.some((m: any) => m.busted));
+});
+
 test('the public ranking page: reachable with the invite code, with logins and results only', async () => {
   const w = await world();
   const { id, code } = await league(w);

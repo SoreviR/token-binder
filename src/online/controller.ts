@@ -11,6 +11,10 @@ export interface LeagueHost {
   save(): Promise<void>;
   refresh(): Promise<void>;
   quotaPct(): number;
+  /** Lifetime tokens: part of the save report the server uses to tell an honest save from an edited one. */
+  lifetime(): number;
+  /** "Volver a nacer": wipes the local progress to zero (used to get out of a BUSTED flag). */
+  rebirth(): Promise<void>;
   /** The player's own setting: nothing goes online while it is off. */
   enabled(): boolean;
   setEnabled(on: boolean): Promise<void>;
@@ -52,7 +56,7 @@ export class LeagueController {
   private leagues: LeagueRow[] = [];
   private selected: number | undefined;
   private board: any;
-  private registered: { name: string; level: number; clamped: boolean; levelCap: number } | undefined;
+  private registered: { name: string; level: number; clamped: boolean; levelCap: number; busted: boolean } | undefined;
   private lastSync = 0;
 
   constructor(private h: LeagueHost) {
@@ -99,6 +103,8 @@ export class LeagueController {
       case 'leagueSelect': return this.select(Number(m.id));
       case 'leagueLeave': return this.leave(Number(m.id));
       case 'leagueChallenge': return this.challenge(Number(m.rival));
+      case 'leaguePardon': return this.pardon(Number(m.subject));
+      case 'leagueReborn': return this.reborn();
       case 'leagueReplay': return this.replay(Number(m.id));
       case 'leagueRefresh': return this.sync(true);
       case 'leagueCopy': if (typeof m.code === 'string') { this.h.copy(m.code); } return;
@@ -144,6 +150,15 @@ export class LeagueController {
     await this.checkInbox();
   }
 
+  /** The whole-save figures sent with the fighter, so the server can tell an honest save from an edited one. */
+  private profile(s: GameState) {
+    const cards = Object.values(s.collection);
+    return {
+      coins: Math.floor(s.coins), cards: cards.length, items: Object.values(s.items ?? {}).reduce((n, c) => n + (c ?? 0), 0),
+      xp: cards.reduce((n, o) => n + (o.xp ?? 0), 0), tokens: this.h.lifetime(),
+    };
+  }
+
   /** Puts the card the player takes to battle on the server, with its current level, grade and item. */
   private async registerFighter(): Promise<void> {
     const s = this.h.getState();
@@ -151,10 +166,10 @@ export class LeagueController {
     const me = playerFighter(s, this.h.quotaPct());
     if (!me.ok || !s.fighter) { this.registered = undefined; return; }
     const o = s.collection[s.fighter];
-    const r = await this.h.client.call<{ fighter: RemoteFighter; clamped: boolean; levelCap: number }>('PUT', '/fighter',
-      { key: s.fighter, xp: o.xp, grade: o.grade, held: o.held, quotaPct: Math.round(this.h.quotaPct()) });
+    const r = await this.h.client.call<{ fighter: RemoteFighter; clamped: boolean; levelCap: number; busted: boolean }>('PUT', '/fighter',
+      { key: s.fighter, xp: o.xp, grade: o.grade, held: o.held, quotaPct: Math.round(this.h.quotaPct()), profile: this.profile(s) });
     if (!r.ok) { this.registered = undefined; if (r.status === 426 || r.status === 401) { this.handleFailure(r); } return; }
-    this.registered = { name: r.fighter.name, level: r.fighter.level, clamped: r.clamped, levelCap: r.levelCap };
+    this.registered = { name: r.fighter.name, level: r.fighter.level, clamped: r.clamped, levelCap: r.levelCap, busted: r.busted };
   }
 
   private handleFailure(r: { ok: false; error: string; status: number }): void {
@@ -243,6 +258,27 @@ export class LeagueController {
       }
       this.h.sendBattle({ ...view, outcome: { coins: 0, ...outcome, elo: r.elo, eloChange: r.eloChange } });
       await this.loadBoard();
+    });
+  }
+
+  /** Vote to lift another member's BUSTED flag. A majority of the other members clears it. */
+  private async pardon(subject: number): Promise<void> {
+    if (this.selected === undefined || !Number.isInteger(subject)) { return; }
+    await this.run(async () => {
+      const r = await this.h.client.call('POST', `/leagues/${this.selected}/pardon`, { subject });
+      if (!r.ok) { return this.handleFailure(r); }
+      await this.loadBoard();
+    });
+  }
+
+  /** "He sido un tramposo y quiero jugar de nuevo": wipe the local save to zero and tell the server, which lifts the flag. */
+  private async reborn(): Promise<void> {
+    if (!(await this.h.confirm(this.h.t('league.rebornConfirm'), this.h.t('league.rebornYes')))) { return; }
+    await this.run(async () => {
+      await this.h.rebirth();
+      const r = await this.h.client.call('POST', '/me/reborn');
+      if (!r.ok) { return this.handleFailure(r); }
+      await this.syncInner(true);
     });
   }
 

@@ -35,6 +35,7 @@ function player(w: World, token: string, cardId: string, level: number): Player 
   });
   const host: LeagueHost = {
     client, getState: () => state, save: async () => { saved.n++; }, refresh: async () => {}, quotaPct: () => 50,
+    lifetime: () => 0, rebirth: async () => { for (const k of Object.keys(state.collection)) { delete state.collection[k]; } state.coins = 0; state.fighter = undefined; },
     enabled: () => settings.enabled, setEnabled: async on => { settings.enabled = on; },
     confirmConsent: async () => true, confirm: async () => true,
     notify: async (m, ..._a) => { notes.push(m); return undefined; },
@@ -75,6 +76,36 @@ test('connect: consent, the setting is turned on, the fighter is registered and 
   assert.equal(d.board.league.name, 'Pallet Town');
   assert.equal(d.board.members[0].fighter.src, 'img/base1-4', 'thumbnails come from the host');
   assert.equal(d.error, undefined);
+});
+
+test('an edited save is reported, flags the player BUSTED, and "volver a nacer" wipes it clean', async () => {
+  const w = await world();
+  const a = player(w, 'tokA', 'base1-4', 8);
+  const b = player(w, 'tokB', 'base1-58', 8);
+  // tokA edits the save: millions of coins and every card maxed.
+  a.state.coins = 9e8;
+  a.state.collection['base1-4'].xp = 2e9;
+  await a.ctl.handle({ type: 'leagueConnect' });
+  await a.ctl.handle({ type: 'leagueCreate', name: 'Pallet Town' });
+  await b.ctl.handle({ type: 'leagueConnect' });
+  await b.ctl.handle({ type: 'leagueJoin', code: last(a).board.league.code });
+  await a.ctl.handle({ type: 'leagueRefresh' });
+  assert.equal(last(a).registered.busted, true, 'the server flags the edited save');
+  assert.equal(last(a).board.members.find((m: any) => m.you).busted, true);
+
+  // b votes to pardon: in a two-member league the single other member is a majority, so it lifts at once.
+  await b.ctl.handle({ type: 'leaguePardon', subject: last(b).board.members.find((m: any) => !m.you).id });
+  await a.ctl.handle({ type: 'leagueRefresh' });
+  assert.equal(last(a).registered.busted, false, 'a majority pardon clears it');
+
+  // grow further beyond the vouched baseline, get busted again, then be reborn: the save is wiped and the flag goes with it.
+  a.state.coins = 5e9;
+  await a.ctl.handle({ type: 'leagueRefresh' });
+  assert.equal(last(a).registered.busted, true);
+  await a.ctl.handle({ type: 'leagueReborn' });
+  assert.equal(a.state.coins, 0, 'the local save was reset to zero');
+  assert.equal(last(a).registered, undefined, 'no fighter after a rebirth');
+  assert.ok(!last(a).board.members.find((m: any) => m.you).busted, 'and the flag is gone');
 });
 
 test('declining the data notice signs nobody in', async () => {

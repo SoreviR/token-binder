@@ -3,6 +3,7 @@
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
 ## Unreleased
+- **League server, edited saves are caught (BUSTED):** the extension now reports its whole-save figures (coins, cards, items, levels, lifetime tokens) with the fighter, and the server flags a report that grew faster than real time allows. A BUSTED player is sorted to the bottom of every ranking. Two ways out: a **majority of the other members** vote them back in (which accepts their current state), or they press **"He sido un tramposo y quiero jugar de nuevo"**, which resets their local save to zero. Only growth is checked, so selling, mishaps or a reset never flag anyone.
 
 - **League server, duel limit no longer bypassable:** the daily limits (10 a day, 2 per rival) were checked by counting the duels and then saving the new one, so firing many challenges at the same instant slipped past the count. They are now reserved with an atomic per-day counter (`duel_quota`), so a burst gets exactly the allowed number through.
 - **League server, Elo cannot be reset by leaving:** a member's standing is kept in `member_stats` when they leave, so rejoining a league restores their Elo and record instead of starting fresh at 1000 (which let a losing player wipe their losses). Deleting your data still removes everything.

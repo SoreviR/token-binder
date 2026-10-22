@@ -48,6 +48,11 @@ window.PTLeague = (function () {
       rows.push(el('div', { class: 'sub', text: t('league.registered', d.registered.name, d.registered.level) }));
       if (d.registered.clamped) rows.push(el('div', { class: 'sub warnline', text: t('league.clamped', d.registered.levelCap) }));
     }
+    if (d.registered && d.registered.busted) {
+      rows.push(el('div', { class: 'sub warnline', text: t('league.bustedYou') }));
+      rows.push(el('div', { class: 'row', style: 'justify-content:flex-start;margin-top:4px' },
+        el('button', { class: 'btn', ...(d.busy ? { disabled: '' } : {}), text: t('league.reborn'), onclick: () => send('leagueReborn') })));
+    }
     rows.push(el('div', { class: 'sub', text: t('league.syncHint') }));
     return box(t('league.yourFighter'), ...rows);
   }
@@ -63,13 +68,17 @@ window.PTLeague = (function () {
           el('button', { class: 'btn ghost', text: t('league.copy'), onclick: () => send('leagueCopy', { code: b.league.code }) }),
           el('button', { class: 'btn ghost', text: t('league.page'), onclick: () => send('leaguePage', { code: b.league.code }) }),
           el('button', { class: 'btn ghost', text: t('league.leave'), onclick: () => send('leagueLeave', { id: b.league.id }) }))),
-      ...b.members.map((m, i) => el('div', { class: 'leader' + (m.you ? ' earned' : '') },
+      ...b.members.map((m, i) => el('div', { class: 'leader' + (m.you ? ' earned' : '') + (m.busted ? ' busted' : '') },
         el('div', { class: 'rankn', text: '#' + (i + 1) }),
         el('div', { class: 'lthumb' }, m.fighter && m.fighter.src ? el('img', { src: m.fighter.src, alt: '' }) : el('div', { class: 'nm', text: m.fighter ? m.fighter.name : '?' })),
         el('div', { class: 'linfo' },
-          el('div', { class: 'row', style: 'justify-content:flex-start;gap:8px' }, el('b', { text: m.login + (m.you ? ' ' + t('league.you') : '') }), el('span', { class: 'sub', text: 'Elo ' + m.elo + ' · ' + m.wins + '–' + m.losses })),
+          el('div', { class: 'row', style: 'justify-content:flex-start;gap:8px' }, el('b', { text: m.login + (m.you ? ' ' + t('league.you') : '') }),
+            m.busted ? el('span', { class: 'bustflag', title: t('league.bustedTip'), text: t('league.busted') }) : null,
+            el('span', { class: 'sub', text: 'Elo ' + m.elo + ' · ' + m.wins + '–' + m.losses })),
           el('div', { class: 'sub', text: m.fighter ? t('league.fighterLine', m.fighter.name, m.fighter.level) + (m.fighter.grade ? ' · TBGS ' + m.fighter.grade : '') + (m.fighter.held ? ' · ' + window.PT.itemIcon(m.fighter.held) : '') : t('league.noFighter') })),
-        m.you ? null : el('button', { class: 'btn', ...(canDuel && m.fighter ? {} : { disabled: '' }), text: t('league.challenge'), onclick: () => send('leagueChallenge', { rival: m.id }) }))));
+        m.you ? null
+          : m.busted ? el('button', { class: 'btn ghost', ...(m.youPardoned ? { disabled: '' } : {}), title: t('league.bustVoteTip'), text: t(m.youPardoned ? 'league.bustVoted' : 'league.bustVote', m.bustVotes || 0, b.pardonNeed), onclick: () => send('leaguePardon', { subject: m.id }) })
+          : el('button', { class: 'btn', ...(canDuel && m.fighter ? {} : { disabled: '' }), text: t('league.challenge'), onclick: () => send('leagueChallenge', { rival: m.id }) }))));
   }
 
   function duelsBox(d) {

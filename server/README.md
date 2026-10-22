@@ -6,7 +6,7 @@ The server contains no game rules of its own: it imports the extension's engine 
 
 ## What it stores
 
-Only what the League tab says: your GitHub id and login, the card you take to battle (level, grade, held item), roughly how much of your quota you used, and the duels. `DELETE /api/v1/me` removes all of it. The GitHub token is checked once against `api.github.com` and never stored.
+Only what the League tab says: your GitHub id and login, the card you take to battle (level, grade, held item), roughly how much of your quota you used, a summary of your save (how many coins, cards, items and levels you have — counts only, used to spot an edited save; never what the cards are), and the duels. `DELETE /api/v1/me` removes all of it. The GitHub token is checked once against `api.github.com` and never stored.
 
 ## Layout
 
@@ -35,7 +35,7 @@ The tests need no server: `npm test` runs the whole flow against an in-memory Po
 
 ## Limits worth knowing
 
-- The server cannot see anyone's tokens or collection, so the fighter a player registers is taken on trust: the level is capped (and the cap rises each day, `lib/rules.ts`), but owning the card, its grade and its held item are not verified. It is a speed bump for friends, not protection against a determined cheater.
+- The server cannot see anyone's tokens or collection, so it cannot *prove* a save is honest. What it can see is wall-clock time. The extension reports its whole-save figures (coins, cards, items, levels, lifetime tokens) with the fighter, and `isImplausible` (`lib/rules.ts`) flags a report that **grew faster than real time allows** — an edited save with millions of coins, every card maxed or thousands of cards. A flagged (BUSTED) player is sorted to the bottom of every ranking until a **majority of the other members** vote them back in (which accepts their current state as the new baseline) or they **start over** (`POST /me/reborn`, which resets the baseline to zero — a save that was not really reset is flagged again at once). Only growth is checked, so selling, mishaps or a reset never flag anyone. It catches a careless cheater, not a patient one who edits slowly; the level is still capped by tenure as a second line.
 - Leagues are invite-only, but anyone with a GitHub account can join one they have the code for; the ranking assumes the people in a league are not inventing extra accounts to farm Elo.
 - The daily duel limits are enforced with an atomic per-day counter (`duel_quota`), so firing many challenges at once can no longer slip past them, and leaving a league no longer resets your Elo (it is kept in `member_stats` and restored if you rejoin).
 - There is no rate limiting beyond the daily duel limits; Vercel's platform protections apply.
