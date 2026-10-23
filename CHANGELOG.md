@@ -2,6 +2,11 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.24.0 - 2026-10-23
+
+- **Balance: the cache no longer counts for the game.** Packs, coins, XP, grading and the other token-based progress now only count new input and output tokens. Tokens served from cache are left out: an agent re-reads its whole context on every round, so a few minutes of agent work could fill several packs, levels and evolutions (the quota bar and the usage figures still show the real total). Each record of usage can only raise its share, so a read that comes back short for a moment (a locked database or a half-written file) is no longer counted twice. Saves from earlier versions are moved to the new scale automatically: every bar (training, next pack, grading) keeps the progress it had. Progress already earned is not taken away, it just grows at a slower pace from now on. The pack rate (750K tokens per pack) is unchanged and will be reviewed with real use.
+- **Fix: endless evolutions.** A card that already evolved and is put back to train earns levels but no longer makes another copy of its evolution (nor another graduation pack). Evolutions made before this version are not marked.
+
 ## 1.23.0 - 2026-10-23
 
 - **Cancel grading:** a card at the grading service can now be taken back from its viewer (**✖ Cancel grading**), so it can train, fight or join the team again. After a confirmation that shows the amount, half of the fee is returned (rounded down) and the other half is lost. Cancelling does not count as a try, and the card keeps any grade it already had.
