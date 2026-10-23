@@ -2,6 +2,11 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.23.0 - 2026-10-23
+
+- **Cancel grading:** a card at the grading service can now be taken back from its viewer (**✖ Cancel grading**), so it can train, fight or join the team again. After a confirmation that shows the amount, half of the fee is returned (rounded down) and the other half is lost. Cancelling does not count as a try, and the card keeps any grade it already had.
+- **Sleeve:** removes the white band that was drawn across the top of sleeved cards and hid part of the art.
+
 ## 1.22.0 - 2026-10-22
 
 - **New public ranking page** (`/l/<invite code>`): a podium with the card of each of the top three, a ranking with card art, level, grade and type chips, a win-rate bar and sorting by Elo, wins or win %; players flagged BUSTED are shown dimmed with a label; the showcase gallery has rarity-coloured frames, a shine on hover and a lightbox with the large card; the season has a progress bar with the days left, and last season's podium has its own panel; duels are grouped by day (Today, Yesterday…), show the Elo each side won or lost and a relative time, and clicking a player filters them. It also adds a copy-link button, English and Spanish by the browser language, mobile layout without horizontal scroll, loading, empty and error states, automatic refresh every minute and keyboard and screen-reader support. The page is now split into `league.html`, `league.css` and `league.js` and served with a strict Content-Security-Policy. **The league server serves it, so it goes live when `main` is deployed.**
