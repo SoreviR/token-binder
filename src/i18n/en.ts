@@ -102,6 +102,8 @@ export const en = {
   'grade.busy': 'TokenBinder: this card is already at the grading service.',
   'grade.none': 'TokenBinder: that card was not found.',
   'grade.soaked': 'TokenBinder: the grading service does not take soaked cards. Dry it with a Charmandryer first.',
+  'grade.cancelConfirm': 'TokenBinder: take this card back from the grading service? You get 🪙 {0} back out of the 🪙 {1} fee.',
+  'grade.cancelButton': 'Take it back',
 
   // mishaps for going over the quota
   'mishap.rocket': 'TokenBinder: you went over the quota and Team Rocket stole {0}! Beat them in the Battle tab to get it back.',

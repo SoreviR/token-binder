@@ -78,6 +78,20 @@ export function sendToGrading(s: GameState, key: string, lifetime: number): Send
   return { ok: true, cost };
 }
 
+/** Share of the fee returned when a card is taken back before it is graded. */
+export const CANCEL_REFUND = 0.5;
+export const cancelRefund = (cost: number): number => Math.floor(cost * CANCEL_REFUND);
+
+/** Takes a card back from the grading service before it is graded: returns half the fee and does not count as a try. */
+export function cancelGrading(s: GameState, key: string): number | undefined {
+  const o = s.collection[key];
+  if (!o?.grading) { return undefined; }
+  const refund = cancelRefund(o.grading.cost);
+  s.coins += refund;
+  delete o.grading;
+  return refund;
+}
+
 /** Tokens left before a card comes back, and the progress of the wait. */
 export function gradingProgress(grading: { since: number }, lifetime: number): { into: number; span: number; pct: number } {
   const into = clamp(lifetime - grading.since, 0, GRADE_TOKENS);

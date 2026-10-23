@@ -393,6 +393,7 @@
     let note = null;
     if (c.grading) {
       note = el('div', null, el('div', { class: 'sub center', text: t('viewer.grading', fmt(c.grading.into), fmt(c.grading.span)) }), el('div', { class: 'barwrap lv' }, el('i', { style: 'width:' + c.grading.pct.toFixed(1) + '%' })));
+      buttons.push(el('button', { class: 'btn ghost', text: '✖ ' + t('viewer.cancelGrade'), onclick: () => send('cancelGrade', { id: c.id }) }));
     } else if (training) {
       note = el('div', { class: 'sub center', text: t('viewer.gradeBlocked') });
     } else {

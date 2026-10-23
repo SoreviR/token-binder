@@ -33,7 +33,7 @@ import { clearShowcase, pinShowcase, showcaseKey } from './game/showcase';
 import { ELITE, ELITE_BY_ID, eliteBeaten, eliteCards, eliteUnlocked, recordEliteBattle } from './game/elite';
 import { TEAM_SIZE, addToTeam, estimateTeamWin, removeFromTeam, simulateTeam, teamKeys } from './game/team';
 import { MishapResult, ROCKET, dryCard, overageMishap, recordRocketBattle } from './game/mishaps';
-import { PROTECTORS, Protector, applyWear, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading, wearChance } from './game/grading';
+import { PROTECTORS, Protector, applyWear, cancelGrading, cancelRefund, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, sendToGrading, wearChance } from './game/grading';
 
 const cfg = () => vscode.workspace.getConfiguration('tokenBinder');
 
@@ -249,6 +249,10 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const r = sendToGrading(state, m.id, usage.lifetimeTokens());
       if (r.ok) { await game.save(state); await tick(true); }
       else { void vscode.window.showWarningMessage(t(`grade.${r.reason}` as 'grade.coins')); }
+    } else if (m.type === 'cancelGrade' && typeof m.id === 'string') {
+      const fee = state.collection[m.id]?.grading?.cost;
+      if (fee !== undefined && await vscode.window.showWarningMessage(t('grade.cancelConfirm', cancelRefund(fee), fee), { modal: true }, t('grade.cancelButton')) === t('grade.cancelButton')
+          && cancelGrading(state, m.id) !== undefined) { await game.save(state); await tick(true); }
     } else if (m.type === 'high' && typeof m.id === 'string') {
       const card = state.collection[m.id]?.card;
       const file = card && await tcg.image(card, 'high');

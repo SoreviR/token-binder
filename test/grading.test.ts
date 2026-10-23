@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Card, addCards, buy, countOf, grantItem, newState, startTraining, tierOf } from '../src/game/engine';
 import {
-  GRADE_TOKENS, MAX_WEAR, applyWear, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, rollGrade, sendToGrading, wearChance,
+  GRADE_TOKENS, MAX_WEAR, applyWear, cancelGrading, cancelRefund, conditionMultiplier, gradeCost, gradeMultiplier, gradingProgress, protect, resolveGrading, rollGrade, sendToGrading, wearChance,
 } from '../src/game/grading';
 
 const card = (id: string, name: string, rarity = 'Rare'): Card => ({ id, name, rarity, tier: tierOf(rarity), image: `https://x/${id}` });
@@ -118,6 +118,26 @@ test('resolveGrading: the card comes back after 500K tokens with a grade, and re
   assert.deepEqual(again, ['graded:10:0:Charizard']);                                 // not better: keeps the 10
   assert.equal(s.collection['a'].grade, 10);
   assert.equal(s.collection['a'].tries, 2);
+});
+
+test('cancelGrading: gives half the fee back, keeps the grade and tries, and frees the card', () => {
+  const s = newState(0);
+  addCards(s, [card('a', 'Charizard', 'Rare Holo')]);
+  s.coins = 1000;
+  assert.equal(cancelGrading(s, 'a'), undefined);                // not at the service
+  assert.equal(cancelGrading(s, 'nope'), undefined);
+  assert.equal(s.coins, 1000);
+
+  sendToGrading(s, 'a', 0);
+  const fee = gradeCost(tierOf('Rare Holo'), 0);
+  const left = s.coins;
+  assert.equal(cancelGrading(s, 'a'), cancelRefund(fee));
+  assert.equal(s.coins, left + Math.floor(fee / 2));
+  assert.equal(s.collection['a'].grading, undefined);
+  assert.equal(s.collection['a'].tries, undefined);
+  assert.deepEqual(resolveGrading(s, GRADE_TOKENS), []);         // nothing comes back
+  assert.equal(sendToGrading(s, 'a', 0).ok, true);               // it can be sent again at the same price
+  assert.equal(startTraining(s, 'a', 0), false);
 });
 
 test('card names with colons survive in the graded event', () => {

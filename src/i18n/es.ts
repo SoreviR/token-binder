@@ -103,6 +103,8 @@ export const es: Record<Key, string> = {
   'grade.busy': 'TokenBinder: esta carta ya está en el servicio de gradeo.',
   'grade.none': 'TokenBinder: no se encontró esa carta.',
   'grade.soaked': 'TokenBinder: el servicio de gradeo no acepta cartas empapadas. Sécala antes con un Charmandryer.',
+  'grade.cancelConfirm': 'TokenBinder: ¿retirar esta carta del servicio de gradeo? Recuperas 🪙 {0} de las 🪙 {1} del envío.',
+  'grade.cancelButton': 'Retirar carta',
 
   // percances por pasarse de la cuota
   'mishap.rocket': 'TokenBinder: te pasaste de la cuota y el Team Rocket te robó {0}. Gánales en la pestaña Combate para recuperarla.',
