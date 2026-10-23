@@ -2,6 +2,11 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.27.0 - 2026-10-23
+
+- **League: who is left to challenge.** Next to each player's **Challenge** button the League tab now shows how many challenges you have left against them today (`⚔ 2/2 left`, `✔` and a dimmed row when you are done, and the button is disabled), and a line above the ranking counts the challenges left and the players you can still challenge. Hovering shows when the limits reset (midnight UTC). **Needs the league server updated** (it is deployed from `main`): until then nothing is shown.
+- **League: the daily limits are per league.** The 10 challenges a day and the 2 a day against the same player are now counted inside each league, because every league is its own competition: challenging someone in one no longer uses up your challenges against them in another. The server keeps the counters in a new table (created on its own). The day it is updated everybody's counters start from zero once.
+
 ## 1.26.0 - 2026-10-23
 
 - **Evolution box (🪨, 50 coins in the shop):** it gives one evolution stone. The stones of the branching lines you already have (Eevee, Kirlia, Gloom…) are more likely, and the ones you already hold less, so boxes bring variety. Evolution stones no longer come out of the mystery box: they were over half of what it gave, yet they only choose a branch in a handful of lines (and "Natural" does that for free). Spare stones can be **recycled** for 🪙 15 each in the Items tab (less than the box costs, so buying boxes to recycle never pays), which also lets players with a pile of stones cash them in.
