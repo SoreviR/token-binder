@@ -170,6 +170,31 @@ test('daily limits: two duels per rival per day, and a new day resets them', asy
   assert.equal((await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 })).status, 200);
 });
 
+test('the board says how many challenges are left against each rival today, and when the limits reset', async () => {
+  const w = await world();
+  const { id, code } = await league(w);
+  await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8));
+  await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 8));
+  await w.call('tokC', 'PUT', '/fighter', claim('base1-58', 8));
+  const view = async () => (await w.call('tokA', 'GET', `/leagues/${id}`)).body;
+  const left = (b: any) => Object.fromEntries(b.members.filter((m: any) => !m.you).map((m: any) => [m.id, m.left]));
+  let b = await view();
+  assert.deepEqual(left(b), { 2: DAILY_PER_RIVAL, 3: DAILY_PER_RIVAL });
+  assert.equal(b.members.find((m: any) => m.you).left, undefined, 'nothing about yourself');
+  assert.equal(b.today.perRival, DAILY_PER_RIVAL);
+  assert.equal(new Date(b.today.resetsAt).getTime(), Math.floor(T0 / DAY) * DAY + DAY, 'the next midnight UTC');
+
+  await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 });
+  assert.deepEqual(left(await view()), { 2: DAILY_PER_RIVAL - 1, 3: DAILY_PER_RIVAL });
+  await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 });
+  assert.deepEqual(left(await view()), { 2: 0, 3: DAILY_PER_RIVAL });
+  assert.equal((await w.call('tokB', 'GET', `/leagues/${id}`)).body.members.find((m: any) => m.id === 1).left, DAILY_PER_RIVAL, 'each player has their own count');
+
+  assert.ok(!JSON.stringify((await w.call(undefined, 'GET', `/public/league?code=${code.toLowerCase()}`)).body).includes('"left"'), 'the public page has none');
+  w.clock.t += DAY;
+  assert.deepEqual(left(await view()), { 2: DAILY_PER_RIVAL, 3: DAILY_PER_RIVAL }, 'a new day starts over');
+});
+
 test('the daily total stops a player at 10 challenges', async () => {
   const w = await world();
   const { id } = await league(w);

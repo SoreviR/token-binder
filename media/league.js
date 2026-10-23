@@ -76,6 +76,12 @@ window.PTLeague = (function () {
 
   const MEDAL = ['🥇', '🥈', '🥉'];
   /** "ends in 12 d" from the season's end date, or "ends today". */
+  /** "5 h 20 min" until the daily limits start over (the server counts days in UTC). */
+  function resetText(resetsAt) {
+    const mins = Math.max(1, Math.ceil((new Date(resetsAt).getTime() - Date.now()) / 6e4));
+    return mins >= 60 ? Math.floor(mins / 60) + ' h ' + (mins % 60) + ' min' : mins + ' min';
+  }
+
   function endsText(endsAt) {
     const days = Math.ceil((new Date(endsAt).getTime() - Date.now()) / 864e5);
     return days <= 1 ? t('league.endsToday') : t('league.endsIn', days);
@@ -95,6 +101,12 @@ window.PTLeague = (function () {
     const teams = teamLeague(d);
     const full = m => !teams || (m.team && m.team.length >= d.localTeam.need - 1);
     const canDuel = !!d.registered && !d.busy && b.today.used < b.today.max && (!teams || d.registered.team.length >= d.localTeam.need - 1);
+    // Challenges left against each rival today (older servers do not send it: nothing is shown then).
+    const per = b.today.perRival, known = per !== undefined && b.today.resetsAt;
+    const tip = known ? t('league.resetsIn', resetText(b.today.resetsAt)) : '';
+    const open = m => !m.you && !m.busted && m.fighter && full(m) && m.left > 0;
+    const toHit = known ? b.members.filter(open).length : 0;
+    const dailyLeft = Math.max(0, b.today.max - b.today.used);
     return box(b.league.name,
       el('div', { class: 'row' },
         el('span', { class: 'sub', text: t('league.code', b.league.code) }),
@@ -102,9 +114,10 @@ window.PTLeague = (function () {
           el('button', { class: 'btn ghost', text: t('league.copy'), onclick: () => send('leagueCopy', { code: b.league.code }) }),
           el('button', { class: 'btn ghost', text: t('league.page'), onclick: () => send('leaguePage', { code: b.league.code }) }),
           el('button', { class: 'btn ghost', text: t('league.leave'), onclick: () => send('leagueLeave', { id: b.league.id }) }))),
+      known ? el('div', { class: 'sub', title: tip, text: toHit && dailyLeft ? t('league.pending', dailyLeft, toHit) : t('league.pendingNone') }) : null,
       b.season ? el('div', { class: 'sub', title: t('league.seasonHint'), text: t('league.season', b.season.id, endsText(b.season.endsAt)) }) : null,
       b.podium && b.podium.entries.length ? el('div', { class: 'sub', text: t('league.podium', b.podium.season) + ': ' + b.podium.entries.map(e => MEDAL[e.rank - 1] + ' ' + e.login + ' (' + e.elo + ')').join(' · ') }) : null,
-      ...b.members.map((m, i) => el('div', { class: 'leader' + (m.you ? ' earned' : '') + (m.busted ? ' busted' : '') },
+      ...b.members.map((m, i) => el('div', { class: 'leader' + (m.you ? ' earned' : '') + (m.busted ? ' busted' : '') + (known && !m.you && m.left === 0 ? ' spent' : '') },
         el('div', { class: 'rankn', text: '#' + (i + 1) }),
         el('div', { class: 'lthumb' }, m.fighter && m.fighter.src ? el('img', { src: m.fighter.src, alt: '' }) : el('div', { class: 'nm', text: m.fighter ? m.fighter.name : '?' })),
         el('div', { class: 'linfo' },
@@ -119,7 +132,8 @@ window.PTLeague = (function () {
         m.showcase ? showcaseEl(m.showcase) : null,
         m.you ? null
           : m.busted ? el('button', { class: 'btn ghost', ...(m.youPardoned ? { disabled: '' } : {}), title: t('league.bustVoteTip'), text: t(m.youPardoned ? 'league.bustVoted' : 'league.bustVote', m.bustVotes || 0, b.pardonNeed), onclick: () => send('leaguePardon', { subject: m.id }) })
-          : el('button', { class: 'btn', ...(canDuel && m.fighter && full(m) ? {} : { disabled: '' }), text: t('league.challenge'), onclick: () => send('leagueChallenge', { rival: m.id }) }))));
+          : [known && m.left !== undefined ? el('span', { class: 'lleft' + (m.left === 0 ? ' done' : ''), title: tip, text: (m.left === 0 ? '✔ ' : '⚔ ') + t('league.left', m.left, per) }) : null,
+            el('button', { class: 'btn', ...(canDuel && m.fighter && full(m) && m.left !== 0 ? {} : { disabled: '' }), text: t('league.challenge'), onclick: () => send('leagueChallenge', { rival: m.id }) })])));
   }
 
   function duelsBox(d) {

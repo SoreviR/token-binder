@@ -299,6 +299,9 @@ body.album #overlay { justify-content: center; cursor: pointer; }
 .errbox { border-color: var(--vscode-editorError-foreground, #c0392b); }
 
 .leader.busted { opacity: .75; }
+.leader.spent { opacity: .6; }
+.lleft { flex: none; font-size: 11px; opacity: .85; white-space: nowrap; }
+.lleft.done { color: var(--vscode-charts-green, #3fb950); }
 .leader.busted .lthumb { filter: grayscale(.7); }
 .bustflag { font-size: 10px; font-weight: 800; letter-spacing: .5px; padding: 1px 6px; border-radius: 6px; color: #fff; background: #c0392b; cursor: help; }
 

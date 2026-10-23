@@ -79,6 +79,22 @@ test('connect: consent, the setting is turned on, the fighter is registered and 
   assert.equal(d.error, undefined);
 });
 
+test('the board that reaches the League tab says how many challenges are left against each rival', async () => {
+  const w = await world();
+  const a = player(w, 'tokA', 'base1-4', 8);
+  const b = player(w, 'tokB', 'base1-58', 8);
+  await a.ctl.handle({ type: 'leagueConnect' });
+  await a.ctl.handle({ type: 'leagueCreate', name: 'Pallet Town' });
+  await b.ctl.handle({ type: 'leagueConnect' });
+  await b.ctl.handle({ type: 'leagueJoin', code: last(a).board.league.code });
+  await a.ctl.handle({ type: 'leagueRefresh' });
+  const rival = () => last(a).board.members.find((m: any) => !m.you);
+  assert.equal(rival().left, last(a).board.today.perRival);
+  await a.ctl.handle({ type: 'leagueChallenge', rival: rival().id });
+  assert.equal(rival().left, last(a).board.today.perRival - 1);
+  assert.ok(last(a).board.today.resetsAt, 'and when the limits start over');
+});
+
 test('an edited save is reported, flags the player BUSTED, and "volver a nacer" wipes it clean', async () => {
   const w = await world();
   const a = player(w, 'tokA', 'base1-4', 8);

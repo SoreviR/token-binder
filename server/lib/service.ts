@@ -295,7 +295,7 @@ async function podium(d: Deps, leagueId: number): Promise<Podium | null> {
 /* ───── the league board ───── */
 
 export interface ShowcaseView { cardId: string; image?: string; key: string; name: string; tier: number; rarity?: string; set?: string; grade?: number; value?: number }
-export interface MemberView { id: number; login: string; elo: number; wins: number; losses: number; fighter?: FighterView; team: FighterView[]; showcase?: ShowcaseView; you: boolean; busted: boolean; crowns: number; bustVotes?: number; youPardoned?: boolean }
+export interface MemberView { id: number; login: string; elo: number; wins: number; losses: number; fighter?: FighterView; team: FighterView[]; showcase?: ShowcaseView; you: boolean; busted: boolean; crowns: number; bustVotes?: number; youPardoned?: boolean; left?: number }
 export interface DuelLine { id: number; challenger: string; defender: string; winner: string; rounds: number; eloChange: number; at: string; you?: 'challenger' | 'defender' }
 
 async function recentDuels(d: Deps, leagueId: number, limit: number, pid?: number): Promise<DuelLine[]> {
@@ -359,12 +359,16 @@ export async function setShowcase(d: Deps, pid: number, raw: unknown): Promise<R
 }
 
 export async function leagueView(d: Deps, pid: number, leagueId: number):
-  Promise<Result<{ league: { id: number; name: string; code: string; mode: LeagueMode }; members: MemberView[]; duels: DuelLine[]; today: { used: number; max: number }; pardonNeed: number; season: SeasonView; podium: Podium | null }>> {
+  Promise<Result<{ league: { id: number; name: string; code: string; mode: LeagueMode }; members: MemberView[]; duels: DuelLine[]; today: { used: number; max: number; perRival: number; resetsAt: string }; pardonNeed: number; season: SeasonView; podium: Podium | null }>> {
   if (!(await isMember(d, leagueId, pid))) { return fail('not-member', 404); }
   await rollSeason(d, leagueId);
   const l = (await d.db.query<{ id: number; name: string; code: string; mode: string }>('select id, name, code, mode from leagues where id = $1', [leagueId]))[0];
   const used = num((await d.db.query<{ n: number }>('select count(*)::int as n from duels where challenger = $1 and created_at >= $2', [pid, iso(startOfDay(d.now()))]))[0].n);
   const members = await membersOf(d, leagueId, pid);
+  // Challenges left today against each rival (the per-rival counter of duel_quota, shared by all your leagues).
+  const spent = new Map((await d.db.query<{ defender: number; n: number }>(
+    'select defender, n from duel_quota where challenger = $1 and day = $2 and defender <> 0', [pid, iso(startOfDay(d.now())).slice(0, 10)])).map(r => [num(r.defender), num(r.n)]));
+  for (const m of members) { if (!m.you) { m.left = Math.max(0, DAILY_PER_RIVAL - (spent.get(m.id) ?? 0)); } }
   // A busted player is cleared by a majority of the OTHER members voting to pardon them; show the tally.
   const need = Math.floor((members.length - 1) / 2) + 1;
   if (members.some(m => m.busted)) {
@@ -379,7 +383,7 @@ export async function leagueView(d: Deps, pid: number, leagueId: number):
   }
   return {
     ok: true, league: { id: num(l.id), name: l.name, code: l.code, mode: readMode(l.mode) }, members,
-    duels: await recentDuels(d, leagueId, 10, pid), today: { used, max: DAILY_DUELS }, pardonNeed: need,
+    duels: await recentDuels(d, leagueId, 10, pid), today: { used, max: DAILY_DUELS, perRival: DAILY_PER_RIVAL, resetsAt: iso(startOfDay(d.now()) + DAY) }, pardonNeed: need,
     season: seasonView(d.now()), podium: await podium(d, leagueId),
   };
 }
