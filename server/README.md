@@ -14,7 +14,7 @@ Each player can show off one card: the one they pin in the album, or otherwise t
 
 ## What it stores
 
-Only what the League tab says: your GitHub id and login, the card you take to battle (level, grade, held item), roughly how much of your quota you used, a summary of your save (how many coins, cards, items and levels you have — counts only, used to spot an edited save; never what the cards are), the duels, the podium places you won and the card you show off. `DELETE /api/v1/me` removes all of it. The GitHub token is checked once against `api.github.com` and never stored.
+Only what the League tab says: your GitHub id and login, the card you take to battle (level, grade, held item) and the two cards of your team for team leagues (same details), roughly how much of your quota you used, a summary of your save (how many coins, cards, items and levels you have — counts only, used to spot an edited save; never what the cards are), the duels, the podium places you won and the card you show off. `DELETE /api/v1/me` removes all of it. The GitHub token is checked once against `api.github.com` and never stored.
 
 ## Layout
 

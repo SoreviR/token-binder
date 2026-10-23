@@ -2,6 +2,10 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## Unreleased
+
+- **Team leagues:** a new league can be created as **One card** (as before) or **👥 Teams of three**. In a team league each player fights with their Elite Four team (the battle card plus the album's Team zone), and a duel is the same series of 1v1 fights as against the Elite Four: the winner keeps its HP, the loser is replaced, and the whole series is one Elo result. The server registers the two backup cards with the fighter (same level cap; their XP counts in the anti-cheat save check), only lets full teams fight (checked before a daily duel is spent), stores the whole series and mirrors it for the defender's replay. The League tab shows each player's team and yours, the arena plays the series fight by fight with **Next duel**, and the backup cards earn half the battle XP. Existing leagues stay single-card.
+
 ## 1.23.0 - 2026-10-23
 
 - **Cancel grading:** a card at the grading service can now be taken back from its viewer (**✖ Cancel grading**), so it can train, fight or join the team again. After a confirmation that shows the amount, half of the fee is returned (rounded down) and the other half is lost. Cancelling does not count as a try, and the card keeps any grade it already had.

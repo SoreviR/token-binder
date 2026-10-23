@@ -429,3 +429,7 @@ body.drag-from-dock .agrid { outline: 2px dashed var(--vscode-focusBorder); outl
 .showthumb { width: 52px; flex: none; border-color: #ffd54a; box-shadow: 0 0 10px rgba(255,213,74,.55); cursor: pointer; }
 .showthumb.graded { border-color: #e8f0f7; }
 .showtxt .sub { margin: 0; }
+
+/* team leagues: the two cards backing each fighter up, under its line in the ranking */
+.lteam { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
+.lteam .mini { width: 26px; }

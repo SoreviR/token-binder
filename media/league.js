@@ -3,11 +3,12 @@
 window.PTLeague = (function () {
   const { el, t } = window.PT;
   let root, send, data = null;
-  let nameInput = '', codeInput = '';
+  let nameInput = '', codeInput = '', modeInput = 'single';
 
   function init(host) { root = host.root; send = host.send; }
   function setData(d) { data = d; render(); }
 
+  const teamLeague = d => !!(d.board && d.board.league.mode === 'team');
   const box = (title, ...kids) => el('div', { class: 'bbox' }, title ? el('h3', { text: title }) : null, ...kids);
   const errText = code => t('league.err.' + code) !== 'league.err.' + code ? t('league.err.' + code) : t('league.err.generic', code);
 
@@ -34,9 +35,13 @@ window.PTLeague = (function () {
     const code = el('input', { class: 'search', type: 'text', maxlength: '12', placeholder: t('league.codePlaceholder'), value: codeInput, oninput: e => { codeInput = e.target.value; } });
     return box(t('league.myLeagues'),
       d.leagues.length
-        ? el('div', { class: 'chips' }, d.leagues.map(l => el('button', { class: 'chip' + (l.id === d.selected ? ' on' : ''), text: l.name + ' · ' + l.members, onclick: () => send('leagueSelect', { id: l.id }) })))
+        ? el('div', { class: 'chips' }, d.leagues.map(l => el('button', { class: 'chip' + (l.id === d.selected ? ' on' : ''), title: t(l.mode === 'team' ? 'league.modeTeam' : 'league.modeSingle'), text: (l.mode === 'team' ? '👥 ' : '') + l.name + ' · ' + l.members, onclick: () => send('leagueSelect', { id: l.id }) })))
         : el('div', { class: 'sub', text: t('league.noLeagues') }),
-      el('div', { class: 'toolbar' }, name, el('button', { class: 'btn', ...(d.busy ? { disabled: '' } : {}), text: t('league.create'), onclick: () => { send('leagueCreate', { name: nameInput }); nameInput = ''; } })),
+      el('div', { class: 'toolbar' }, name, el('button', { class: 'btn', ...(d.busy ? { disabled: '' } : {}), text: t('league.create'), onclick: () => { send('leagueCreate', { name: nameInput, mode: modeInput }); nameInput = ''; } })),
+      el('div', { class: 'chips', role: 'radiogroup', 'aria-label': t('league.modeAria') }, ['single', 'team'].map(m => el('button', {
+        class: 'chip' + (modeInput === m ? ' on' : ''), role: 'radio', 'aria-checked': String(modeInput === m),
+        text: t(m === 'team' ? 'league.modeTeam' : 'league.modeSingle'), onclick: () => { modeInput = m; render(); } }))),
+      el('div', { class: 'sub', text: t(modeInput === 'team' ? 'league.modeTeamHint' : 'league.modeSingleHint') }),
       el('div', { class: 'toolbar' }, code, el('button', { class: 'btn', ...(d.busy ? { disabled: '' } : {}), text: t('league.join'), onclick: () => { send('leagueJoin', { code: codeInput }); codeInput = ''; } })));
   }
 
@@ -52,6 +57,11 @@ window.PTLeague = (function () {
       rows.push(el('div', { class: 'sub warnline', text: t('league.bustedYou') }));
       rows.push(el('div', { class: 'row', style: 'justify-content:flex-start;margin-top:4px' },
         el('button', { class: 'btn', ...(d.busy ? { disabled: '' } : {}), text: t('league.reborn'), onclick: () => send('leagueReborn') })));
+    }
+    if (teamLeague(d)) {
+      const mates = d.registered ? d.registered.team : [];
+      if (mates.length >= d.localTeam.need - 1) rows.push(el('div', { class: 'sub', text: t('league.yourTeam', mates.map(m => t('league.fighterLine', m.name, m.level)).join(' · ')) }));
+      else rows.push(el('div', { class: 'sub warnline', text: t('league.teamNeed', d.localTeam.size, d.localTeam.need) }));
     }
     rows.push(el('div', { class: 'sub', text: t('league.syncHint') }));
     return box(t('league.yourFighter'), ...rows);
@@ -82,7 +92,9 @@ window.PTLeague = (function () {
   function rankBox(d) {
     const b = d.board;
     if (!b) return null;
-    const canDuel = !!d.registered && !d.busy && b.today.used < b.today.max;
+    const teams = teamLeague(d);
+    const full = m => !teams || (m.team && m.team.length >= d.localTeam.need - 1);
+    const canDuel = !!d.registered && !d.busy && b.today.used < b.today.max && (!teams || d.registered.team.length >= d.localTeam.need - 1);
     return box(b.league.name,
       el('div', { class: 'row' },
         el('span', { class: 'sub', text: t('league.code', b.league.code) }),
@@ -100,11 +112,14 @@ window.PTLeague = (function () {
             m.crowns ? el('span', { title: t('league.crowns', m.crowns), text: '🏆' + (m.crowns > 1 ? '×' + m.crowns : '') }) : null,
             m.busted ? el('span', { class: 'bustflag', title: t('league.bustedTip'), text: t('league.busted') }) : null,
             el('span', { class: 'sub', text: 'Elo ' + m.elo + ' · ' + m.wins + '–' + m.losses })),
-          el('div', { class: 'sub', text: m.fighter ? t('league.fighterLine', m.fighter.name, m.fighter.level) + (m.fighter.grade ? ' · TBGS ' + m.fighter.grade : '') + (m.fighter.held ? ' · ' + window.PT.itemIcon(m.fighter.held) : '') : t('league.noFighter') })),
+          el('div', { class: 'sub', text: m.fighter ? t('league.fighterLine', m.fighter.name, m.fighter.level) + (m.fighter.grade ? ' · TBGS ' + m.fighter.grade : '') + (m.fighter.held ? ' · ' + window.PT.itemIcon(m.fighter.held) : '') : t('league.noFighter') }),
+          teams ? el('div', { class: 'lteam', title: t('league.teamTip') }, m.team && m.team.length
+            ? [el('span', { class: 'sub', text: '👥' }), ...m.team.map(f => el('div', { class: 'mini', title: t('league.fighterLine', f.name, f.level) }, f.src ? el('img', { src: f.src, alt: f.name }) : el('span', { class: 'nm', text: f.name })))]
+            : el('span', { class: 'sub', text: t('league.noTeam') })) : null),
         m.showcase ? showcaseEl(m.showcase) : null,
         m.you ? null
           : m.busted ? el('button', { class: 'btn ghost', ...(m.youPardoned ? { disabled: '' } : {}), title: t('league.bustVoteTip'), text: t(m.youPardoned ? 'league.bustVoted' : 'league.bustVote', m.bustVotes || 0, b.pardonNeed), onclick: () => send('leaguePardon', { subject: m.id }) })
-          : el('button', { class: 'btn', ...(canDuel && m.fighter ? {} : { disabled: '' }), text: t('league.challenge'), onclick: () => send('leagueChallenge', { rival: m.id }) }))));
+          : el('button', { class: 'btn', ...(canDuel && m.fighter && full(m) ? {} : { disabled: '' }), text: t('league.challenge'), onclick: () => send('leagueChallenge', { rival: m.id }) }))));
   }
 
   function duelsBox(d) {
@@ -120,7 +135,7 @@ window.PTLeague = (function () {
   function replaysBox(d) {
     if (!d.replays.length) return null;
     return box(t('league.replays'), d.replays.map(r => el('div', { class: 'hrow ' + (r.won ? 'won' : 'lost') },
-      el('span', { text: (r.won ? '✔ ' : '✘ ') + t(r.incoming ? 'league.replayIn' : 'league.replayOut', r.rival, r.league) + ' (' + (r.eloChange > 0 ? '+' : '') + r.eloChange + ' Elo)' }),
+      el('span', { text: (r.won ? '✔ ' : '✘ ') + (r.team ? '👥 ' : '') + t(r.incoming ? 'league.replayIn' : 'league.replayOut', r.rival, r.league) + ' (' + (r.eloChange > 0 ? '+' : '') + r.eloChange + ' Elo)' }),
       el('button', { class: 'btn ghost', text: t('league.watch'), onclick: () => send('leagueReplay', { id: r.id }) }))));
   }
 

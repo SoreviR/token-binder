@@ -39,7 +39,7 @@ export async function route(d: Deps, req: Req): Promise<Res> {
 
   if (a === 'leagues') {
     if (!b && m === 'GET') { return send(await svc.myLeagues(d, pid)); }
-    if (!b && m === 'POST') { return send(await svc.createLeague(d, pid, req.body?.name)); }
+    if (!b && m === 'POST') { return send(await svc.createLeague(d, pid, req.body?.name, req.body?.mode)); }
     if (b === 'join' && m === 'POST') { return send(await svc.joinLeague(d, pid, req.body?.code)); }
     const id = Number(b);
     if (Number.isInteger(id)) {
