@@ -2,6 +2,11 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.26.0 - 2026-10-23
+
+- **Evolution box (🪨, 50 coins in the shop):** it gives one evolution stone. The stones of the branching lines you already have (Eevee, Kirlia, Gloom…) are more likely, and the ones you already hold less, so boxes bring variety. Evolution stones no longer come out of the mystery box: they were over half of what it gave, yet they only choose a branch in a handful of lines (and "Natural" does that for free). Spare stones can be **recycled** for 🪙 15 each in the Items tab (less than the box costs, so buying boxes to recycle never pays), which also lets players with a pile of stones cash them in.
+- **Better mystery box:** without the stones it now gives Rare Candy (33%), Lucky Egg (20%), battle items (23%), sleeves and toploaders (18%, fewer of the ones the shop sells for 15-50 coins) and rare transformation items (~7%). After 30 boxes in a row without a transformation item the next one is sure to have one. The price (120 coins) and the rewards that give boxes are unchanged and will be reviewed with real use.
+
 ## 1.25.0 - 2026-10-23
 
 - **Team leagues:** a new league can be created as **One card** (as before) or **👥 Teams of three**. In a team league each player fights with their Elite Four team (the battle card plus the album's Team zone), and a duel is the same series of 1v1 fights as against the Elite Four: the winner keeps its HP, the loser is replaced, and the whole series is one Elo result. The server registers the two backup cards with the fighter (same level cap; their XP counts in the anti-cheat save check), only lets full teams fight (checked before a daily duel is spent), stores the whole series and mirrors it for the defender's replay. The League tab shows each player's team and yours, the arena plays the series fight by fight with **Next duel**, and the backup cards earn half the battle XP. Existing leagues stay single-card.
