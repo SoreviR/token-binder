@@ -2,7 +2,7 @@
   "name": "token-binder",
   "displayName": "TokenBinder",
   "description": "%extension.description%",
-  "version": "1.27.0",
+  "version": "1.27.1",
   "publisher": "sorevir",
   "license": "MIT",
   "engines": {

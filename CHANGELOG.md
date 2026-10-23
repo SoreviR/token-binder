@@ -2,6 +2,10 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.27.1 - 2026-10-23
+
+- **Fix: the album opened empty.** Since 1.26.0 a stray parenthesis in the Items tab script stopped the whole album from loading (no cards, items, battle or league), while the side panel kept working. A test now parses every webview script, so a typo like this fails the build instead of reaching a release. If you are on 1.26.0 or 1.27.0, update.
+
 ## 1.27.0 - 2026-10-23
 
 - **League: who is left to challenge.** Next to each player's **Challenge** button the League tab now shows how many challenges you have left against them today (`⚔ 2/2 left`, `✔` and a dimmed row when you are done, and the button is disabled), and a line above the ranking counts the challenges left and the players you can still challenge. Hovering shows when the limits reset (midnight UTC). **Needs the league server updated** (it is deployed from `main`): until then nothing is shown.

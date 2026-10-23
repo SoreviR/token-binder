@@ -290,7 +290,7 @@
         el('div', { class: 'igrid' }, ids.map(id => el('div', { class: 'icard' },
           el('div', { class: 'ic-top' }, el('div', { class: 'ic-icon', text: itemIcon(id) }), el('div', { class: 'ic-name', text: itemName(id) }), el('span', { class: 'ic-n', text: '×' + have(id) })),
           el('div', { class: 'ic-desc', text: itemDesc(id) }),
-          kind === 'evolve' ? el('button', { class: 'btn ghost', title: t('items.recycleTip'), text: t('items.recycle', D.stoneValue || 15), onclick: () => send('recycle', { item: id }) }) : null)))))));
+          kind === 'evolve' ? el('button', { class: 'btn ghost', title: t('items.recycleTip'), text: t('items.recycle', D.stoneValue || 15), onclick: () => send('recycle', { item: id }) }) : null))))));
   }
 
   /* ───── goals tab: long-term targets with progress and the reward they pay ───── */
