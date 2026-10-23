@@ -114,6 +114,12 @@ create table if not exists league_seasons (
   losses      int not null,
   primary key (league_id, season, rank)
 )`,
+  // Team leagues: a league is played one card against one card ('single') or with the team of three each player prepares in the
+  // album's Team zone ('team'). `fighters.team` holds the two cards that back the fighter up, as claimed like the fighter itself;
+  // a team duel stores both teams and the whole series of 1v1 fights (`duels.team`).
+  `alter table leagues add column if not exists mode text not null default 'single'`,
+  `alter table fighters add column if not exists team jsonb not null default '[]'`,
+  `alter table duels add column if not exists team boolean not null default false`,
   `-- Votes from the other members of a league to lift a player's BUSTED flag. A majority of them clears it.
 create table if not exists pardons (
   league_id   int not null references leagues(id) on delete cascade,

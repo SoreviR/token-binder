@@ -2,6 +2,7 @@
 import { COIN_EVERY_TOKENS, MAX_LEVEL, PACE_BONUS, XP_PER_LEVEL } from '../../src/game/engine';
 import { isHeldId } from '../../src/game/items';
 import type { HeldId } from '../../src/game/items';
+import { TEAM_EXTRAS } from '../../src/game/team';
 
 export const ELO_START = 1000;
 export const ELO_K = 32;
@@ -105,6 +106,32 @@ export function checkClaim(raw: unknown, joinedAt: number, now: number): ClaimCh
   const maxXp = (cap - 1) * XP_PER_LEVEL;
   const clamped = xp > maxXp;
   return { ok: true, cap, clamped, claim: { key: r.key, xp: Math.floor(Math.min(xp, maxXp)), grade, held, quotaPct: Math.max(0, Math.min(200, quota)) } };
+}
+
+/* ───── team leagues ───── */
+
+/** A league is played one card against one card ('single', the default) or team of three against team of three ('team'). */
+export type LeagueMode = 'single' | 'team';
+export const readMode = (x: unknown): LeagueMode => (x === 'team' ? 'team' : 'single');
+
+export type TeamCheck = { ok: true; members: FighterClaim[]; clamped: boolean } | { ok: false; error: string };
+
+/**
+ * Validates the cards that back the fighter up (the album's Team zone): at most TEAM_EXTRAS, each one checked and clamped to the
+ * level cap like the fighter itself, none repeated and none the fighter. Missing means no team (an older extension sends none).
+ */
+export function checkTeam(raw: unknown, leadKey: string, joinedAt: number, now: number): TeamCheck {
+  if (raw === undefined || raw === null) { return { ok: true, members: [], clamped: false }; }
+  if (!Array.isArray(raw) || raw.length > TEAM_EXTRAS) { return { ok: false, error: 'invalid-team' }; }
+  const members: FighterClaim[] = [];
+  let clamped = false;
+  for (const m of raw) {
+    const c = checkClaim(m, joinedAt, now);
+    if (!c.ok || c.claim.key === leadKey || members.some(x => x.key === c.claim.key)) { return { ok: false, error: 'invalid-team' }; }
+    members.push(c.claim);
+    clamped ||= c.clamped;
+  }
+  return { ok: true, members, clamped };
 }
 
 /** Elo change for player A (B gets the opposite). Always at least 1 point, so every duel moves the ranking. */

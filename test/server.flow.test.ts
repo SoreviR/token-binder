@@ -321,6 +321,144 @@ test('a report with less than before never busts; a fighter with no profile is r
   assert.equal((await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 50, { profile: { coins: 0, cards: 1, items: 0, xp: 1e6, tokens: 30e6 } }))).body.busted, true);
 });
 
+/* ───── team leagues ───── */
+
+/** A fighter with two cards backing it up (variants of the same card are different album cards), and a save whose XP covers all three. */
+const teamClaim = (lead: string, level: number, mates: [string, number][]) => {
+  const xp = (l: number) => (l - 1) * XP_PER_LEVEL;
+  const team = mates.map(([key, l]) => ({ key, xp: xp(l) }));
+  const total = xp(level) + team.reduce((n, m) => n + m.xp, 0);
+  return { key: lead, xp: xp(level), quotaPct: 60, team, profile: { coins: 100, cards: 5, items: 0, xp: total, tokens: total + 1e6 } };
+};
+const charizards = teamClaim('base1-4', 8, [['base1-4#shadowless', 8], ['base1-4#first', 8]]);
+const pikachus = teamClaim('base1-58', 3, [['base1-58#shadowless', 3], ['base1-58#first', 3]]);
+
+async function teamLeague(w: World) {
+  const created = await w.call('tokA', 'POST', '/leagues', { name: 'Team Rocket HQ', mode: 'team' });
+  assert.equal(created.status, 200);
+  assert.equal(created.body.league.mode, 'team');
+  for (const who of ['tokB', 'tokC']) { assert.equal((await w.call(who, 'POST', '/leagues/join', { code: created.body.league.code })).body.league.mode, 'team'); }
+  return { id: created.body.league.id as number, code: created.body.league.code as string };
+}
+
+test('team leagues: the mode is chosen when creating and shown everywhere; anything else makes a single-card league', async () => {
+  const w = await world();
+  const { id } = await teamLeague(w);
+  assert.equal((await w.call('tokA', 'GET', '/leagues')).body.leagues.find((l: any) => l.id === id).mode, 'team');
+  assert.equal((await w.call('tokA', 'GET', `/leagues/${id}`)).body.league.mode, 'team');
+  assert.equal((await w.call('tokB', 'POST', '/leagues', { name: 'Plain' })).body.league.mode, 'single');
+  assert.equal((await w.call('tokC', 'POST', '/leagues', { name: 'Odd', mode: 'chaos' })).body.league.mode, 'single');
+});
+
+test('the team is registered with the fighter and shown on the board, validated and clamped like the fighter', async () => {
+  const w = await world();
+  const { id } = await teamLeague(w);
+  const r = await w.call('tokA', 'PUT', '/fighter', charizards);
+  assert.equal(r.status, 200);
+  assert.deepEqual(r.body.team.map((m: any) => [m.key, m.name, m.level]), [['base1-4#shadowless', 'Charizard', 8], ['base1-4#first', 'Charizard', 8]]);
+  assert.equal(r.body.busted, false);
+  const me = (await w.call('tokB', 'GET', `/leagues/${id}`)).body.members.find((m: any) => m.login === 'ash');
+  assert.equal(me.team.length, 2);
+  assert.equal(me.team[1].name, 'Charizard');
+
+  const bad = (team: unknown) => w.call('tokA', 'PUT', '/fighter', { ...charizards, team });
+  assert.equal((await bad([{ key: 'base1-58', xp: 0 }, { key: 'base1-58', xp: 0 }])).body.error, 'invalid-team', 'no repeats');
+  assert.equal((await bad([{ key: 'base1-4', xp: 0 }])).body.error, 'invalid-team', 'not the fighter itself');
+  assert.equal((await bad([{ key: 'base1-58', xp: 0 }, { key: 'base1-58#first', xp: 0 }, { key: 'base1-58#shadowless', xp: 0 }])).body.error, 'invalid-team', 'at most two');
+  assert.equal((await bad([{ key: '../etc', xp: 0 }])).body.error, 'invalid-team');
+  // A level-50 card on day one is clamped to the cap, like the fighter.
+  const big = await w.call('tokC', 'PUT', '/fighter', teamClaim('base1-58', 3, [['base1-4', 50], ['base1-4#first', 3]]));
+  assert.equal(big.body.clamped, true);
+  assert.equal(big.body.team[0].level, 10);
+});
+
+test('a team made of XP the save does not have is BUSTED, like a made-up fighter', async () => {
+  const w = await world();
+  await teamLeague(w);
+  // The save only covers the fighter's XP, not the two cards backing it up.
+  const r = await w.call('tokA', 'PUT', '/fighter', { ...charizards, profile: { coins: 100, cards: 5, items: 0, xp: 7 * XP_PER_LEVEL, tokens: 8e6 } });
+  assert.equal(r.body.busted, true);
+});
+
+test('a team duel: a series of 1v1 fights where the winner keeps its HP and the loser is replaced; Elo for the team result', async () => {
+  const w = await world();
+  const { id } = await teamLeague(w);
+  await w.call('tokA', 'PUT', '/fighter', charizards);
+  await w.call('tokB', 'PUT', '/fighter', pikachus);
+  const r = await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 });
+  assert.equal(r.status, 200);
+  const t = r.body.team;
+  assert.ok(t, 'the response carries the whole team fight');
+  assert.equal(t.me.length, 3);
+  assert.equal(t.foe.length, 3);
+  assert.ok(t.duels.length >= 3 && t.duels.length <= 5, 'between 3 and 5 fights for two teams of three');
+  assert.equal(r.body.winner, t.duels.at(-1).winner, 'the last fight decides the duel');
+  assert.equal(r.body.rounds, t.duels.reduce((n: number, x: any) => n + x.rounds, 0));
+  assert.equal(r.body.winner === 'a' ? t.aliveB : t.aliveA, 0, 'the loser has no card left');
+  assert.deepEqual(t.duels[0].startHp, { a: t.me[0].hp, b: t.foe[0].hp }, 'both start at full HP');
+  for (let i = 1; i < t.duels.length; i++) {
+    const prev = t.duels[i - 1], cur = t.duels[i];
+    const [keep, fresh] = prev.winner === 'a' ? ['a', 'b'] : ['b', 'a'];
+    assert.equal(cur[keep], prev[keep], 'the winner stays in');
+    assert.equal(cur[fresh], prev[fresh] + 1, 'the loser is replaced by the next card');
+    const side = (s: string) => (s === 'a' ? t.me : t.foe);
+    assert.equal(cur.startHp[fresh], side(fresh)[cur[fresh]].hp, 'the newcomer comes in at full HP');
+    assert.ok(cur.startHp[keep] > 0 && cur.startHp[keep] <= side(keep)[cur[keep]].hp, 'the winner keeps what it had left');
+  }
+  const board = (await w.call('tokA', 'GET', `/leagues/${id}`)).body.members;
+  const a = board.find((m: any) => m.login === 'ash'), b = board.find((m: any) => m.login === 'misty');
+  assert.equal(a.elo + b.elo, 2000, 'what one gains the other loses');
+  assert.equal(a.wins + a.losses, 1, 'a team duel is one result, not one per fight');
+  const row = (await w.d.db.query<any>('select team, log from duels'))[0];
+  assert.equal(row.team, true);
+  assert.equal(row.log.length, t.duels.length);
+});
+
+test('a team league needs a full team on both sides, checked before a duel of the daily limit is spent', async () => {
+  const w = await world();
+  const { id } = await teamLeague(w);
+  await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8));     // a fighter with no team
+  await w.call('tokB', 'PUT', '/fighter', pikachus);
+  assert.equal((await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 })).body.error, 'no-team');
+  await w.call('tokA', 'PUT', '/fighter', charizards);
+  await w.call('tokC', 'PUT', '/fighter', teamClaim('base1-58', 3, [['base1-58#first', 3]]));   // only one card backing it up
+  assert.equal((await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 3 })).body.error, 'rival-no-team');
+  assert.equal((await w.d.db.query('select 1 from duel_quota')).length, 0, 'no slot of the daily limit was spent');
+});
+
+test('the defender sees a team duel once in the inbox, from their own side', async () => {
+  const w = await world();
+  const { id } = await teamLeague(w);
+  await w.call('tokA', 'PUT', '/fighter', charizards);
+  await w.call('tokB', 'PUT', '/fighter', pikachus);
+  const r = await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 });
+  const box = (await w.call('tokB', 'GET', '/inbox')).body.duels;
+  assert.equal(box.length, 1);
+  const d = box[0], t = d.team;
+  assert.equal(d.won, r.body.winner === 'b');
+  assert.equal(t.me[0].name, 'Pikachu', 'the defender is side a now');
+  assert.equal(t.foe[0].name, 'Charizard');
+  assert.deepEqual([t.aliveA, t.aliveB], [r.body.team.aliveB, r.body.team.aliveA]);
+  t.duels.forEach((x: any, i: number) => {
+    const o = r.body.team.duels[i];
+    assert.deepEqual([x.a, x.b, x.winner], [o.b, o.a, o.winner === 'a' ? 'b' : 'a']);
+    assert.equal(x.log.at(-1).winner, x.winner, 'each fight log is mirrored too');
+  });
+  assert.equal((await w.call('tokB', 'GET', '/inbox')).body.duels.length, 0, 'delivered only once');
+});
+
+test('in a single-card league the team is ignored: one card against one card, as before', async () => {
+  const w = await world();
+  const { id } = await league(w);
+  await w.call('tokA', 'PUT', '/fighter', charizards);
+  await w.call('tokB', 'PUT', '/fighter', pikachus);
+  const r = await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 });
+  assert.equal(r.status, 200);
+  assert.equal(r.body.team, undefined);
+  assert.ok(r.body.log.length > 0);
+  assert.equal((await w.d.db.query<any>('select team from duels'))[0].team, false);
+});
+
 test('the public ranking page: reachable with the invite code, with logins and results only', async () => {
   const w = await world();
   const { id, code } = await league(w);

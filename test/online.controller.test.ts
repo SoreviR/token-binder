@@ -5,19 +5,20 @@ import { BATTLE_VERSION } from '../src/game/battle';
 import { GameState, XP_PER_LEVEL, addCards, newState } from '../src/game/engine';
 import { parseCard } from '../src/game/cardData';
 import { LOSS_XP, WIN_XP } from '../src/game/leaders';
+import { addToTeam } from '../src/game/team';
 import { LeagueClient } from '../src/online/client';
 import { LeagueController, LeagueHost } from '../src/online/controller';
 import { route } from '../server/lib/router';
 import { CARDS, T0, World, world } from './helpers/leagueWorld';
 
-interface Player { host: LeagueHost; ctl: LeagueController; state: GameState; posts: any[]; battles: any[]; notes: string[]; settings: { enabled: boolean }; saved: { n: number }; secrets: Map<string, string> }
+interface Player { host: LeagueHost; ctl: LeagueController; state: GameState; posts: any[]; battles: any[]; rounds: any[][]; notes: string[]; settings: { enabled: boolean }; saved: { n: number }; secrets: Map<string, string> }
 
 /** One player's extension: its own client, session store, saved progress and screens. */
 function player(w: World, token: string, cardId: string, level: number): Player {
   const secrets = new Map<string, string>();
   const settings = { enabled: false };
   const memory = new Map<string, unknown>();
-  const posts: any[] = [], battles: any[] = [], notes: string[] = [], saved = { n: 0 };
+  const posts: any[] = [], battles: any[] = [], rounds: any[][] = [], notes: string[] = [], saved = { n: 0 };
   const card = parseCard(CARDS[cardId])!; card.era = 'vintage';
   const state = newState(0);
   addCards(state, [card]);
@@ -39,11 +40,11 @@ function player(w: World, token: string, cardId: string, level: number): Player 
     enabled: () => settings.enabled, setEnabled: async on => { settings.enabled = on; },
     confirmConsent: async () => true, confirm: async () => true,
     notify: async (m, ..._a) => { notes.push(m); return undefined; },
-    post: d => posts.push(d), sendBattle: d => battles.push(d), thumb: c => 'img/' + c.id, openExternal: () => {}, copy: () => {},
+    post: d => posts.push(d), sendBattle: d => battles.push(d), sendRounds: r => rounds.push(r), thumb: c => 'img/' + c.id, openExternal: () => {}, copy: () => {},
     serverUrl: () => 'https://league.test', memory: { get: (k, f) => (memory.has(k) ? memory.get(k) as never : f), set: async (k, v) => { memory.set(k, v); } },
     now: () => w.clock.t, t: (k, ...a) => k + ':' + a.join(','),
   };
-  return { host, ctl: new LeagueController(host), state, posts, battles, notes, settings, saved, secrets };
+  return { host, ctl: new LeagueController(host), state, posts, battles, rounds, notes, settings, saved, secrets };
 }
 
 const last = (p: Player) => p.posts.at(-1).data;
@@ -103,6 +104,57 @@ test('an edited save is reported, flags the player BUSTED, and "volver a nacer" 
   assert.equal(a.state.coins, 0, 'the local save was reset to zero');
   assert.equal(last(a).registered, undefined, 'no fighter after a rebirth');
   assert.ok(!last(a).board.members.find((m: any) => m.you).busted, 'and the flag is gone');
+});
+
+/** Puts two variants of the player's card in the album's Team zone, at the given level. */
+function withTeam(p: Player, id: string, level: number): void {
+  const base = parseCard(CARDS[id])!; base.era = 'vintage';
+  for (const v of ['shadowless', 'first'] as const) {
+    addCards(p.state, [{ ...base, variant: v }]);
+    p.state.collection[`${id}#${v}`].xp = (level - 1) * XP_PER_LEVEL;
+    assert.ok(addToTeam(p.state, `${id}#${v}`));
+  }
+}
+
+test('a team league: the album team is sent, the duel plays as a series of fights, and the defender can watch it from their side', async () => {
+  const w = await world();
+  const a = player(w, 'tokA', 'base1-4', 8);
+  const b = player(w, 'tokB', 'base1-58', 3);
+  withTeam(a, 'base1-4', 8);
+  withTeam(b, 'base1-58', 3);
+  await a.ctl.handle({ type: 'leagueConnect' });
+  await a.ctl.handle({ type: 'leagueCreate', name: 'Teams', mode: 'team' });
+  assert.equal(last(a).leagues[0].mode, 'team');
+  assert.deepEqual(last(a).registered.team.map((m: any) => m.name), ['Charizard', 'Charizard']);
+  assert.deepEqual([last(a).localTeam.size, last(a).localTeam.need], [3, 3]);
+  await b.ctl.handle({ type: 'leagueConnect' });
+  await b.ctl.handle({ type: 'leagueJoin', code: last(a).board.league.code });
+  await a.ctl.handle({ type: 'leagueRefresh' });
+  const misty = last(a).board.members.find((m: any) => m.login === 'misty');
+  assert.equal(misty.team.length, 2);
+  assert.equal(misty.team[0].src, 'img/base1-58', 'the team thumbnails come from the host');
+
+  const backupXp = a.state.collection['base1-4#first'].xp;
+  await a.ctl.handle({ type: 'leagueChallenge', rival: misty.id });
+  assert.equal(last(a).error, undefined);
+  assert.equal(a.battles.length, 0, 'not a single fight');
+  assert.equal(a.rounds.length, 1);
+  const rounds = a.rounds[0];
+  assert.ok(rounds.length >= 3 && rounds.length <= 5);
+  rounds.forEach((x: any, i: number) => { assert.equal(x.team.duel, i + 1); assert.equal(x.duel.rival, 'misty'); assert.equal(x.team.last, i === rounds.length - 1); });
+  const end = rounds.at(-1);
+  assert.ok(end.teamSummary, 'the last fight carries the team result');
+  assert.equal(typeof end.outcome.eloChange, 'number');
+  assert.equal(rounds[0].outcome.xp, 0, 'only the last round pays out');
+  assert.equal(a.state.collection['base1-4#first'].xp, backupXp + Math.floor((end.outcome.xp ?? 0) / 2), 'the backup cards learn half as much');
+
+  await b.ctl.handle({ type: 'leagueRefresh' });
+  const rep = last(b).replays[0];
+  assert.equal(rep.team, true);
+  await b.ctl.handle({ type: 'leagueReplay', id: rep.id });
+  assert.equal(b.rounds.length, 1);
+  assert.equal(b.rounds[0][0].me.name, 'Pikachu', 'the defender watches from their own side');
+  assert.equal(b.rounds[0].length, rounds.length);
 });
 
 test('declining the data notice signs nobody in', async () => {

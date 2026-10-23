@@ -4,6 +4,7 @@ import { Fighter, estimateWin, effectiveness, factorGaps } from '../game/battle'
 import type { GameState } from '../game/engine';
 import { battleOf, grantBattleXp, playerFighter, rollDaily } from '../game/leaders';
 import { showcaseKey } from '../game/showcase';
+import { TEAM_SIZE, teamKeys } from '../game/team';
 import type { LeagueClient } from './client';
 
 export interface LeagueHost {
@@ -26,6 +27,8 @@ export interface LeagueHost {
   /** To the album webview. */
   post(data: unknown): void;
   sendBattle(data: unknown): void;
+  /** A series of fights played one after the other in the arena (a team duel), like the Elite Four. */
+  sendRounds(rounds: unknown[]): void;
   /** A card thumbnail that is already on disk (and a background download of it if not). */
   thumb(card: { id: string; image?: string }): string | undefined;
   openExternal(url: string): void;
@@ -36,11 +39,13 @@ export interface LeagueHost {
   t(key: string, ...args: (string | number)[]): string;
 }
 
-interface LeagueRow { id: number; name: string; code: string; elo: number; members: number }
+interface LeagueRow { id: number; name: string; code: string; elo: number; members: number; mode?: 'single' | 'team' }
 interface RemoteFighter { cardId: string; image?: string; key: string; name: string; types: string[]; tier: number; level: number; grade?: number; held?: string }
+/** A team duel as the server plays it: both teams and the series of 1v1 fights (`a`/`b` index into the teams). */
+interface TeamFight { me: any[]; foe: any[]; duels: { a: number; b: number; winner: 'a' | 'b'; rounds: number; reason: string; log: any[] }[]; aliveA: number; aliveB: number }
 interface Replay {
   id: number; league: string; rival: string; won: boolean; eloChange: number; at: string; rounds: number; reason: string;
-  log: any[]; me: any; foe: any; incoming: boolean;
+  log: any[]; me: any; foe: any; incoming: boolean; team?: TeamFight;
 }
 
 const SELECTED = 'tokenBinder.league.selected.v1';
@@ -57,7 +62,7 @@ export class LeagueController {
   private leagues: LeagueRow[] = [];
   private selected: number | undefined;
   private board: any;
-  private registered: { name: string; level: number; clamped: boolean; levelCap: number; busted: boolean } | undefined;
+  private registered: { name: string; level: number; clamped: boolean; levelCap: number; busted: boolean; team: { name: string; level: number }[] } | undefined;
   private lastSync = 0;
   private showcaseStatus = '';   // '', 'ok', 'old' (the server has no such route yet) or 'error:<code>'
   private sentShowcase = '';   // the showcase as last sent, so it is only sent again when it changes
@@ -78,11 +83,13 @@ export class LeagueController {
     return {
       configured: this.h.client.configured, enabled: this.h.enabled(), connected: this.connected, login: this.login, busy: this.busy,
       error: this.error, notice: this.notice, leagues: this.leagues, selected: this.selected,
-      board: this.board && { ...this.board, members: this.board.members.map((m: any) => ({ ...m, fighter: this.decorate(m.fighter), showcase: m.showcase && { ...m.showcase, src: this.h.thumb({ id: m.showcase.cardId, image: m.showcase.image }) } })) },
+      board: this.board && { ...this.board, members: this.board.members.map((m: any) => ({ ...m, fighter: this.decorate(m.fighter), team: (m.team ?? []).map((f: RemoteFighter) => this.decorate(f)), showcase: m.showcase && { ...m.showcase, src: this.h.thumb({ id: m.showcase.cardId, image: m.showcase.image }) } })) },
       local: local ? (local.ok ? { ok: true, name: local.fighter.name, level: local.fighter.level } : { ok: false, reason: local.reason }) : { ok: false, reason: 'none' },
+      // The team as the album has it (the battle card plus the Team zone), for team leagues.
+      localTeam: s ? { size: teamKeys(s).length, need: TEAM_SIZE, names: teamKeys(s).map(k => s.collection[k].card.name) } : { size: 0, need: TEAM_SIZE, names: [] },
       registered: this.registered,
       showcase: this.localShowcase(s),
-      replays: this.replays().map(({ log: _l, me: _m, foe: _f, ...r }) => r),
+      replays: this.replays().map(({ log: _l, me: _m, foe: _f, team, ...r }) => ({ ...r, team: !!team })),
       server: this.h.serverUrl().replace(/\/+$/, ''),
     };
   }
@@ -102,7 +109,7 @@ export class LeagueController {
     switch (m.type) {
       case 'leagueOpen': return this.open();
       case 'leagueConnect': return this.connect();
-      case 'leagueCreate': return this.createLeague(String(m.name ?? ''));
+      case 'leagueCreate': return this.createLeague(String(m.name ?? ''), m.mode === 'team' ? 'team' : 'single');
       case 'leagueJoin': return this.joinLeague(String(m.code ?? ''));
       case 'leagueSelect': return this.select(Number(m.id));
       case 'leagueLeave': return this.leave(Number(m.id));
@@ -185,17 +192,19 @@ export class LeagueController {
     else { this.showcaseStatus = r.status === 404 && r.error === 'not-found' ? 'old' : 'error:' + r.error; if (reload) { this.push(); } }
   }
 
-  /** Puts the card the player takes to battle on the server, with its current level, grade and item. */
+  /** Puts the card the player takes to battle on the server, with its current level, grade and item, and the team backing it up. */
   private async registerFighter(): Promise<void> {
     const s = this.h.getState();
     if (!s) { return; }
     const me = playerFighter(s, this.h.quotaPct());
     if (!me.ok || !s.fighter) { this.registered = undefined; return; }
     const o = s.collection[s.fighter];
-    const r = await this.h.client.call<{ fighter: RemoteFighter; clamped: boolean; levelCap: number; busted: boolean }>('PUT', '/fighter',
-      { key: s.fighter, xp: o.xp, grade: o.grade, held: o.held, quotaPct: Math.round(this.h.quotaPct()), profile: this.profile(s) });
+    // The cards of the album's Team zone, for team leagues (single-card leagues ignore them).
+    const team = teamKeys(s).slice(1).map(k => { const c = s.collection[k]; return { key: k, xp: c.xp, grade: c.grade, held: c.held }; });
+    const r = await this.h.client.call<{ fighter: RemoteFighter; team?: RemoteFighter[]; clamped: boolean; levelCap: number; busted: boolean }>('PUT', '/fighter',
+      { key: s.fighter, xp: o.xp, grade: o.grade, held: o.held, quotaPct: Math.round(this.h.quotaPct()), profile: this.profile(s), team });
     if (!r.ok) { this.registered = undefined; if (r.status === 426 || r.status === 401) { this.handleFailure(r); } return; }
-    this.registered = { name: r.fighter.name, level: r.fighter.level, clamped: r.clamped, levelCap: r.levelCap, busted: r.busted };
+    this.registered = { name: r.fighter.name, level: r.fighter.level, clamped: r.clamped, levelCap: r.levelCap, busted: r.busted, team: (r.team ?? []).map(f => ({ name: f.name, level: f.level })) };
   }
 
   private handleFailure(r: { ok: false; error: string; status: number }): void {
@@ -215,9 +224,9 @@ export class LeagueController {
 
   /* ───── leagues ───── */
 
-  private async createLeague(name: string): Promise<void> {
+  private async createLeague(name: string, mode: 'single' | 'team'): Promise<void> {
     await this.run(async () => {
-      const r = await this.h.client.call<{ league: { id: number } }>('POST', '/leagues', { name });
+      const r = await this.h.client.call<{ league: { id: number } }>('POST', '/leagues', { name, mode });
       if (!r.ok) { return this.handleFailure(r); }
       this.selected = r.league.id; await this.h.memory.set(SELECTED, this.selected);
       await this.syncInner(true);
@@ -273,21 +282,31 @@ export class LeagueController {
     const league = this.leagues.find(l => l.id === this.selected);
     const s = this.h.getState();
     await this.run(async () => {
-      await this.registerFighter();   // the card goes in as it is right now
+      await this.registerFighter();   // the card (and the team) go in as they are right now
       const r = await this.h.client.call<any>('POST', `/leagues/${this.selected}/duel`, { rival });
       if (!r.ok) { return this.handleFailure(r); }
-      const view = this.view({ id: r.duelId, league: league?.name ?? '', rival: r.rival, won: r.won, eloChange: r.eloChange, at: new Date(this.h.now()).toISOString(), rounds: r.rounds, reason: r.reason, log: r.log, me: r.me, foe: r.foe, incoming: false });
-      // Fighting trains the card, with the same small daily allowance as any other fight.
-      let outcome: { xp?: number; levelUp?: number } = { xp: 0 };
+      const replay: Replay = { id: r.duelId, league: league?.name ?? '', rival: r.rival, won: r.won, eloChange: r.eloChange, at: new Date(this.h.now()).toISOString(), rounds: r.rounds, reason: r.reason, log: r.log, me: r.me, foe: r.foe, incoming: false, team: r.team };
+      // Fighting trains the card, with the same small daily allowance as any other fight. In a team duel the two cards backing
+      // it up learn half as much, as against the Elite Four.
+      let outcome: { xp?: number; levelUp?: number; levelUpName?: string } = { xp: 0 };
       const mine = s?.fighter;
       if (s && mine && mine === r.me.cardKey && s.collection[mine]) {
         rollDaily(battleOf(s), this.h.now());
-        outcome = grantBattleXp(s, r.won);
+        outcome = { ...grantBattleXp(s, r.won), levelUpName: s.collection[mine].card.name };
+        if (r.team && outcome.xp) {
+          for (const f of r.team.me.slice(1)) { const o = s.collection[f.cardKey]; if (o) { o.xp += Math.floor(outcome.xp / 2); } }
+        }
         await this.h.save(); await this.h.refresh();
       }
-      this.h.sendBattle({ ...view, outcome: { coins: 0, ...outcome, elo: r.elo, eloChange: r.eloChange } });
+      this.play(replay, { coins: 0, ...outcome, elo: r.elo, eloChange: r.eloChange });
       await this.loadBoard();
     });
+  }
+
+  /** Sends a duel to the arena: one fight, or a team duel as the series of fights it was. */
+  private play(r: Replay, outcome: object): void {
+    if (r.team) { this.h.sendRounds(this.teamRounds(r, outcome)); }
+    else { this.h.sendBattle({ ...this.view(r), outcome }); }
   }
 
   /** Vote to lift another member's BUSTED flag. A majority of the other members clears it. */
@@ -312,23 +331,45 @@ export class LeagueController {
     });
   }
 
+  /** A fighter as the arena draws it. */
+  private card = (f: any) => ({ ...f, key: f.cardKey, src: this.h.thumb({ id: f.cardId, image: f.image }), care: {}, wear: 0, moves: (f.moves ?? []).map((m: any) => m.name) });
+
   /** The data the arena needs to play a duel (the same screen as a gym battle). */
   private view(r: Replay) {
-    const fv = (f: any) => ({ ...f, key: f.cardKey, src: this.h.thumb({ id: f.cardId, image: f.image }), care: {}, wear: 0, moves: (f.moves ?? []).map((m: any) => m.name) });
     const odds = estimateWin(r.me as Fighter, r.foe as Fighter, 200, 31);
     return {
       leader: { id: 'duel', name: r.rival, level: r.foe.level },
-      me: fv(r.me), foe: fv(r.foe), odds, won: r.won, rounds: r.rounds, reason: r.reason, log: r.log,
+      me: this.card(r.me), foe: this.card(r.foe), odds, won: r.won, rounds: r.rounds, reason: r.reason, log: r.log,
       gaps: factorGaps(r.me as Fighter, r.foe as Fighter).slice(0, 3),
       typeEdge: effectiveness(r.me as Fighter, r.foe as Fighter).eff === 'weak' ? 'me' : effectiveness(r.foe as Fighter, r.me as Fighter).eff === 'weak' ? 'foe' : undefined,
       duel: { rival: r.rival, league: r.league, eloChange: r.eloChange, incoming: r.incoming },
     };
   }
 
+  /** A team duel as the arena plays it: one round per 1v1 fight, like the Elite Four, with the league result on the last one. */
+  private teamRounds(r: Replay, outcome: object) {
+    const t = r.team!;
+    return t.duels.map((x, i) => {
+      const me = t.me[x.a] as Fighter, foe = t.foe[x.b] as Fighter;
+      const last = i === t.duels.length - 1;
+      return {
+        leader: { id: 'duel', name: r.rival, level: (foe as { level: number }).level },
+        me: this.card(me), foe: this.card(foe), odds: estimateWin(me, foe, 100, 31 + i),
+        won: x.winner === 'a', rounds: x.rounds, reason: x.reason, log: x.log,
+        gaps: factorGaps(me, foe).slice(0, 3),
+        typeEdge: effectiveness(me, foe).eff === 'weak' ? 'me' : effectiveness(foe, me).eff === 'weak' ? 'foe' : undefined,
+        duel: { rival: r.rival, league: r.league, eloChange: r.eloChange, incoming: r.incoming },
+        team: { duel: i + 1, of: t.duels.length, last },
+        outcome: last ? outcome : { coins: 0, xp: 0 },
+        ...(last ? { teamSummary: { won: r.won, alive: r.won ? t.aliveA : t.aliveB } } : {}),
+      };
+    });
+  }
+
   private async replay(id: number): Promise<void> {
     const r = this.replays().find(x => x.id === id);
     if (!r) { return; }
-    this.h.sendBattle({ ...this.view(r), outcome: { coins: 0, xp: 0, eloChange: r.eloChange } });
+    this.play(r, { coins: 0, xp: 0, eloChange: r.eloChange });
   }
 
   /** Duels other players started against the player: kept for replay and announced once. */
@@ -336,7 +377,7 @@ export class LeagueController {
     const r = await this.h.client.call<{ duels: any[] }>('GET', '/inbox');
     if (!r.ok || !r.duels.length) { return; }
     const fresh: Replay[] = r.duels.map(d => ({
-      id: d.id, league: d.league, rival: d.challenger, won: d.won, eloChange: d.eloChange, at: d.at, rounds: d.rounds, reason: d.reason, log: d.log, me: d.me, foe: d.foe, incoming: true,
+      id: d.id, league: d.league, rival: d.challenger, won: d.won, eloChange: d.eloChange, at: d.at, rounds: d.rounds, reason: d.reason, log: d.log, me: d.me, foe: d.foe, incoming: true, team: d.team,
     }));
     await this.h.memory.set(REPLAYS, [...fresh, ...this.replays().filter(x => !fresh.some(f => f.id === x.id))].slice(0, MAX_REPLAYS));
     const lost = fresh.filter(d => !d.won).length;

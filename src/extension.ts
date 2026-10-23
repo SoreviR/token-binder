@@ -98,6 +98,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     notify: async (message, ...actions) => vscode.window.showInformationMessage(message, ...actions),
     post: d => album.send(d as WebviewMessage),
     sendBattle: d => album.send({ type: 'battleResult', data: d }),
+    sendRounds: rounds => album.send({ type: 'cupResult', rounds }),
     thumb: c => {
       // What the server says about a card is data, not a command: only cards from TCGdex's own image host are ever downloaded.
       if (!c.image || !c.image.startsWith('https://assets.tcgdex.net/') || !/^[\w.-]{1,40}$/.test(c.id)) { return undefined; }

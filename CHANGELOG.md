@@ -2,6 +2,10 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.25.0 - 2026-10-23
+
+- **Team leagues:** a new league can be created as **One card** (as before) or **👥 Teams of three**. In a team league each player fights with their Elite Four team (the battle card plus the album's Team zone), and a duel is the same series of 1v1 fights as against the Elite Four: the winner keeps its HP, the loser is replaced, and the whole series is one Elo result. The server registers the two backup cards with the fighter (same level cap; their XP counts in the anti-cheat save check), only lets full teams fight (checked before a daily duel is spent), stores the whole series and mirrors it for the defender's replay. The League tab shows each player's team and yours, the arena plays the series fight by fight with **Next duel**, and the backup cards earn half the battle XP. Existing leagues stay single-card.
+
 ## 1.24.0 - 2026-10-23
 
 - **Balance: the cache no longer counts for the game.** Packs, coins, XP, grading and the other token-based progress now only count new input and output tokens. Tokens served from cache are left out: an agent re-reads its whole context on every round, so a few minutes of agent work could fill several packs, levels and evolutions (the quota bar and the usage figures still show the real total). Each record of usage can only raise its share, so a read that comes back short for a moment (a locked database or a half-written file) is no longer counted twice. Saves from earlier versions are moved to the new scale automatically: every bar (training, next pack, grading) keeps the progress it had. Progress already earned is not taken away, it just grows at a slower pace from now on. The pack rate (750K tokens per pack) is unchanged and will be reviewed with real use.

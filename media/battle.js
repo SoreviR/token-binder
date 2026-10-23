@@ -195,7 +195,7 @@ window.PTBattle = (function () {
     const resultBox = el('div', { class: 'bresult' });
     const fxLayer = el('div', { class: 'fx-layer' });
     const arena = el('div', { class: 'arena' },
-      el('div', { class: 'arena-title', text: r.leader.kind === 'elite' ? t('battle.vsElite', r.leader.name, r.elite.duel, t('stats.level', r.leader.level)) : r.leader.kind === 'cup' ? t('battle.vsCup', r.cup.round, r.cup.of, r.leader.name, t('stats.level', r.leader.level)) : t(r.leader.kind === 'boss' ? 'battle.vsBoss' : 'battle.vs', r.leader.name, t('stats.level', r.leader.level)) }),
+      el('div', { class: 'arena-title', text: r.team ? t('battle.vsTeam', r.leader.name, r.team.duel, r.team.of) : r.leader.kind === 'elite' ? t('battle.vsElite', r.leader.name, r.elite.duel, t('stats.level', r.leader.level)) : r.leader.kind === 'cup' ? t('battle.vsCup', r.cup.round, r.cup.of, r.leader.name, t('stats.level', r.leader.level)) : t(r.leader.kind === 'boss' ? 'battle.vsBoss' : 'battle.vs', r.leader.name, t('stats.level', r.leader.level)) }),
       el('div', { class: 'arena-fighters scene-' + sceneOf(r) }, foe.wrap, el('div', { class: 'vs', text: 'VS' }), me.wrap),
       logBox, el('div', { class: 'row', style: 'gap:8px;justify-content:center' }, speedBtn, skipBtn), resultBox, fxLayer);
     stage.replaceChildren(arena);
@@ -319,9 +319,11 @@ window.PTBattle = (function () {
     const cs = r.cupSummary;
     if (cs) lines.push(el('div', { class: 'reward', text: t('cup.result', cs.wins, r.cup.of) }), el('div', { class: 'sub', text: t('cup.feeLine', cs.fee) }),
       cs.coins || cs.boxes ? el('div', { class: 'reward', text: [cs.coins ? t('cup.prizeLine', cs.coins) : '', cs.boxes ? t('battle.boxReward', cs.boxes) : ''].filter(Boolean).join(' · ') }) : el('div', { class: 'sub', text: t('cup.noPrize') }));
-    if (o.xp) lines.push(el('div', { class: 'reward xp', text: t('battle.xp', o.xp.toLocaleString()) + (o.levelUp ? ' · ' + t('battle.levelUp', r.me.name, o.levelUp) : '') }));
+    if (o.xp) lines.push(el('div', { class: 'reward xp', text: t('battle.xp', o.xp.toLocaleString()) + (o.levelUp ? ' · ' + t('battle.levelUp', o.levelUpName || r.me.name, o.levelUp) : '') }));
     if (o.recovered) lines.push(el('div', { class: 'reward', text: t('battle.recovered', o.recovered) }));
-    if (r.duel) lines.push(el('div', { class: 'reward', text: t('battle.elo', o.eloChange > 0 ? '+' + o.eloChange : String(o.eloChange), r.duel.league) }));
+    const ts = r.teamSummary;
+    if (ts) lines.push(el('div', { class: 'reward', text: ts.won ? t('league.teamWon', ts.alive) : t('league.teamLost', r.leader.name, ts.alive) }));
+    if (r.duel && (!r.team || r.team.last)) lines.push(el('div', { class: 'reward', text: t('battle.elo', o.eloChange > 0 ? '+' + o.eloChange : String(o.eloChange), r.duel.league) }));
     if (o.capped) lines.push(el('div', { class: 'sub', text: t('battle.capped') }));
     if (r.worn) lines.push(el('div', { class: 'worn', text: t('battle.worn', r.me.name, t('condition.' + r.worn)) }));
     return [
@@ -331,7 +333,8 @@ window.PTBattle = (function () {
       el('div', { class: 'sub center', style: 'margin-top:6px', text: t(r.won ? 'battle.whyWon' : 'battle.whyLost') }),
       el('ul', { class: 'why' }, ...why),
       el('div', { class: 'row', style: 'gap:8px;justify-content:center;margin-top:8px' },
-        r.elite ? (r.elite.last ? el('button', { class: 'btn', text: t('battle.rematch'), onclick: () => { closeArena(); send('startElite', { id: r.leader.id.split(':')[1] }); } }) : el('button', { class: 'btn', text: t('elite.next'), onclick: () => { const next = cupQueue.shift(); if (next) play(next); } }))
+        r.team ? (r.team.last ? null : el('button', { class: 'btn', text: t('elite.next'), onclick: () => { const next = cupQueue.shift(); if (next) play(next); } }))
+          : r.elite ? (r.elite.last ? el('button', { class: 'btn', text: t('battle.rematch'), onclick: () => { closeArena(); send('startElite', { id: r.leader.id.split(':')[1] }); } }) : el('button', { class: 'btn', text: t('elite.next'), onclick: () => { const next = cupQueue.shift(); if (next) play(next); } }))
           : r.cup ? (r.won && !r.cupSummary ? el('button', { class: 'btn', text: t('cup.next'), onclick: () => { const next = cupQueue.shift(); if (next) play(next); } }) : null)
           : r.duel ? null : el('button', { class: 'btn', text: t('battle.rematch'), onclick: () => { closeArena(); send('startBattle', { leader: r.leader.id }); } }),
         el('button', { class: 'btn ghost', text: t('battle.close'), onclick: closeArena })),
