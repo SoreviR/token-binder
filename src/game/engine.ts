@@ -106,6 +106,7 @@ export interface Owned {
   wear?: number;        // 0-4 wear from battles (0 = Mint); a graded card sits in its slab and does not wear
   soaked?: boolean;     // caught in the rain (see mishaps.ts): worthless and unusable until a hair dryer dries it
   tries?: number;       // how many times it has been graded (re-submissions cost more)
+  evolved?: boolean;    // already gave its evolution: training it again earns XP but never makes another copy of it
   grading?: { since: number; cost: number };         // out for grading: lifetime tokens when it left, fee paid
 }
 export interface Training {
@@ -130,6 +131,7 @@ export const newBattleRecord = (): BattleRecord => ({ wins: 0, losses: 0, streak
 export interface GameState {
   v: 2;
   baseline: number;       // lifetime tokens at the start: packs are counted from here
+  metric?: number;        // scale of the token marks: 2 = cached tokens do not count (see rebaseLifetime); missing in older saves
   packsGranted: number;   // packs already granted for tokens
   packs: number;          // unopened regular packs
   premium: number;        // unopened premium packs
@@ -268,7 +270,7 @@ export function accrueXp(s: GameState, lifetime: number): string[] {
 export function newState(lifetime: number): GameState {
   // A welcome pack so there is something to open from the very first moment.
   return {
-    v: 2, baseline: lifetime, packsGranted: 0, packs: 1, premium: 0, balls: 0, collection: {}, slots: [null], mastered: 0,
+    v: 2, metric: 2, baseline: lifetime, packsGranted: 0, packs: 1, premium: 0, balls: 0, collection: {}, slots: [null], mastered: 0,
     bonusPeriod: 0, coins: 0, lastLifetime: lifetime, luck: 0, boxes: 0, items: {}, battle: newBattleRecord(), goals: {}, tour: false,
   };
 }
@@ -281,6 +283,17 @@ export function normalize(s: GameState, lifetime: number): GameState {
   // Cards that were already training receive the XP of everything trained so far (since they entered the slot).
   for (const t of s.slots) { if (t) { t.last ??= t.born; } }
   return s;
+}
+
+/**
+ * Moves every saved token mark by `offset` when the game total changes scale (the cache stopped counting), so each bar,
+ * training and grading wait keeps exactly the progress it had and nothing is granted or lost.
+ */
+export function rebaseLifetime(s: GameState, offset: number): void {
+  s.baseline += offset; s.lastLifetime += offset;
+  for (const t of s.slots) { if (t) { t.born += offset; t.last += offset; } }
+  for (const o of Object.values(s.collection)) { if (o.grading) { o.grading.since += offset; } }
+  s.metric = 2;
 }
 
 /* ───────── Coins and shop ───────── */
@@ -384,7 +397,7 @@ export function startTraining(s: GameState, cardId: string, lifetime: number): b
   if (!owned || slot < 0 || owned.grading || owned.soaked) { return false; }   // a card out for grading or soaked cannot train
   if (s.slots.some(t => t && keyOf(t.card) === cardId)) { return false; }
   // A card that already completed its line goes back into the slot to keep leveling up.
-  s.slots[slot] = { card: owned.card, born: lifetime, evolved: 0, last: lifetime, mastered: owned.mastered || undefined };
+  s.slots[slot] = { card: owned.card, born: lifetime, evolved: 0, last: lifetime, mastered: owned.mastered || owned.evolved || undefined };
   return true;
 }
 
@@ -425,6 +438,7 @@ export async function resolveDue(s: GameState, lifetime: number, mult: number, f
         // The new card inherits the level of the previous one.
         const next = s.collection[keyOf(r.card)], prev = s.collection[keyOf(t.card)];
         if (next && prev) { next.xp = Math.max(next.xp, prev.xp); }
+        if (prev) { prev.evolved = true; }   // training it again must not produce another copy of the evolution
         s.slots[i] = { card: r.card, born: t.born, evolved: t.evolved + 1, last: t.last, ...(t.boost ? { boost: t.boost } : {}) };
         events.push(`evolve:${r.card.name}`);
       } else {

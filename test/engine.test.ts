@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  addCards, Card, FindNext, grantPacks, newState, nextPackProgress, resolveDue,
+  addCards, Card, FindNext, grantPacks, newState, nextPackProgress, rebaseLifetime, resolveDue,
   stageEnd, startTraining, tierOf, trainingProgress, TIER_RARITIES,
 } from '../src/game/engine';
 
@@ -155,4 +155,42 @@ test('normalize: an older state gains the new fields without retroactive coins',
   const s = normalize(old, 9_000_000);
   assert.deepEqual([s.coins, s.premium, s.balls, s.luck, s.lastLifetime], [0, 0, 0, 0, 9_000_000]);
   assert.equal(s.packs, 3);
+});
+
+test('a card that already evolved can train again but never makes another copy of its evolution', async () => {
+  const s = newState(0);
+  s.packs = 0;
+  addCards(s, [card('a', 'Charmander')]);
+  startTraining(s, 'a', 0);
+  const chain: Record<string, Card | null> = { Charmander: card('b', 'Charmeleon'), Charmeleon: null };
+  const next: FindNext = async c => ({ ok: true, card: chain[c.name] ?? null });
+  await resolveDue(s, 1_500_000, 1, next);
+  assert.equal(s.collection['b'].count, 1);
+  assert.equal(s.collection['a'].evolved, true);
+
+  s.slots[0] = null;
+  assert.equal(startTraining(s, 'a', 2_000_000), true);
+  assert.equal(s.slots.find(Boolean)?.mastered, true);           // no second evolution
+  const xp = s.collection['a'].xp;
+  const ev = await resolveDue(s, 20_000_000, 1, next);
+  assert.deepEqual(ev, []);
+  assert.equal(s.collection['b'].count, 1);                      // still a single Charmeleon
+  assert.equal(s.mastered, 0);
+  assert.equal(s.packs, 0);
+  assert.ok(s.collection['a'].xp > xp);                          // but it kept earning levels
+});
+
+test('rebaseLifetime keeps every bar where it was and grants nothing', () => {
+  const s = newState(10_000_000);
+  s.metric = undefined;
+  addCards(s, [card('a', 'Pikachu')]);
+  startTraining(s, 'a', 10_000_000);
+  s.collection['a'].grading = { since: 10_500_000, cost: 30 };
+  const now = 12_000_000, offset = -7_000_000;                   // 7M of the total was cache
+  const before = [trainingProgress(s.slots[0]!, now, 1).pct, nextPackProgress(s, now, 750_000).pct];
+  rebaseLifetime(s, offset);
+  assert.equal(s.metric, 2);
+  assert.deepEqual([trainingProgress(s.slots[0]!, now + offset, 1).pct, nextPackProgress(s, now + offset, 750_000).pct], before);
+  assert.equal(s.collection['a'].grading!.since, 3_500_000);
+  assert.equal(earnCoins(s, now + offset, false), (now - 10_000_000) / 10_000);   // only the tokens since the last count
 });

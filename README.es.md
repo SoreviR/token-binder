@@ -248,7 +248,7 @@ VS Code guarda cada turno del chat con sus tokens en archivos locales; TokenBind
 
 `<datos>` es `%APPDATA%` en Windows, `~/Library/Application Support` en macOS y `~/.config` (o `$XDG_CONFIG_HOME`) en Linux. También revisa `Code - Insiders` y `VSCodium`, y siempre la carpeta de la instalación de VS Code que está ejecutando la extensión (así funcionan también las instalaciones portables). Leer SQLite requiere el módulo `node:sqlite`: TokenBinder usa el de VS Code y, si no está disponible, ejecuta un proceso con el propio VS Code como Node y, como último recurso, el `node` (22.5 o superior) que tengas en el PATH.
 
-Un turno de agente que encadena varias llamadas al modelo se cuenta completo (suma de todas las rondas). Los tokens servidos desde caché se cuentan en el total, igual que el uso que factura el proveedor.
+Un turno de agente que encadena varias llamadas al modelo se cuenta completo (suma de todas las rondas) en la barra de cuota y en las cifras de uso. El juego (sobres, monedas, XP, gradeo) solo cuenta la entrada nueva y la salida: los tokens servidos desde caché no cuentan, porque un agente relee todo su contexto en cada ronda y llenaría el juego en minutos.
 
 ## Limitaciones conocidas
 

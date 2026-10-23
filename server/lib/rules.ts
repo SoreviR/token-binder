@@ -34,7 +34,7 @@ export function levelCap(joinedAt: number, now: number): number {
 /* ───── cheat check: is a reported save impossible for the real time that has passed? ───── */
 
 // Growth even a very active player could not beat in a day. Generous on purpose: this flags an edited save, not a whale.
-// The count includes cached tokens (it is the same figure the game progresses on), and a heavy agentic day is mostly cache reads.
+// The count is the game's own (new input + output; tokens served from cache do not count), so a heavy agentic day is far below this.
 export const MAX_TOKENS_PER_DAY = 120_000_000;
 const PACKS_EVERY_TOKENS = 750_000;   // the client default (packs.everyTokens); the server cannot read the client setting
 const SLOTS_MAX = 6;                   // training slots all earn XP at once, so total XP can grow a few times faster than tokens

@@ -249,7 +249,7 @@ VS Code stores each chat turn with its tokens in local files; TokenBinder reads 
 
 `<data>` is `%APPDATA%` on Windows, `~/Library/Application Support` on macOS and `~/.config` (or `$XDG_CONFIG_HOME`) on Linux. It also checks `Code - Insiders` and `VSCodium`, and always the folder of the VS Code installation that is running the extension (so portable installs work too). Reading SQLite requires the `node:sqlite` module: TokenBinder uses VS Code's and, if it is not available, runs a process with VS Code itself as Node and, as a last resort, the `node` (22.5 or newer) on your PATH.
 
-An agent turn that chains several model calls is counted in full (sum of all rounds). Tokens served from cache count toward the total, just like the usage the provider bills.
+An agent turn that chains several model calls is counted in full (sum of all rounds) in the quota bar and the usage figures. The game itself (packs, coins, XP, grading) only counts new input and output: tokens served from cache do not count, because an agent re-reads its whole context on every round and would fill the game in minutes.
 
 ## Known limitations
 

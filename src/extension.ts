@@ -7,7 +7,7 @@ import { GameStore } from './game/state';
 import {
   accrueXp, addCards, applyTransform, branchOptions, buy, CARD_DATA_VERSION, Card, chooseEvolution, consume, countOf, earnCoins, equipHeld, GameState, levelOf, openBox, unequipHeld,
   useLuckyEgg, useRareCandy, grantPacks, Item, keyOf, levelProgress, MAX_LUCK, MAX_SLOTS,
-  newState, nextPackProgress, normalize, PackKind, priceOf, resolveDue, sellDuplicates, sellValue, startTraining, trainingProgress, underPace,
+  newState, nextPackProgress, normalize, PackKind, priceOf, rebaseLifetime, resolveDue, sellDuplicates, sellValue, startTraining, trainingProgress, underPace,
   untrain,
 } from './game/engine';
 import { collectorLabel, marketValue, statsOf } from './game/stats';
@@ -58,6 +58,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   const updater = new Updater(ctx, s => log.appendLine(s));
   const usage = new UsageStore(roots);
   usage.stamps = ctx.globalState.get('tokenBinder.stamps.v1', usage.stamps);
+  usage.peaks = ctx.globalState.get('tokenBinder.peaks.v1', usage.peaks);
   const game = new GameStore(ctx.globalState);
   const cacheDir = path.join(ctx.globalStorageUri.fsPath, 'tcg');
   const tcg = new Tcgdex(cacheDir);
@@ -133,6 +134,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
     try {
       const changed = usage.refresh();
       if (usage.stampsDirty) { usage.stampsDirty = false; await ctx.globalState.update('tokenBinder.stamps.v1', usage.stamps); }
+      if (usage.peaksDirty) { usage.peaksDirty = false; await ctx.globalState.update('tokenBinder.peaks.v1', usage.peaks); }
       if (usage.lastError && usage.lastError !== lastLogged) { lastLogged = usage.lastError; log.appendLine(`[error] ${usage.lastError}`); }
       if (changed) { log.appendLine(`[usage] ${usage.records().length} records (${lastBackend})`); }
       if (!changed && !force && state) { return; }
@@ -148,6 +150,8 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const lifetime = usage.lifetimeTokens();
 
       state ??= game.load(lifetime);
+      // Saves from before the cache stopped counting keep their progress: every mark moves to the new scale.
+      if (state.metric !== 2) { rebaseLifetime(state, lifetime - usage.rawLifetimeTokens()); }
       const events: string[] = [];
       const every = cfg().get<number>('packs.everyTokens', 750_000);
       const granted = grantPacks(state, lifetime, every);
@@ -739,6 +743,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
         t('import.confirm', Object.keys(imported.collection).length, Math.floor(imported.coins)), { modal: true }, t('import.replace'));
       if (ok !== t('import.replace')) { return; }
       // Tokens already used on this machine must not give coins or packs again.
+      imported.metric = 2;   // baseline and lastLifetime are set on the current scale just below
       imported.lastLifetime = usage.lifetimeTokens();
       imported.baseline = usage.lifetimeTokens() - imported.packsGranted * cfg().get<number>('packs.everyTokens', 750_000);
       state = imported;

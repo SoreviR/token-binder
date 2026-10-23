@@ -32,6 +32,9 @@ export class UsageStore {
   private files = new Map<string, FileEntry>();
   stamps: Stamps = { baselined: false, firstSeen: {} };
   stampsDirty = false;
+  /** Highest game tokens (new input + output, no cache) ever seen per record: the game total never goes down or counts twice. */
+  peaks: Record<string, number> = {};
+  peaksDirty = false;
   lastError = '';
   constructor(private roots: () => string[]) {}
 
@@ -94,7 +97,15 @@ export class UsageStore {
       } catch { /* file being written: retried on the next cycle */ }
     }
     for (const f of [...this.files.keys()]) { if (!seen.has(f)) { this.files.delete(f); changed = true; } }
+    if (changed) { this.raisePeaks(); }
     return changed;
+  }
+
+  private raisePeaks(): void {
+    for (const r of this.records()) {
+      const v = r.input + r.output;
+      if (v > (this.peaks[r.key] ?? 0)) { this.peaks[r.key] = v; this.peaksDirty = true; }
+    }
   }
 
   /** Unique records; if .json and .jsonl share a key, the one with the greater mtime wins. */
@@ -131,6 +142,13 @@ export class UsageStore {
   /** Tokens used since `ts` (ms). */
   tokensSince(ts: number): number { return this.records().reduce((n, r) => (r.ts >= ts ? n + r.input + r.cached + r.output : n), 0); }
 
-  /** All-time total (feeds the growth of the cards). */
-  lifetimeTokens(): number { return this.records().reduce((s, r) => s + r.input + r.cached + r.output, 0); }
+  /**
+   * All-time total that feeds the game (packs, coins, XP, grading). Tokens served from cache do not count: an agent turn
+   * re-reads its whole context on every round and would otherwise fill the game in minutes. Each record only ever
+   * raises its share, so a read that comes back short and then recovers is not counted twice.
+   */
+  lifetimeTokens(): number { return Object.values(this.peaks).reduce((s, v) => s + v, 0); }
+
+  /** The old total, cache included. Only used to move saved progress onto the current scale. */
+  rawLifetimeTokens(): number { return this.records().reduce((s, r) => s + r.input + r.cached + r.output, 0); }
 }

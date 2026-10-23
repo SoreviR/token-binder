@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
+import { UsageStore } from '../src/usage/store';
 import { replayJournal } from '../src/usage/journal';
 import { extractSession } from '../src/usage/extract';
 import { parseLimit, periodStart } from '../src/quota';
@@ -48,4 +50,30 @@ test('quota: periodStart respects resetDay', () => {
   const d = Date.UTC(2026, 9, 20); // Oct 20
   assert.equal(periodStart(d, 1), Date.UTC(2026, 9, 1));
   assert.equal(periodStart(d, 25), Date.UTC(2026, 8, 25));
+});
+
+test('store: the game total leaves the cache out and never goes down or counts twice', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tb-usage-'));
+  const file = path.join(dir, 'User', 'workspaceStorage', 'ws', 'chatSessions', 's.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  const write = (reqs: object[]) => fs.writeFileSync(file, JSON.stringify({ sessionId: 's', requests: reqs }));
+  const req = (id: string, inputTokens: number, cachedTokens: number, outputTokens: number) =>
+    ({ requestId: id, timestamp: 1, modelTotals: { m: { inputTokens, cachedTokens, outputTokens } } });
+  try {
+    const store = new UsageStore(() => [path.join(dir, 'User')]);
+    write([req('a', 1000, 800, 100), req('b', 500, 0, 50)]);
+    store.refresh();
+    assert.equal(store.lifetimeTokens(), 200 + 100 + 500 + 50);       // input minus cache, plus output
+    assert.equal(store.rawLifetimeTokens(), 1000 + 100 + 500 + 50);
+
+    write([]);                                                       // the file is read empty for a moment
+    store.refresh();
+    assert.equal(store.lifetimeTokens(), 850);                       // it does not go down...
+    write([req('a', 1000, 800, 100), req('b', 500, 0, 50)]);
+    store.refresh();
+    assert.equal(store.lifetimeTokens(), 850);                       // ...and it does not count twice when it comes back
+    write([req('a', 1000, 800, 100), req('b', 500, 0, 50), req('c', 100, 0, 10)]);
+    store.refresh();
+    assert.equal(store.lifetimeTokens(), 960);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
