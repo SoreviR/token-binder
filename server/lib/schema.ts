@@ -72,6 +72,16 @@ create table if not exists duel_quota (
   n           int    not null default 0,
   primary key (challenger, defender, day)
 )`,
+  `-- The daily limits are per league (each league is its own competition): the same counter as duel_quota, one per league.
+  -- duel_quota, which was shared by all of a player's leagues, is no longer read.
+create table if not exists league_duel_quota (
+  league_id   int    not null references leagues(id) on delete cascade,
+  challenger  bigint not null references players(id) on delete cascade,
+  defender    bigint not null,               -- 0 = the whole-day total across all rivals of this league
+  day         date   not null,
+  n           int    not null default 0,
+  primary key (league_id, challenger, defender, day)
+)`,
   `-- A member's standing kept when they leave, so rejoining a league restores their Elo and record instead of starting
   -- fresh at 1000 (which let a losing player wipe their losses by leaving and coming back).
 create table if not exists member_stats (

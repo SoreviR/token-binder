@@ -6,7 +6,7 @@ import { TEAM_EXTRAS } from '../../src/game/team';
 
 export const ELO_START = 1000;
 export const ELO_K = 32;
-export const DAILY_DUELS = 10;        // challenges a player can start per day
+export const DAILY_DUELS = 10;        // challenges a player can start per day in each league
 export const DAILY_PER_RIVAL = 2;     // ... and at most this many against the same rival
 export const MAX_OWNED_LEAGUES = 3;
 export const MAX_JOINED_LEAGUES = 5;
@@ -141,7 +141,7 @@ export function eloDelta(ratingA: number, ratingB: number, aWon: boolean): numbe
   return aWon ? Math.max(1, delta) : Math.min(-1, delta);
 }
 
-// The daily limits (DAILY_DUELS, DAILY_PER_RIVAL) are enforced in service.ts by an atomic counter (duel_quota), not by
+// The daily limits (DAILY_DUELS, DAILY_PER_RIVAL) are enforced in service.ts by an atomic per-league counter (league_duel_quota), not by
 // counting rows and then checking: that left a gap a burst of concurrent duels could slip through.
 
 // Letters and digits that cannot be mistaken for each other (no 0/O, 1/I/L).

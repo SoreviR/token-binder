@@ -170,6 +170,25 @@ test('daily limits: two duels per rival per day, and a new day resets them', asy
   assert.equal((await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 2 })).status, 200);
 });
 
+test('the daily limits belong to each league: attacks in one do not count in another', async () => {
+  const w = await world();
+  const one = await league(w);
+  const two = (await w.call('tokA', 'POST', '/leagues', { name: 'Cerulean' })).body.league;
+  for (const who of ['tokB', 'tokC']) { await w.call(who, 'POST', '/leagues/join', { code: two.code }); }
+  await w.call('tokA', 'PUT', '/fighter', claim('base1-4', 8));
+  await w.call('tokB', 'PUT', '/fighter', claim('base1-58', 8));
+  await w.call('tokC', 'PUT', '/fighter', claim('base1-58', 8));
+  for (let i = 0; i < DAILY_PER_RIVAL; i++) { assert.equal((await w.call('tokA', 'POST', `/leagues/${one.id}/duel`, { rival: 2 })).status, 200); }
+  assert.equal((await w.call('tokA', 'POST', `/leagues/${one.id}/duel`, { rival: 2 })).body.error, 'rival-limit');
+  const board = async (id: number) => (await w.call('tokA', 'GET', `/leagues/${id}`)).body;
+  assert.equal((await board(one.id)).members.find((m: any) => m.id === 2).left, 0);
+  assert.equal((await board(two.id)).members.find((m: any) => m.id === 2).left, DAILY_PER_RIVAL, 'the other league starts fresh');
+  assert.equal((await board(two.id)).today.used, 0, 'and so does the daily total');
+  assert.equal((await w.call('tokA', 'POST', `/leagues/${two.id}/duel`, { rival: 2 })).status, 200);
+  assert.equal((await board(one.id)).today.used, DAILY_PER_RIVAL);
+  assert.equal((await board(two.id)).today.used, 1);
+});
+
 test('the board says how many challenges are left against each rival today, and when the limits reset', async () => {
   const w = await world();
   const { id, code } = await league(w);
@@ -203,7 +222,7 @@ test('the daily total stops a player at 10 challenges', async () => {
   await w.call('tokC', 'PUT', '/fighter', claim('base1-58', 8));
   // Pretend the day's total is already spent: the limit now reads the counter, not the duels table.
   const day = new Date(Math.floor(w.clock.t / DAY) * DAY).toISOString().slice(0, 10);
-  await w.d.db.query('insert into duel_quota (challenger, defender, day, n) values (1, 0, $1, $2)', [day, DAILY_DUELS]);
+  await w.d.db.query('insert into league_duel_quota (league_id, challenger, defender, day, n) values ($1, 1, 0, $2, $3)', [id, day, DAILY_DUELS]);
   const last = await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 3 });
   assert.equal(last.status, 429);
   assert.equal(last.body.error, 'daily-limit');
@@ -448,7 +467,7 @@ test('a team league needs a full team on both sides, checked before a duel of th
   await w.call('tokA', 'PUT', '/fighter', charizards);
   await w.call('tokC', 'PUT', '/fighter', teamClaim('base1-58', 3, [['base1-58#first', 3]]));   // only one card backing it up
   assert.equal((await w.call('tokA', 'POST', `/leagues/${id}/duel`, { rival: 3 })).body.error, 'rival-no-team');
-  assert.equal((await w.d.db.query('select 1 from duel_quota')).length, 0, 'no slot of the daily limit was spent');
+  assert.equal((await w.d.db.query('select 1 from league_duel_quota')).length, 0, 'no slot of the daily limit was spent');
 });
 
 test('the defender sees a team duel once in the inbox, from their own side', async () => {

@@ -363,11 +363,11 @@ export async function leagueView(d: Deps, pid: number, leagueId: number):
   if (!(await isMember(d, leagueId, pid))) { return fail('not-member', 404); }
   await rollSeason(d, leagueId);
   const l = (await d.db.query<{ id: number; name: string; code: string; mode: string }>('select id, name, code, mode from leagues where id = $1', [leagueId]))[0];
-  const used = num((await d.db.query<{ n: number }>('select count(*)::int as n from duels where challenger = $1 and created_at >= $2', [pid, iso(startOfDay(d.now()))]))[0].n);
+  const used = num((await d.db.query<{ n: number }>('select count(*)::int as n from duels where league_id = $1 and challenger = $2 and created_at >= $3', [leagueId, pid, iso(startOfDay(d.now()))]))[0].n);
   const members = await membersOf(d, leagueId, pid);
-  // Challenges left today against each rival (the per-rival counter of duel_quota, shared by all your leagues).
+  // Challenges left today against each rival of this league (the per-rival counter of league_duel_quota).
   const spent = new Map((await d.db.query<{ defender: number; n: number }>(
-    'select defender, n from duel_quota where challenger = $1 and day = $2 and defender <> 0', [pid, iso(startOfDay(d.now())).slice(0, 10)])).map(r => [num(r.defender), num(r.n)]));
+    'select defender, n from league_duel_quota where league_id = $1 and challenger = $2 and day = $3 and defender <> 0', [leagueId, pid, iso(startOfDay(d.now())).slice(0, 10)])).map(r => [num(r.defender), num(r.n)]));
   for (const m of members) { if (!m.you) { m.left = Math.max(0, DAILY_PER_RIVAL - (spent.get(m.id) ?? 0)); } }
   // A busted player is cleared by a majority of the OTHER members voting to pardon them; show the tally.
   const need = Math.floor((members.length - 1) / 2) + 1;
@@ -429,11 +429,11 @@ const alive = (duels: { winner: 'a' | 'b' }[], sizeA: number, sizeB: number) =>
  * A single guarded UPSERT (the conflicting row is locked before the `where` is checked) makes concurrent challenges
  * serialize instead of racing, which counting the duels table did not.
  */
-async function reserveDuel(d: Deps, challenger: number, defender: number, day: string, limit: number): Promise<number | null> {
+async function reserveDuel(d: Deps, leagueId: number, challenger: number, defender: number, day: string, limit: number): Promise<number | null> {
   const r = await d.db.query<{ n: number }>(
-    `insert into duel_quota (challenger, defender, day, n) values ($1, $2, $3, 1)
-     on conflict (challenger, defender, day) do update set n = duel_quota.n + 1 where duel_quota.n < $4
-     returning n`, [challenger, defender, day, limit]);
+    `insert into league_duel_quota (league_id, challenger, defender, day, n) values ($1, $2, $3, $4, 1)
+     on conflict (league_id, challenger, defender, day) do update set n = league_duel_quota.n + 1 where league_duel_quota.n < $5
+     returning n`, [leagueId, challenger, defender, day, limit]);
   return r[0] ? num(r[0].n) : null;
 }
 
@@ -456,12 +456,12 @@ export async function challenge(d: Deps, pid: number, leagueId: number, rivalId:
   if (teams && teamOf(mine).length < TEAM_EXTRAS) { return fail('no-team'); }
   if (teams && teamOf(theirs).length < TEAM_EXTRAS) { return fail('rival-no-team'); }
 
-  // Reserve a slot before doing any work, atomically (see duel_quota): firing many duels at once can no longer slip past
+  // Reserve a slot before doing any work, atomically (see league_duel_quota; the limits are per league): firing many duels at once can no longer slip past
   // the daily limits. The tighter per-rival counter is taken first; its only possible over-count is against a rival who
   // is already capped for the day, which changes nothing.
   const dayKey = iso(startOfDay(d.now())).slice(0, 10);
-  if (await reserveDuel(d, pid, rivalId, dayKey, DAILY_PER_RIVAL) === null) { return fail('rival-limit', 429); }
-  const dayN = await reserveDuel(d, pid, 0, dayKey, DAILY_DUELS);
+  if (await reserveDuel(d, leagueId, pid, rivalId, dayKey, DAILY_PER_RIVAL) === null) { return fail('rival-limit', 429); }
+  const dayN = await reserveDuel(d, leagueId, pid, 0, dayKey, DAILY_DUELS);
   if (dayN === null) { return fail('daily-limit', 429); }
 
   const qa = num(mine.quota_pct), qb = num(theirs.quota_pct);
