@@ -1,6 +1,6 @@
 // Card game engine: packs → cards with rarity → token-based training → evolution/graduation.
 // Pure, with no VS Code or network dependencies (the network comes in through injected functions) so it can be tested.
-import { BOX_PRICE, HeldId, ItemId, baseName, branchItem, isHeldId, rollBox } from './items';
+import { BOX_PRICE, EVO_BOX_PRICE, HeldId, ItemId, PITY_BOXES, STONE_VALUE, baseName, branchItem, isHeldId, kindOf, rollBox, rollEvoBox } from './items';
 
 /** TCGdex rarities grouped by tier (0 = most common … 6 = rarest). Display names live in the i18n dictionaries (`tier.N`). */
 export const TIER_RARITIES: string[][] = [
@@ -144,6 +144,8 @@ export interface GameState {
   lastLifetime: number;   // lifetime tokens at the last coin count
   luck: number;           // luck upgrade level (0-5)
   boxes: number;          // unopened mystery boxes
+  evoBoxes?: number;      // unopened evolution boxes (one evolution stone each)
+  pity?: number;          // mystery boxes in a row without a transformation item (see PITY_BOXES)
   fighter?: string;       // key of the card taken to battles
   battle?: BattleRecord;  // record, badges and recent fights
   items: Partial<Record<ItemId, number>>;   // item inventory
@@ -277,7 +279,7 @@ export function newState(lifetime: number): GameState {
 
 /** Fills in the fields added in newer versions to a previously saved state (without giving retroactive coins). */
 export function normalize(s: GameState, lifetime: number): GameState {
-  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime; s.boxes ??= 0; s.items ??= {}; s.battle ??= newBattleRecord(); s.battle.daily.xpFights ??= 0;
+  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime; s.boxes ??= 0; s.evoBoxes ??= 0; s.items ??= {}; s.battle ??= newBattleRecord(); s.battle.daily.xpFights ??= 0;
   s.tour ??= Object.keys(s.collection).length > 0;   // players who already have cards do not need the guide
   for (const o of Object.values(s.collection)) { o.xp ??= 0; }
   // Cards that were already training receive the XP of everything trained so far (since they entered the slot).
@@ -319,11 +321,11 @@ export function earnCoins(s: GameState, lifetime: number, bonus: boolean): numbe
   return earned;
 }
 
-export type Item = 'pack' | 'premium' | 'ball' | 'box' | 'sleeve' | 'toploader' | 'hair-dryer' | 'slot' | 'luck';
+export type Item = 'pack' | 'premium' | 'ball' | 'box' | 'evobox' | 'sleeve' | 'toploader' | 'hair-dryer' | 'slot' | 'luck';
 
 const SLOT_PRICES = [400, 900, 1600, 2600, 4000];   // slots 2 to 6
 const LUCK_PRICES = [300, 600, 1200, 2400, 4800];   // levels 1 to 5
-const FIXED_PRICES: Record<'pack' | 'premium' | 'ball' | 'box' | 'sleeve' | 'toploader' | 'hair-dryer', number> = { pack: 80, premium: 250, ball: 15, box: BOX_PRICE, sleeve: 15, toploader: 50, 'hair-dryer': 40 };
+const FIXED_PRICES: Record<'pack' | 'premium' | 'ball' | 'box' | 'evobox' | 'sleeve' | 'toploader' | 'hair-dryer', number> = { pack: 80, premium: 250, ball: 15, box: BOX_PRICE, evobox: EVO_BOX_PRICE, sleeve: 15, toploader: 50, 'hair-dryer': 40 };
 
 /** Current price of an item, or null if the maximum was already bought. */
 export function priceOf(s: GameState, item: Item): number | null {
@@ -340,6 +342,7 @@ export function buy(s: GameState, item: Item): boolean {
   else if (item === 'premium') { s.premium++; }
   else if (item === 'ball') { s.balls++; }
   else if (item === 'box') { s.boxes++; }
+  else if (item === 'evobox') { s.evoBoxes = (s.evoBoxes ?? 0) + 1; }
   else if (item === 'sleeve' || item === 'toploader' || item === 'hair-dryer') { grantItem(s, item); }
   else if (item === 'slot') { s.slots.push(null); }
   else { s.luck++; }
@@ -473,9 +476,29 @@ export function takeItem(s: GameState, id: ItemId): boolean {
 export function openBox(s: GameState, rng: () => number = Math.random): ItemId | null {
   if (s.boxes < 1) { return null; }
   s.boxes--;
-  const id = rollBox(s.luck, rng);
+  const id = rollBox(s.luck, rng, (s.pity ?? 0) >= PITY_BOXES - 1);   // the pity: a transformation item is sure after a long dry spell
+  s.pity = kindOf(id) === 'transform' ? 0 : (s.pity ?? 0) + 1;
   grantItem(s, id);
   return id;
+}
+
+/** Names of the cards in the album and in training: the lines an evolution box looks at. */
+const lineNames = (s: GameState): string[] => [...Object.values(s.collection).map(o => o.card.name), ...s.slots.flatMap(t => (t ? [t.card.name] : []))];
+
+/** Opens an evolution box: returns the evolution item found (favouring the branching lines you have), or null if there is no box. */
+export function openEvoBox(s: GameState, rng: () => number = Math.random): ItemId | null {
+  if ((s.evoBoxes ?? 0) < 1) { return null; }
+  s.evoBoxes = (s.evoBoxes ?? 0) - 1;
+  const id = rollEvoBox(lineNames(s), rng, s.items);
+  grantItem(s, id);
+  return id;
+}
+
+/** Trades an evolution item you do not need for STONE_VALUE coins. Returns the coins, or undefined if it is not one or you have none. */
+export function recycleItem(s: GameState, id: ItemId): number | undefined {
+  if (kindOf(id) !== 'evolve' || !takeItem(s, id)) { return undefined; }
+  s.coins += STONE_VALUE;
+  return STONE_VALUE;
 }
 
 /** Rare Candy: the card jumps to the next level (the XP of that level's start). false if there is none or the card is at the maximum. */

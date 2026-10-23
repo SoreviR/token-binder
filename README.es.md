@@ -158,7 +158,7 @@ Cuando ya lo has comprado todo, los **marcos de carta** (Oro, Neón, Llama, Esca
 
 ## Cajas misteriosas, objetos y evoluciones
 
-Una **caja misteriosa** (120 monedas en la tienda) da un objeto al azar. Se abre desde el panel lateral o desde la pestaña **Objetos** del álbum, donde cada objeto que tienes aparece como una tarjeta que explica qué hace.
+Una **caja misteriosa** (120 monedas en la tienda) da un objeto al azar (caramelos, Huevo Suerte, objetos de combate, fundas, transformaciones raras; nunca piedras evolutivas), y tras 30 cajas seguidas sin una transformación la siguiente trae una. Una **caja de evolución** (50 monedas) da una piedra evolutiva: son más probables las de las líneas con ramas que ya tienes (Eevee…) y menos las que ya tienes en el inventario. Se abren desde el panel lateral o desde la pestaña **Objetos** del álbum, donde cada objeto que tienes aparece como una tarjeta que explica qué hace; una piedra que no necesites se puede **reciclar** ahí por 15 monedas.
 
 | Objeto | Qué hace |
 |---|---|
@@ -222,7 +222,8 @@ Además de los sobres gratis, ganas **1 moneda cada 10 K tokens** usados. Hay un
 | Pokébola | 15 | 1 carta |
 | Funda | 15 | Protección para una carta (mejores opciones al gradear) |
 | Toploader | 50 | Protección rígida para una carta (mejora más las opciones al gradear) |
-| Caja misteriosa | 120 | 1 objeto al azar (piedras, caramelos, Huevo Suerte, objetos de transformación raros) |
+| Caja misteriosa | 120 | 1 objeto al azar (caramelos, Huevo Suerte, objetos de combate, protección, transformaciones raras) |
+| Caja de evolución | 50 | 1 piedra evolutiva, favoreciendo las líneas con ramas que tienes |
 | Hueco de entrenamiento | 400 · 900 · 1 600 · 2 600 · 4 000 | Una carta más creciendo a la vez (hasta 6 huecos) |
 | Mejora de suerte | 300 · 600 · 1 200 · 2 400 · 4 800 | +20 % por nivel al peso de las eras Moderna y Actual en los sobres, y a la probabilidad de variantes Shadowless (5 niveles) |
 

@@ -159,7 +159,7 @@ Once you have bought everything else, **card frames** (Gold, Neon, Flame, Frost,
 
 ## Mystery boxes, items and evolutions
 
-A **mystery box** (120 coins in the shop) gives one random item. Open it from the side panel or from the **Items** tab of the album, where every item you own is shown as a card with what it does.
+A **mystery box** (120 coins in the shop) gives one random item (candy, Lucky Egg, battle items, sleeves, rare transformation items; never evolution stones), and after 30 boxes in a row without a transformation item the next one has one. An **evolution box** (50 coins) gives one evolution stone: the stones of the branching lines you already have (Eevee…) are more likely, and the ones you already hold are less. Open them from the side panel or from the **Items** tab of the album, where every item you own is shown as a card with what it does; a stone you do not need can be **recycled** there for 15 coins.
 
 | Item | What it does |
 |---|---|
@@ -223,7 +223,8 @@ Besides the free packs, you earn **1 coin per 10K tokens** used. There is a **+2
 | Poké Ball | 15 | 1 card |
 | Sleeve | 15 | Protection for one card (better grading odds) |
 | Toploader | 50 | Rigid protection for one card (a bigger boost to grading odds) |
-| Mystery box | 120 | 1 random item (stones, candy, Lucky Egg, rare transformation items) |
+| Mystery box | 120 | 1 random item (candy, Lucky Egg, battle items, protection, rare transformation items) |
+| Evolution box | 50 | 1 evolution stone, favouring the branching lines you have |
 | Training slot | 400 · 900 · 1,600 · 2,600 · 4,000 | One more card growing at a time (up to 6 slots) |
 | Luck upgrade | 300 · 600 · 1,200 · 2,400 · 4,800 | +20% per level to the weight of the Modern and Current eras in packs, and to the probability of Shadowless variants (5 levels) |
 

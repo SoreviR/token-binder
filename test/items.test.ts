@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   Card, FindNext, XP_PER_LEVEL, accrueXp, addCards, applyTransform, branchOptions, buy, chooseEvolution, countOf, grantItem, keyOf, levelOf, newState, normalize,
-  openBox, resolveDue, startTraining, takeItem, tierOf, useLuckyEgg, useRareCandy, LUCKY_EGG_TOKENS, equipHeld, unequipHeld,
+  openBox, openEvoBox, recycleItem, resolveDue, startTraining, takeItem, tierOf, useLuckyEgg, useRareCandy, LUCKY_EGG_TOKENS, equipHeld, unequipHeld,
 } from '../src/game/engine';
-import { BOX_PRICE, ITEM_LIST, MIN_TRANSFORM_LEVEL, TRANSFORM_BY_ITEM, baseName, branchItem, canTransform, rollBox, transformNames } from '../src/game/items';
+import { BOX_PRICE, EVO_BOX_PRICE, ITEM_LIST, MIN_TRANSFORM_LEVEL, PITY_BOXES, STONE_VALUE, TRANSFORM_BY_ITEM, baseName, branchItem, canTransform, kindOf, rollBox, rollEvoBox, transformNames } from '../src/game/items';
 
 const card = (id: string, name: string, extra: Partial<Card> = {}): Card => ({ id, name, rarity: 'Rare', tier: tierOf('Rare'), image: `https://x/${id}`, ...extra });
 
@@ -40,7 +40,7 @@ test('mystery box: price is fixed, content is weighted, and luck favors the rare
 
   const ids = new Set<string>(ITEM_LIST.map(i => i.id));
   for (let i = 0; i <= 100; i++) { assert.ok(ids.has(rollBox(0, () => i / 100)), 'valid item'); }
-  assert.equal(rollBox(0, () => 0), 'fire-stone');           // first entry at the low end
+  assert.equal(rollBox(0, () => 0), 'rare-candy');           // first entry of the mystery box (stones are not in it)
   const rare = (luck: number) => { let n = 0; for (let i = 0; i < 10_000; i++) { const id = rollBox(luck, () => (i + 0.5) / 10_000); if (id.endsWith('band') || id.endsWith('orb') || id.endsWith('core') || id === 'mega-stone') n++; } return n; };
   assert.ok(rare(5) > rare(0) * 1.4, 'luck 5 should raise the share of transformation items clearly');
 });
@@ -50,7 +50,7 @@ test('openBox consumes a box, adds the item to the inventory, and does nothing w
   assert.equal(openBox(s), null);
   s.boxes = 2;
   const found = openBox(s, () => 0)!;
-  assert.equal(found, 'fire-stone');
+  assert.equal(found, 'rare-candy');
   assert.equal(s.boxes, 1);
   assert.equal(countOf(s, found), 1);
   assert.equal(takeItem(s, found), true);
@@ -232,4 +232,66 @@ test('mystery boxes can drop the held items', () => {
   const seen = new Set<string>();
   for (let i = 0; i < 400; i++) { seen.add(rollBox(0, () => (i + 0.5) / 400)); }
   for (const id of ['sturdy-plate', 'choice-band', 'quick-claw', 'lucky-charm']) { assert.ok(seen.has(id), id); }
+});
+
+test('a mystery box never has an evolution stone, and the shares match the design', () => {
+  const N = 20_000, count: Record<string, number> = {};
+  for (let i = 0; i < N; i++) { const id = rollBox(0, () => (i + 0.5) / N); assert.notEqual(kindOf(id), 'evolve'); count[kindOf(id)] = (count[kindOf(id)] ?? 0) + 1; }
+  const share = (k: string) => (count[k] ?? 0) / N;
+  assert.ok(Math.abs(share('train') - 64 / 122) < 0.01, 'candy and eggs ~52%');
+  assert.ok(Math.abs(share('transform') - 8 / 122) < 0.01, 'transformations ~6.6%');
+});
+
+test('pity: after PITY_BOXES - 1 boxes without a transformation the next one has one, and the counter starts over', () => {
+  const s = newState(0);
+  s.boxes = PITY_BOXES + 1;
+  const dry = () => 0.999;                                      // top of the roll: never a transformation
+  for (let i = 0; i < PITY_BOXES - 1; i++) { assert.notEqual(kindOf(openBox(s, dry)!), 'transform'); }
+  assert.equal(s.pity, PITY_BOXES - 1);
+  assert.equal(kindOf(openBox(s, dry)!), 'transform');          // the 30th is sure
+  assert.equal(s.pity, 0);
+  assert.notEqual(kindOf(openBox(s, dry)!), 'transform');
+  assert.equal(s.pity, 1);
+});
+
+test('evolution box: only evolution items, and the ones of a branching line you have weigh six times more', () => {
+  const N = 20_000;
+  const share = (lines: string[], id: string) => { let n = 0; for (let i = 0; i < N; i++) { const x = rollEvoBox(lines, () => (i + 0.5) / N); assert.equal(kindOf(x), 'evolve'); if (x === id) n++; } return n / N; };
+  const base = share([], 'dawn-stone'), withKirlia = share(['Kirlia'], 'dawn-stone');
+  assert.ok(Math.abs(base - 5 / 73) < 0.005);
+  assert.ok(withKirlia > base * 3, 'a Kirlia in the album makes the dawn stone clearly more likely');
+  assert.equal(share(['Kirlia ex'], 'dawn-stone'), withKirlia, 'a decorated name counts as the same species');
+  assert.ok(share(['Eevee'], 'dawn-stone') < base / 3, 'with Eevee the stones of Eevee crowd out the others');
+});
+
+test('evolution box: what you already hold is less likely, so boxes bring variety', () => {
+  const N = 20_000;
+  const water = (stock: object) => { let n = 0; for (let i = 0; i < N; i++) { if (rollEvoBox(['Eevee'], () => (i + 0.5) / N, stock) === 'water-stone') n++; } return n / N; };
+  assert.ok(water({ 'water-stone': 1 }) < water({}) / 2);
+});
+
+test('evolution box: bought for coins, opened from the stock, and the stone goes to the inventory', () => {
+  const s = newState(0);
+  s.coins = EVO_BOX_PRICE - 1;
+  assert.equal(buy(s, 'evobox'), false);
+  s.coins = EVO_BOX_PRICE;
+  assert.equal(buy(s, 'evobox'), true);
+  assert.deepEqual([s.evoBoxes, s.coins], [1, 0]);
+  const found = openEvoBox(s, () => 0)!;
+  assert.equal(found, 'fire-stone');
+  assert.equal(countOf(s, found), 1);
+  assert.equal(s.evoBoxes, 0);
+  assert.equal(openEvoBox(s), null);
+});
+
+test('recycling: only evolution items you have, for a fixed amount of coins', () => {
+  const s = newState(0);
+  assert.equal(recycleItem(s, 'fire-stone'), undefined);         // none in stock
+  s.items['fire-stone'] = 2; s.items['rare-candy'] = 1;
+  assert.equal(recycleItem(s, 'fire-stone'), STONE_VALUE);
+  assert.equal(s.coins, STONE_VALUE);
+  assert.equal(countOf(s, 'fire-stone'), 1);
+  assert.equal(recycleItem(s, 'rare-candy'), undefined);         // not an evolution item
+  assert.equal(countOf(s, 'rare-candy'), 1);
+  assert.ok(STONE_VALUE < EVO_BOX_PRICE, 'buying boxes to recycle them never pays');
 });

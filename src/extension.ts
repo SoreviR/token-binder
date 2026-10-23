@@ -5,13 +5,13 @@ import { defaultRoots, runningUserRoot, uniqueRoots } from './usage/paths';
 import { fmt, parseLimit, percent, periodEnd, periodStart, used, Unit } from './quota';
 import { GameStore } from './game/state';
 import {
-  accrueXp, addCards, applyTransform, branchOptions, buy, CARD_DATA_VERSION, Card, chooseEvolution, consume, countOf, earnCoins, equipHeld, GameState, levelOf, openBox, unequipHeld,
+  accrueXp, addCards, applyTransform, branchOptions, buy, CARD_DATA_VERSION, Card, chooseEvolution, consume, countOf, earnCoins, equipHeld, GameState, levelOf, openBox, openEvoBox, recycleItem, unequipHeld,
   useLuckyEgg, useRareCandy, grantPacks, Item, keyOf, levelProgress, MAX_LUCK, MAX_SLOTS,
   newState, nextPackProgress, normalize, PackKind, priceOf, rebaseLifetime, resolveDue, sellDuplicates, sellValue, startTraining, trainingProgress, underPace,
   untrain,
 } from './game/engine';
 import { collectorLabel, marketValue, statsOf } from './game/stats';
-import { MIN_TRANSFORM_LEVEL, TRANSFORM_BY_ITEM, Transform, canTransform, isItemId } from './game/items';
+import { MIN_TRANSFORM_LEVEL, STONE_VALUE, TRANSFORM_BY_ITEM, Transform, canTransform, isItemId } from './game/items';
 import { Tcgdex } from './game/tcgdex';
 import { BinderViewProvider, WebviewMessage } from './webview/provider';
 import { AlbumPanel } from './webview/albumPanel';
@@ -227,6 +227,11 @@ export function activate(ctx: vscode.ExtensionContext): void {
     } else if (m.type === 'openBox') {
       const found = openBox(state);
       if (found) { await game.save(state); target.send({ type: 'boxOpened', item: found }); await tick(true); }
+    } else if (m.type === 'openEvoBox') {
+      const found = openEvoBox(state);
+      if (found) { await game.save(state); target.send({ type: 'boxOpened', item: found }); await tick(true); }
+    } else if (m.type === 'recycle' && isItemId(m.item)) {
+      if (recycleItem(state, m.item) !== undefined) { await game.save(state); await tick(true); }
     } else if (m.type === 'chooseEvolution' && typeof m.id === 'string' && typeof m.choice === 'string') {
       const r = chooseEvolution(state, m.id, m.choice);
       if (r.ok) { lastEvolveTry = 0; await game.save(state); await tick(true); }
@@ -587,7 +592,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       ...await cardView(o.card, 'low', false, p => album.uri(p)), count: o.count, firstAt: o.firstAt,
     })));
     return {
-      lang: lang(), sound: cfg().get<boolean>('sound.enabled', false), items: s.items, boxes: s.boxes, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      lang: lang(), sound: cfg().get<boolean>('sound.enabled', false), items: s.items, boxes: s.boxes, evoBoxes: s.evoBoxes ?? 0, stoneValue: STONE_VALUE, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade) * conditionMultiplier(o.wear, o.grade, o.soaked), 0)),
       showcaseId: showcaseKey(s), showcasePinned: !!s.showcase && !!s.collection[s.showcase] && !s.collection[s.showcase].soaked,
       teamIds: teamKeys(s).slice(1), frame: s.cosmetics?.frame, frames: FRAMES.map(f => ({ id: f.id, price: f.price, owned: !!s.cosmetics?.owned.includes(f.id) })),
@@ -639,6 +644,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       { id: 'premium', name: t('shop.premium.name'), desc: t('shop.premium.desc') },
       { id: 'ball', name: t('shop.ball.name'), desc: t('shop.ball.desc') },
       { id: 'box', name: t('shop.box.name'), desc: t('shop.box.desc') },
+      { id: 'evobox', name: t('shop.evobox.name'), desc: t('shop.evobox.desc') },
       { id: 'sleeve', name: t('shop.sleeve.name'), desc: t('shop.sleeve.desc') },
       { id: 'toploader', name: t('shop.toploader.name'), desc: t('shop.toploader.desc') },
       { id: 'hair-dryer', name: t('shop.hair-dryer.name'), desc: t('shop.hair-dryer.desc') },
@@ -663,7 +669,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       today: b(agg.today), month: b(agg.month),
       byModel: Object.entries(agg.byModel).map(([k, v]) => ({ name: k, ...b(v) })).sort((a, c) => c.total - a.total),
       daily: agg.daily,
-      boxes: s.boxes, items: s.items, packs: s.packs, premium: s.premium, balls: s.balls, nextPack: nextPackProgress(s, lifetime, every),
+      boxes: s.boxes, evoBoxes: s.evoBoxes ?? 0, items: s.items, packs: s.packs, premium: s.premium, balls: s.balls, nextPack: nextPackProgress(s, lifetime, every),
       coins: Math.floor(s.coins), pace, shop, perDay: usage.tokensSince(Date.now() - 7 * 864e5) / 7,
       sound: cfg().get<boolean>('sound.enabled', false), tour: s.tour !== false, recap: recapView(s), fighter: !!s.fighter, goalsDone: GOALS.filter(g => s.goals?.[g.id]).length, goalsTotal: GOALS.length,
       slots, recent, albumUnique: owned.length, albumTotal: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,

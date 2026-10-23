@@ -145,6 +145,7 @@
     return box(t('items.title'),
       el('div', { class: 'sub', text: count ? t('items.summary', count) : t('items.empty') }),
       el('button', { class: 'btn', style: 'width:100%;margin-top:8px', ...(d.boxes ? {} : { disabled: '' }), text: t('box.open', d.boxes), onclick: () => send('openBox') }),
+      d.evoBoxes ? el('button', { class: 'btn', style: 'width:100%;margin-top:6px', text: t('box.openEvo', d.evoBoxes), onclick: () => send('openEvoBox') }) : null,
       el('button', { class: 'btn ghost', style: 'width:100%;margin-top:6px', text: t('items.seeAlbum'), onclick: () => send('openAlbum', { tab: 'items' }) }));
   }
 

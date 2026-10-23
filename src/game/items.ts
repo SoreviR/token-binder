@@ -2,7 +2,7 @@
 import type { Card } from './engine';
 
 export const ITEM_LIST = [
-  // evolution items (common)
+  // evolution items: they only come out of evolution boxes (see rollEvoBox), never out of a mystery box
   { id: 'fire-stone', kind: 'evolve', weight: 10 },
   { id: 'water-stone', kind: 'evolve', weight: 10 },
   { id: 'thunder-stone', kind: 'evolve', weight: 10 },
@@ -14,21 +14,21 @@ export const ITEM_LIST = [
   { id: 'dawn-stone', kind: 'evolve', weight: 5 },
   { id: 'kings-rock', kind: 'evolve', weight: 5 },
   // training
-  { id: 'rare-candy', kind: 'train', weight: 14 },
-  { id: 'lucky-egg', kind: 'train', weight: 8 },
+  { id: 'rare-candy', kind: 'train', weight: 40 },
+  { id: 'lucky-egg', kind: 'train', weight: 24 },
   // transformations (rare)
   { id: 'mega-stone', kind: 'transform', weight: 2 },
   { id: 'dynamax-band', kind: 'transform', weight: 2 },
   { id: 'star-core', kind: 'transform', weight: 2 },
   { id: 'tera-orb', kind: 'transform', weight: 2 },
   // card protection (see grading.ts)
-  { id: 'sleeve', kind: 'protect', weight: 12 },
-  { id: 'toploader', kind: 'protect', weight: 6 },
+  { id: 'sleeve', kind: 'protect', weight: 14 },
+  { id: 'toploader', kind: 'protect', weight: 8 },
   // held in battle: they shift the style of a card, never its total power
-  { id: 'sturdy-plate', kind: 'held', weight: 5 },
-  { id: 'choice-band', kind: 'held', weight: 5 },
-  { id: 'quick-claw', kind: 'held', weight: 5 },
-  { id: 'lucky-charm', kind: 'held', weight: 5 },
+  { id: 'sturdy-plate', kind: 'held', weight: 7 },
+  { id: 'choice-band', kind: 'held', weight: 7 },
+  { id: 'quick-claw', kind: 'held', weight: 7 },
+  { id: 'lucky-charm', kind: 'held', weight: 7 },
   // repair (only in the shop: weight 0 never comes out of a box; see mishaps.ts)
   { id: 'hair-dryer', kind: 'repair', weight: 0 },
 ] as const;
@@ -56,15 +56,44 @@ export const HELD_EFFECTS: Record<HeldId, HeldEffect> = {
   'lucky-charm': { crit: 0.2, miss: 0.09 },         // many more critical hits and more misses: a much swingier fight
 };
 
-/** Price of a mystery box in coins. */
+/** Price of a mystery box and of an evolution box in coins. */
 export const BOX_PRICE = 120;
+export const EVO_BOX_PRICE = 50;
+/** Coins an evolution stone is recycled for (below the price of the box, so buying to recycle never pays). */
+export const STONE_VALUE = 15;
+/** Mystery boxes in a row without a transformation item after which the next one is sure to have one. */
+export const PITY_BOXES = 30;
 
-/** Weighted pick of a box's content. Luck makes the rare transformation items more likely (+20% per level). */
-export function rollBox(luck = 0, rng: () => number = Math.random): ItemId {
-  const weights = ITEM_LIST.filter(i => i.weight > 0).map(i => [i.id, i.weight * (i.kind === 'transform' ? 1 + 0.2 * luck : 1)] as const);
-  let r = rng() * weights.reduce((sum, [, w]) => sum + w, 0);
-  for (const [id, w] of weights) { if ((r -= w) < 0) { return id; } }
-  return weights[weights.length - 1][0];
+function pickWeighted<T>(entries: readonly (readonly [T, number])[], rng: () => number): T {
+  let r = rng() * entries.reduce((sum, [, w]) => sum + w, 0);
+  for (const [v, w] of entries) { if ((r -= w) < 0) { return v; } }
+  return entries[entries.length - 1][0];
+}
+
+/**
+ * Weighted pick of a mystery box's content: everything but evolution stones. Luck makes the rare transformation items more
+ * likely (+20% per level); `sure` (the pity) leaves only those.
+ */
+export function rollBox(luck = 0, rng: () => number = Math.random, sure = false): ItemId {
+  const pool = ITEM_LIST.filter(i => i.weight > 0 && i.kind !== 'evolve' && (!sure || i.kind === 'transform'));
+  return pickWeighted(pool.map(i => [i.id, i.weight * (i.kind === 'transform' ? 1 + 0.2 * luck : 1)] as const), rng);
+}
+
+/** How much more likely the stones of a branching line the player already owns are in an evolution box. */
+export const EVO_FOCUS = 6;
+
+/** How much less likely an evolution item you already hold is, so a box brings variety instead of repeats. */
+export const EVO_REPEAT = 3;
+
+/**
+ * Weighted pick of an evolution box's content: one of the evolution items. The ones that pick a branch of a line the player
+ * has (`lines`: names of the cards in the album and in training) weigh EVO_FOCUS times more, and the ones already in stock
+ * (`stock`) EVO_REPEAT times less.
+ */
+export function rollEvoBox(lines: string[], rng: () => number = Math.random, stock: Partial<Record<ItemId, number>> = {}): ItemId {
+  const wanted = new Set<ItemId>(lines.map(baseName).flatMap(n => Object.values(BRANCH_ITEMS[n] ?? {})));
+  return pickWeighted(ITEM_LIST.filter(i => i.kind === 'evolve')
+    .map(i => [i.id, i.weight * (wanted.has(i.id) ? EVO_FOCUS : 1) / ((stock[i.id] ?? 0) > 0 ? EVO_REPEAT : 1)] as const), rng);
 }
 
 /* ───────── Branching evolutions ───────── */

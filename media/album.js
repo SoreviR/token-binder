@@ -273,6 +273,10 @@
         el('div', { class: 'bb-icon', text: '🎁' }),
         el('div', { class: 'bb-text' }, el('b', { text: t('items.boxes', D.boxes || 0) }), el('div', { class: 'sub', text: t('items.boxHint') })),
         el('button', { class: 'btn', ...(D.boxes ? {} : { disabled: '' }), text: t('box.open', D.boxes || 0), onclick: () => send('openBox') })),
+      el('div', { class: 'boxbar' },
+        el('div', { class: 'bb-icon', text: '🪨' }),
+        el('div', { class: 'bb-text' }, el('b', { text: t('items.evoBoxes', D.evoBoxes || 0) }), el('div', { class: 'sub', text: t('items.evoBoxHint') })),
+        el('button', { class: 'btn', ...(D.evoBoxes ? {} : { disabled: '' }), text: t('box.openEvo', D.evoBoxes || 0), onclick: () => send('openEvoBox') })),
       el('div', { class: 'igroup' }, t('frames.title'), el('small', { text: t('frames.hint') })),
       el('div', { class: 'igrid' }, (D.frames || []).map(f => el('div', { class: 'icard' },
         el('div', { class: 'ic-top' }, el('div', { class: 'framesw frame-' + f.id }), el('div', { class: 'ic-name', text: t('frame.' + f.id + '.name') }),
@@ -285,7 +289,8 @@
         el('div', { class: 'igroup' }, t('items.group.' + kind), el('small', { text: t('items.hint.' + kind) })),
         el('div', { class: 'igrid' }, ids.map(id => el('div', { class: 'icard' },
           el('div', { class: 'ic-top' }, el('div', { class: 'ic-icon', text: itemIcon(id) }), el('div', { class: 'ic-name', text: itemName(id) }), el('span', { class: 'ic-n', text: '×' + have(id) })),
-          el('div', { class: 'ic-desc', text: itemDesc(id) })))))));
+          el('div', { class: 'ic-desc', text: itemDesc(id) }),
+          kind === 'evolve' ? el('button', { class: 'btn ghost', title: t('items.recycleTip'), text: t('items.recycle', D.stoneValue || 15), onclick: () => send('recycle', { item: id }) }) : null)))))));
   }
 
   /* ───── goals tab: long-term targets with progress and the reward they pay ───── */

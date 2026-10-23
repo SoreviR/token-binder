@@ -74,7 +74,9 @@ export const en = {
   'shop.luck.desc': 'level {0}/{1} · +20% per level to modern eras and Shadowless variants',
 
   'shop.box.name': 'Mystery box',
-  'shop.box.desc': '1 random item: evolution stones, candy, rare transformation items',
+  'shop.box.desc': '1 random item: candy, lucky eggs, battle items, protection and rare transformation items',
+  'shop.evobox.name': 'Evolution box',
+  'shop.evobox.desc': '1 evolution stone, more likely the ones your branching lines (Eevee…) need',
 
   'shop.sleeve.name': 'Sleeve',
   'shop.sleeve.desc': 'Less wear in battles and better grading odds (no stats)',

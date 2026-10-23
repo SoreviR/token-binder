@@ -75,7 +75,9 @@ export const es: Record<Key, string> = {
   'shop.luck.desc': 'nivel {0}/{1} · +20 % por nivel a las eras modernas y a las variantes Shadowless',
 
   'shop.box.name': 'Caja misteriosa',
-  'shop.box.desc': '1 objeto al azar: piedras evolutivas, caramelos, objetos de transformación raros',
+  'shop.box.desc': '1 objeto al azar: caramelos, huevos de la suerte, objetos de combate, protección y transformaciones raras',
+  'shop.evobox.name': 'Caja de evolución',
+  'shop.evobox.desc': '1 piedra evolutiva, con más suerte las que piden tus líneas con ramas (Eevee…)',
 
   'shop.sleeve.name': 'Funda',
   'shop.sleeve.desc': 'Menos desgaste en combates y mejores opciones al gradear (sin stats)',
