@@ -249,6 +249,7 @@
   function render() {
     setLang(D.lang);
     window.PT.setSound(D.sound);
+    document.body.classList.toggle('ev-halloween', D.event === 'halloween');
     labelToolbar();
     window.PTBattle.setData(D.battle);
     summary.textContent = t('album.summary', D.unique, D.total, D.mastered) + (D.value ? t('album.value', D.value.toLocaleString(D.lang)) : '');

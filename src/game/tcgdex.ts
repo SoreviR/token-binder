@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { CARD_DATA_VERSION, Card, ERAS, Era, FindNext, PackKind, eraOfSerie, isPremium, rollEras, rollVariant, shuffledRarities, tierOf } from './engine';
 import { parseCard } from './cardData';
+import { SPOOKY, SPOOKY_CARDS } from './halloween';
 import { Transform, baseName, transformNames } from './items';
 
 const BASE = 'https://api.tcgdex.net/v2/en';
@@ -149,7 +150,20 @@ export class Tcgdex {
     return undefined;
   }
 
+  /** Halloween pack: ghost and dark species, the premium cards of each first (the rarer one when the species has several). */
+  private async rollSpooky(luck: number): Promise<Card[]> {
+    const names = [...SPOOKY].sort(() => this.rng() - 0.5).slice(0, SPOOKY_CARDS);
+    const cards = await Promise.all(names.map(async (name, i): Promise<Card | undefined> => {
+      const items = await this.list({ name: `eq:${name}` });
+      if (!items?.length) { return undefined; }
+      const best = await this.bestOf(items, { tier: i === 0 ? 3 : 4 } as Card);
+      return best ? { ...best, variant: rollVariant(best, luck, this.rng) } : undefined;
+    }));
+    return cards.filter((c): c is Card => !!c);
+  }
+
   async rollPack(kind: PackKind = 'pack', luck = 0): Promise<Card[]> {
+    if (kind === 'spooky') { return this.rollSpooky(luck); }
     const cards = await Promise.all(rollEras(kind, luck, this.rng).map(e => this.rollCard(e, luck)));
     return cards.filter((c): c is Card => !!c);
   }

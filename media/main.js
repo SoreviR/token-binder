@@ -23,6 +23,7 @@
   /* ───── main panel ───── */
   function render() {
     const d = S;
+    document.body.classList.toggle('ev-halloween', d.event === 'halloween');
     const q = d.pct;
     const unit = d.unit === 'credits' ? t('unit.credits') : t('unit.tokens');
 
@@ -33,7 +34,7 @@
         el('div', { class: 'packinfo' },
           bar(d.nextPack.pct),
           el('div', { class: 'sub', text: t('packs.next', fmt(d.nextPack.into), fmt(d.nextPack.span), eta(d.nextPack.span - d.nextPack.into, d.perDay)) }),
-          el('div', { class: 'btns' }, openBtn('pack', d.packs, t('packs.pack')), openBtn('premium', d.premium, t('packs.premium')), openBtn('ball', d.balls, t('packs.ball'))))));
+          el('div', { class: 'btns' }, openBtn('pack', d.packs, t('packs.pack')), openBtn('premium', d.premium, t('packs.premium')), openBtn('ball', d.balls, t('packs.ball')), d.event || d.spooky ? openBtn('spooky', d.spooky, '🎃 ' + t('packs.spooky')) : null))));
 
     const affordable = d.shop.filter(i => i.price !== null && d.coins >= i.price).length;
     const shopBox = fold('shop', t('shop.title'), t('shop.coins', d.coins) + (affordable ? ' · ' + t('shop.affordable', affordable) : ''),
@@ -53,7 +54,7 @@
     const list = arr => arr.length ? arr.map(m => row(m.name, fmt(m.total))) : [el('div', { class: 'sub', text: t('nodata') })];
 
     app.replaceChildren(
-      ...[tourBox(), recapBox(), nextBox()].filter(Boolean),
+      ...[eventBanner(), tourBox(), recapBox(), nextBox()].filter(Boolean),
       box(t('quota.title'), row(fmt(d.used) + unit, t('quota.of', q.toFixed(1), fmt(d.limit))),
         bar(q, q >= 100 ? 'err' : q >= 80 ? 'warn' : ''), row(t('quota.today'), fmt(d.today.total)), row(t('quota.month'), fmt(d.month.total))),
       packBox,
@@ -94,16 +95,21 @@
       el('button', { class: 'btn ghost', style: 'margin-top:6px', text: t('recap.ok'), onclick: () => send('dismissRecap') }));
   }
 
+  /** Halloween event strip (the `ev-halloween` block of main.css decorates the rest of the panel). */
+  function eventBanner() {
+    return S.event === 'halloween' ? el('div', { class: 'hw-banner', text: t('hw.banner') }) : null;
+  }
+
   /** The one thing worth doing now, so it does not get lost among the boxes below. */
   function nextBox() {
     const d = S;
     if (!d.tour) return null;   // the guide is showing
-    const kind = d.packs ? 'pack' : d.premium ? 'premium' : d.balls ? 'ball' : null;
+    const kind = d.packs ? 'pack' : d.premium ? 'premium' : d.balls ? 'ball' : d.spooky ? 'spooky' : null;
     const branching = d.slots.find(x => x && x.branches);
     const affordable = d.shop.some(i => i.price !== null && d.coins >= i.price);
     let text, btn;
     if (branching) text = t('next.branch', branching.card.name);
-    else if (kind) { text = t('next.packs', d.packs + d.premium + d.balls); btn = [t('next.btn.open'), () => send('openPack', { kind })]; }
+    else if (kind) { text = t('next.packs', d.packs + d.premium + d.balls + d.spooky); btn = [t('next.btn.open'), () => send('openPack', { kind })]; }
     else if (d.albumUnique && freeSlot()) { text = t('next.train'); btn = [t('next.btn.album'), () => send('openAlbum')]; }
     else if (d.boxes) { text = t('next.box', d.boxes); btn = [t('next.btn.open'), () => send('openBox')]; }
     else if (d.albumUnique && !d.fighter) { text = t('next.fighter'); btn = [t('next.btn.album'), () => send('openAlbum', { tab: 'battle' })]; }
@@ -180,7 +186,7 @@
     sfx('pack');
     overlay.replaceChildren(
       el('div', { class: 'hint', text: kind === 'ball' ? t('open.ball') : t('open.pack') }),
-      el('div', { class: 'pack big shake' }, el('div', { class: 'ball' }), el('b', { text: 'BOOSTER' })));
+      el('div', { class: 'pack big shake' + (kind === 'spooky' ? ' spooky' : '') }, el('div', { class: 'ball' }), el('b', { text: 'BOOSTER' })));
   }
 
   function showReveal(cards) {
@@ -221,6 +227,7 @@
   function announce(events) {
     for (const e of events) {
       if (e.startsWith('packs:')) toast(e === 'packs:1' ? t('toast.packsOne') : t('toast.packsMany', e.slice(6)));
+      else if (e === 'hwGift') toast(t('hw.gift'));
       else if (e === 'bonusPack') toast(t('toast.bonus'));
       else if (e.startsWith('evolve:')) toast(t('toast.evolved', e.slice(7)));
       else if (e.startsWith('graduate:')) toast(t('toast.graduated', e.slice(9)));

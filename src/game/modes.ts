@@ -36,7 +36,7 @@ export function bossStatus(s: GameState, now: number): BossStatus {
 export interface ModeOutcome { coins: number; boxes: number; firstWin: boolean; capped: boolean; xp: number; levelUp?: number }
 
 /** Counts a finished fight in the battle record (wins, streak, history) and gives the card its XP. */
-function recordFight(s: GameState, leader: string, cardName: string, won: boolean, rounds: number, now: number): { xp: number; levelUp?: number } {
+export function recordFight(s: GameState, leader: string, cardName: string, won: boolean, rounds: number, now: number): { xp: number; levelUp?: number } {
   const b = battleOf(s);
   rollDaily(b, now);
   if (won) { b.wins++; b.streak++; b.best = Math.max(b.best, b.streak); } else { b.losses++; b.streak = 0; }

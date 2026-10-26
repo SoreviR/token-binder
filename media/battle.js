@@ -82,6 +82,21 @@ window.PTBattle = (function () {
       el('button', { class: 'btn', ...(canFight ? {} : { disabled: '' }), text: t('battle.challenge'), onclick: () => send('startBattle', { leader: b.id }) })));
   }
 
+  /** The Halloween boss (event): three attempts a day, a big reward for the first victory. Only sent while the event is on. */
+  function hwBox(d) {
+    const b = d.hw;
+    if (!b) return null;
+    const canFight = !!d.fighter && !!b.card && b.attemptsLeft > 0;
+    return box('🎃 ' + t('hw.title'), el('div', { class: 'leader boss hw' + (b.won ? ' earned' : '') },
+      el('div', { class: 'lthumb' }, b.src ? el('img', { src: b.src, alt: '' }) : el('div', { class: 'nm', text: b.name })),
+      el('div', { class: 'linfo' },
+        el('div', { class: 'row', style: 'justify-content:flex-start;gap:8px' }, el('b', { text: b.name }), el('span', { class: 'sub', text: (b.won ? '🏅 ' : '') + t('stats.level', b.level) + ' ' + typeIcons(b.types) })),
+        el('div', { class: 'sub', text: t('hw.reward', b.reward.coins, b.reward.boxes, b.reward.spooky) }),
+        b.odds !== undefined ? bar(b.odds, b.odds >= 0.5 ? '' : 'warn') : null,
+        el('div', { class: 'sub', text: (b.won ? t('hw.beaten') + ' · ' : '') + t('hw.attempts', b.attemptsLeft, b.attempts) + (b.odds !== undefined ? ' · ' + t('battle.odds', Math.round(b.odds * 100)) : (b.card ? '' : ' · ' + t('battle.downloading'))) })),
+      el('button', { class: 'btn', ...(canFight ? {} : { disabled: '' }), text: t('battle.challenge'), onclick: () => send('startBattle', { leader: b.id }) })));
+  }
+
   /** The daily cup: three fights in a row, a small fee and a prize that grows with the rounds won. */
   function cupBox(d) {
     const c = d.cup;
@@ -136,7 +151,7 @@ window.PTBattle = (function () {
   function historyBox(d) {
     if (!d.history.length) { return box(t('battle.history'), el('div', { class: 'sub', text: t('battle.noHistory') })); }
     const names = Object.assign({ rocket: 'Team Rocket' }, Object.fromEntries(d.leaders.map(l => [l.id, l.name])));
-    const nameOf = id => names[id] || id.replace(/^(boss|cup|elite):/, '').replace(/^./, c => c.toUpperCase());   // boss and cup rivals are named by their species
+    const nameOf = id => names[id] || id.replace(/^(boss|cup|elite|hw):/, '').replace(/^./, c => c.toUpperCase());   // boss and cup rivals are named by their species
     return box(t('battle.history'), ...d.history.slice(0, 10).map(h => el('div', { class: 'hrow ' + (h.won ? 'won' : 'lost') },
       el('span', { text: (h.won ? '✔ ' : '✘ ') + t('battle.historyRow', nameOf(h.leader), h.card) }),
       el('span', { class: 'sub', text: t('battle.rounds', h.rounds) + (h.coins ? ' · 🪙 ' + h.coins : '') }))));
@@ -144,7 +159,7 @@ window.PTBattle = (function () {
 
   function render() {
     if (!data || !root) return;
-    root.replaceChildren(...[recordBox(data), fighterBox(data), rocketBox(data), bossBox(data), cupBox(data), ladderBox(data), eliteBox(data), historyBox(data)].filter(Boolean));
+    root.replaceChildren(...[recordBox(data), hwBox(data), fighterBox(data), rocketBox(data), bossBox(data), cupBox(data), ladderBox(data), eliteBox(data), historyBox(data)].filter(Boolean));
   }
 
   /* ───── the arena: background by environment, attack effects by type ───── */
@@ -156,6 +171,7 @@ window.PTBattle = (function () {
   function sceneOf(r) {
     const kind = r.leader.kind, id = r.leader.id;
     if (r.duel) return 'stadium';
+    if (kind === 'hw') return 'haunted';
     if (kind === 'boss') return 'boss-arena';
     if (kind === 'cup') return 'colosseum';
     if (id === 'rocket') return 'hideout';
@@ -195,7 +211,7 @@ window.PTBattle = (function () {
     const resultBox = el('div', { class: 'bresult' });
     const fxLayer = el('div', { class: 'fx-layer' });
     const arena = el('div', { class: 'arena' },
-      el('div', { class: 'arena-title', text: r.team ? t('battle.vsTeam', r.leader.name, r.team.duel, r.team.of) : r.leader.kind === 'elite' ? t('battle.vsElite', r.leader.name, r.elite.duel, t('stats.level', r.leader.level)) : r.leader.kind === 'cup' ? t('battle.vsCup', r.cup.round, r.cup.of, r.leader.name, t('stats.level', r.leader.level)) : t(r.leader.kind === 'boss' ? 'battle.vsBoss' : 'battle.vs', r.leader.name, t('stats.level', r.leader.level)) }),
+      el('div', { class: 'arena-title', text: r.team ? t('battle.vsTeam', r.leader.name, r.team.duel, r.team.of) : r.leader.kind === 'elite' ? t('battle.vsElite', r.leader.name, r.elite.duel, t('stats.level', r.leader.level)) : r.leader.kind === 'cup' ? t('battle.vsCup', r.cup.round, r.cup.of, r.leader.name, t('stats.level', r.leader.level)) : t(r.leader.kind === 'hw' ? 'battle.vsHw' : r.leader.kind === 'boss' ? 'battle.vsBoss' : 'battle.vs', r.leader.name, t('stats.level', r.leader.level)) }),
       el('div', { class: 'arena-fighters scene-' + sceneOf(r) }, foe.wrap, el('div', { class: 'vs', text: 'VS' }), me.wrap),
       logBox, el('div', { class: 'row', style: 'gap:8px;justify-content:center' }, speedBtn, skipBtn), resultBox, fxLayer);
     stage.replaceChildren(arena);
@@ -313,7 +329,8 @@ window.PTBattle = (function () {
     const lines = [];
     if (o.coins) lines.push(el('div', { class: 'reward', text: t('battle.reward', o.coins) }));
     if (o.boxes) lines.push(el('div', { class: 'reward', text: t('battle.boxReward', o.boxes) }));
-    if (o.firstWin) lines.push(el('div', { class: 'reward', text: r.leader.kind === 'boss' ? t('boss.beatenNow') : r.leader.kind === 'elite' ? t('elite.beatenNow') : t('battle.badgeEarned', r.leader.name) }));
+    if (o.spooky) lines.push(el('div', { class: 'reward', text: t('hw.packReward', o.spooky) }));
+    if (o.firstWin) lines.push(el('div', { class: 'reward', text: r.leader.kind === 'hw' ? t('hw.beatenNow') : r.leader.kind === 'boss' ? t('boss.beatenNow') : r.leader.kind === 'elite' ? t('elite.beatenNow') : t('battle.badgeEarned', r.leader.name) }));
     const es = r.eliteSummary;
     if (es) lines.push(el('div', { class: 'reward', text: es.won ? t('elite.won', r.leader.name) : t('elite.lost', r.leader.name) }), es.won ? el('div', { class: 'sub', text: t('elite.left', es.alive) }) : null);
     const cs = r.cupSummary;

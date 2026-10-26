@@ -2,6 +2,10 @@
 
 Each release on GitHub shows the section of its version. Add a `## X.Y.Z - date` section before tagging `vX.Y.Z`: the release workflow fails without it.
 
+## 1.28.0 - 2026-10-26
+
+- **Halloween event (until November 3, 2026):** it switches itself on and off by your local date, so it ends on its own. While it lasts: the panel and the album wear a spooky theme (cobwebs, a dangling spider, bats, orange and purple); a **🎃 Halloween pack** (🪙 150, 2 ghost and dark cards such as Gengar, Mimikyu or Dragapult, the premium ones first) is sold in the shop, and a free one is waiting the first time you open the game in the event; a **Halloween boss** (Gourgeist, level 44, three attempts a day) fights in a new haunted-graveyard arena and pays 🪙 666, 2 mystery boxes and a Halloween pack the first time you beat it; and a **Pumpkin frame** (🪙 500) goes on sale. Whatever you bought stays yours after the event: unopened Halloween packs can still be opened and the pumpkin frame can still be worn.
+
 ## 1.27.1 - 2026-10-23
 
 - **Fix: the album opened empty.** Since 1.26.0 a stray parenthesis in the Items tab script stopped the whole album from loading (no cards, items, battle or league), while the side panel kept working. A test now parses every webview script, so a typo like this fails the build instead of reaching a release. If you are on 1.26.0 or 1.27.0, update.

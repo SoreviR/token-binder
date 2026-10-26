@@ -8,8 +8,8 @@ export const es: Record<Key, string> = {
   'bar.tooltip.byModel': '**Por modelo**',
   'bar.tooltip.noData': '- (sin datos)',
   'bar.tooltip.links': '[Configurar cupo](command:tokenBinder.setQuota) · [Abrir panel](command:tokenBinder.open)',
-  'packbar.one': 'TokenBinder: {0} sobre sin abrir ({1} normales · {2} premium · {3} Pokébolas). Pulsa para abrir el panel.',
-  'packbar.many': 'TokenBinder: {0} sobres sin abrir ({1} normales · {2} premium · {3} Pokébolas). Pulsa para abrir el panel.',
+  'packbar.one': 'TokenBinder: {0} sobre sin abrir ({1} normales · {2} premium · {3} Pokébolas · {4} Halloween). Pulsa para abrir el panel.',
+  'packbar.many': 'TokenBinder: {0} sobres sin abrir ({1} normales · {2} premium · {3} Pokébolas · {4} Halloween). Pulsa para abrir el panel.',
   'alert.quota': 'TokenBinder: llevas {0}% del cupo mensual (umbral {1}%).',
 
   // messages
@@ -69,6 +69,8 @@ export const es: Record<Key, string> = {
   'shop.premium.desc': '2 cartas, mejores rarezas',
   'shop.ball.name': 'Pokébola',
   'shop.ball.desc': '1 carta',
+  'shop.spooky.name': '🎃 Sobre de Halloween',
+  'shop.spooky.desc': '2 cartas fantasma y siniestras · hasta el 3 nov',
   'shop.slot.name': 'Hueco de entrenamiento',
   'shop.slot.desc': '{0}/{1} · una carta más creciendo',
   'shop.luck.name': 'Mejora de suerte',
@@ -90,6 +92,7 @@ export const es: Record<Key, string> = {
   'battle.noFighter': 'TokenBinder: elige primero la carta que llevas a combatir (ábrela en el álbum y pulsa «Llevar a combatir»).',
   'battle.grading': 'TokenBinder: tu carta de combate está en el servicio de gradeo. Elige otra o espera a que vuelva.',
   'battle.locked': 'TokenBinder: vence antes al líder anterior.',
+  'hw.noAttempts': 'TokenBinder: ya usaste los intentos de hoy contra el jefe de Halloween (o el evento terminó).',
   'boss.noAttempts': 'TokenBinder: ya usaste todos tus intentos contra el jefe de esta semana. El lunes llega uno nuevo.',
   'cup.played': 'TokenBinder: ya jugaste la copa de hoy. Vuelve mañana.',
   'cup.noCoins': 'TokenBinder: necesitas {0} monedas para entrar en la copa.',

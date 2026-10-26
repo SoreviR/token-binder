@@ -28,6 +28,7 @@ import { LEADERS, LEADER_BY_ID, REMATCH_DAILY_CAP, battleOf, dayKey, leaderFight
 import { GOALS, checkGoals, progressOf } from './game/goals';
 import { BOSS_ATTEMPTS, BOSS_REWARD, CUP_FEE, CUP_PRIZE, CUP_ROUNDS, bossOfWeek, bossStatus, cupPlayedToday, cupRivals, enterCup, finishCup, recordBossBattle, recordCupRound } from './game/modes';
 import { noteRecap, recapView } from './game/recap';
+import { HW_ATTEMPTS, HW_BOSS, HW_REWARD, grantHwGift, halloweenActive, hwStatus, recordHwBattle } from './game/halloween';
 import { FRAMES, buyFrame, equipFrame, isFrameId } from './game/cosmetics';
 import { clearShowcase, pinShowcase, showcaseKey } from './game/showcase';
 import { ELITE, ELITE_BY_ID, eliteBeaten, eliteCards, eliteUnlocked, recordEliteBattle } from './game/elite';
@@ -157,6 +158,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const every = cfg().get<number>('packs.everyTokens', 750_000);
       const granted = grantPacks(state, lifetime, every);
       if (granted) { events.push(`packs:${granted}`); }
+      if (grantHwGift(state, now)) { events.push('hwGift'); }
       const resetDay = cfg().get<number>('quota.resetDay', 1);
       const pace = underPace(pct, now, start, periodEnd(now, resetDay));
       earnCoins(state, lifetime, pace);
@@ -201,13 +203,13 @@ export function activate(ctx: vscode.ExtensionContext): void {
     else if (m.type === 'startElite' && typeof m.id === 'string') { await startElite(m.id); }
     else if (m.type === 'teamAdd' && typeof m.id === 'string') { if (addToTeam(state, m.id)) { await game.save(state); await tick(true); } }
     else if (m.type === 'teamRemove' && typeof m.id === 'string') { if (removeFromTeam(state, m.id)) { await game.save(state); await tick(true); } }
-    else if (m.type === 'buyFrame' && isFrameId(m.id)) { if (buyFrame(state, m.id)) { await game.save(state); await tick(true); } }
+    else if (m.type === 'buyFrame' && isFrameId(m.id)) { if (buyFrame(state, m.id, Date.now())) { await game.save(state); await tick(true); } }
     else if (m.type === 'equipFrame' && typeof m.id === 'string') { if (equipFrame(state, m.id)) { await game.save(state); await tick(true); } }
     else if (m.type === 'dismissRecap') { delete state.recap; await game.save(state); await tick(true); }
     else if (m.type === 'tourDone') { state.tour = true; await game.save(state); await tick(true); }
-    else if (m.type === 'openPack') { await openPack(m.kind === 'premium' || m.kind === 'ball' ? m.kind : 'pack'); }
+    else if (m.type === 'openPack') { await openPack(m.kind === 'premium' || m.kind === 'ball' || m.kind === 'spooky' ? m.kind : 'pack'); }
     else if (m.type === 'buy' && typeof m.item === 'string') {
-      if (buy(state, m.item as Item)) { await game.save(state); await tick(true); }
+      if (buy(state, m.item as Item, halloweenActive(Date.now()))) { await game.save(state); await tick(true); }
     } else if (m.type === 'sell' && typeof m.id === 'string') {
       const earned = sellDuplicates(state, m.id);
       if (earned) { await game.save(state); await tick(true); }
@@ -312,7 +314,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       let changed = false;
       try {
         const elite = state && LEADERS.every(l => battleOf(state!).badges.includes(l.id)) ? ELITE.flatMap(eliteCards) : [];   // only once the Elite Four are open
-        for (const d of [...LEADERS, bossOfWeek(Date.now()), ...(state?.stolen?.length ? [ROCKET] : []), ...elite]) {
+        for (const d of [...LEADERS, bossOfWeek(Date.now()), ...(halloweenActive(Date.now()) ? [HW_BOSS] : []), ...(state?.stolen?.length ? [ROCKET] : []), ...elite]) {
           const card = await tcg.leaderCard(d.id, d.species);
           if (card && !tcg.cachedImage(card, 'low')) { await tcg.image(card, 'low'); changed = true; }
         }
@@ -344,6 +346,11 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const bossCard = await tcg.cachedLeaderCard(bs.def.id);
     const bossFoe = bossCard ? leaderFighter(bs.def, bossCard) : undefined;
     const bossArt = bossCard ? tcg.cachedImage(bossCard, 'low') : undefined;
+    const hwOn = halloweenActive(now);
+    const hs = hwStatus(s, now);
+    const hwCard = hwOn ? await tcg.cachedLeaderCard(HW_BOSS.id) : undefined;
+    const hwFoe = hwCard ? leaderFighter(HW_BOSS, hwCard) : undefined;
+    const hwArt = hwCard ? tcg.cachedImage(hwCard, 'low') : undefined;
     const keys = teamKeys(s);
     const mineTeam = keys.map(k => playerFighter(s, lastQuotaPct, k)).flatMap(r => (r.ok ? [r.fighter] : []));
     const elite = await Promise.all(ELITE.map(async (tr, i) => {
@@ -373,6 +380,11 @@ export function activate(ctx: vscode.ExtensionContext): void {
         card: bossCard?.name, src: bossArt ? album.uri(bossArt) : undefined, types: bossFoe?.types ?? [],
         odds: me.ok && bossFoe ? estimateWin(me.fighter, bossFoe, 200, 21) : undefined,
       },
+      hw: hwOn ? {
+        id: HW_BOSS.id, name: HW_BOSS.name, level: HW_BOSS.level, attemptsLeft: hs.attemptsLeft, attempts: HW_ATTEMPTS, won: hs.won, reward: HW_REWARD,
+        card: hwCard?.name, src: hwArt ? album.uri(hwArt) : undefined, types: hwFoe?.types ?? [],
+        odds: me.ok && hwFoe ? estimateWin(me.fighter, hwFoe, 200, 22) : undefined,
+      } : undefined,
       elite, team: { size: keys.length, need: TEAM_SIZE, names: keys.map(k => s.collection[k].card.name) },
       cup: { fee: CUP_FEE, rounds: CUP_ROUNDS, prize: CUP_PRIZE, played: cupPlayedToday(s, now), canPay: s.coins >= CUP_FEE },
       leaders,
@@ -388,9 +400,11 @@ export function activate(ctx: vscode.ExtensionContext): void {
   async function startBattle(leaderId: string): Promise<void> {
     const rocket = leaderId === ROCKET.id;
     const boss = leaderId.startsWith('boss:');
-    const def = rocket ? ROCKET : boss ? bossOfWeek(Date.now()) : LEADER_BY_ID[leaderId];
+    const hw = leaderId === HW_BOSS.id;
+    const def = rocket ? ROCKET : hw ? HW_BOSS : boss ? bossOfWeek(Date.now()) : LEADER_BY_ID[leaderId];
     if (!state || !def || (boss && def.id !== leaderId)) { return; }
-    if (boss) { if (!bossStatus(state, Date.now()).attemptsLeft) { void vscode.window.showWarningMessage(t('boss.noAttempts')); return; } }
+    if (hw) { if (!halloweenActive(Date.now()) || !hwStatus(state, Date.now()).attemptsLeft) { void vscode.window.showWarningMessage(t('hw.noAttempts')); return; } }
+    else if (boss) { if (!bossStatus(state, Date.now()).attemptsLeft) { void vscode.window.showWarningMessage(t('boss.noAttempts')); return; } }
     else if (rocket ? !state.stolen?.length : !leaderUnlocked(state, LEADERS.indexOf(def))) { void vscode.window.showWarningMessage(t(rocket ? 'rocket.none' : 'battle.locked')); return; }
     const me = playerFighter(state, lastQuotaPct);
     if (!me.ok) { void vscode.window.showWarningMessage(t(me.reason === 'grading' ? 'battle.grading' : me.reason === 'soaked' ? 'battle.soaked' : 'battle.noFighter')); return; }
@@ -404,14 +418,15 @@ export function activate(ctx: vscode.ExtensionContext): void {
     const rocketFight = rocket ? recordRocketBattle(state, me.fighter.name, won, result.rounds) : null;
     const outcome = rocketFight
       ? { coins: 0, firstWin: false, capped: false, xp: rocketFight.xp, levelUp: rocketFight.levelUp, recovered: rocketFight.card?.name }
-      : boss ? recordBossBattle(state, def, me.fighter.name, won, result.rounds)
+      : hw ? recordHwBattle(state, me.fighter.name, won, result.rounds)
+        : boss ? recordBossBattle(state, def, me.fighter.name, won, result.rounds)
         : recordBattle(state, def, me.fighter.name, won, result.rounds);
     const worn = applyWear(state, state.fighter!, Math.random);   // the card that fought may lose condition
     await game.save(state);
     album.send({
       type: 'battleResult',
       data: {
-        leader: { id: def.id, name: def.name, level: def.level, kind: boss ? 'boss' : undefined },
+        leader: { id: def.id, name: def.name, level: def.level, kind: hw ? 'hw' : boss ? 'boss' : undefined },
         me: await fighterView(me.fighter, state.collection[state.fighter!].card, true), foe: await fighterView(foe, card, true),
         odds, won, rounds: result.rounds, reason: result.reason, log: result.log, outcome, worn,
         gaps: factorGaps(me.fighter, foe).slice(0, 3),
@@ -507,7 +522,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   }
 
   async function openPack(kind: PackKind): Promise<void> {
-    const stock = state && (kind === 'pack' ? state.packs : kind === 'premium' ? state.premium : state.balls);
+    const stock = state && (kind === 'pack' ? state.packs : kind === 'premium' ? state.premium : kind === 'spooky' ? state.spooky : state.balls);
     if (!state || opening || !stock) { return; }
     opening = true;
     try {
@@ -592,10 +607,10 @@ export function activate(ctx: vscode.ExtensionContext): void {
       ...await cardView(o.card, 'low', false, p => album.uri(p)), count: o.count, firstAt: o.firstAt,
     })));
     return {
-      lang: lang(), sound: cfg().get<boolean>('sound.enabled', false), items: s.items, boxes: s.boxes, evoBoxes: s.evoBoxes ?? 0, stoneValue: STONE_VALUE, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
+      lang: lang(), sound: cfg().get<boolean>('sound.enabled', false), items: s.items, boxes: s.boxes, evoBoxes: s.evoBoxes ?? 0, event: halloweenActive(Date.now()) ? 'halloween' : undefined, stoneValue: STONE_VALUE, coins: Math.floor(s.coins), fighterId: s.fighter, battle: await battleData(s), album: cards, unique: owned.length, total: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
       value: Math.round(owned.reduce((n, o) => n + (marketValue(o.card) ?? 0) * o.count * gradeMultiplier(o.grade) * conditionMultiplier(o.wear, o.grade, o.soaked), 0)),
       showcaseId: showcaseKey(s), showcasePinned: !!s.showcase && !!s.collection[s.showcase] && !s.collection[s.showcase].soaked,
-      teamIds: teamKeys(s).slice(1), frame: s.cosmetics?.frame, frames: FRAMES.map(f => ({ id: f.id, price: f.price, owned: !!s.cosmetics?.owned.includes(f.id) })),
+      teamIds: teamKeys(s).slice(1), frame: s.cosmetics?.frame, frames: FRAMES.filter(f => !f.event || halloweenActive(Date.now()) || s.cosmetics?.owned.includes(f.id)).map(f => ({ id: f.id, price: f.price, owned: !!s.cosmetics?.owned.includes(f.id) })),
       goals: GOALS.map(g => ({ id: g.id, goal: g.goal, value: progressOf(s, g), reward: g.reward, done: s.goals?.[g.id] })),
       trainingIds: s.slots.flatMap(t => (t ? [keyOf(t.card)] : [])), freeSlots: s.slots.filter(t => t === null).length,
     };
@@ -643,6 +658,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       { id: 'pack', name: t('shop.pack.name'), desc: t('shop.pack.desc') },
       { id: 'premium', name: t('shop.premium.name'), desc: t('shop.premium.desc') },
       { id: 'ball', name: t('shop.ball.name'), desc: t('shop.ball.desc') },
+      ...(halloweenActive(Date.now()) ? [{ id: 'spooky' as Item, name: t('shop.spooky.name'), desc: t('shop.spooky.desc') }] : []),
       { id: 'box', name: t('shop.box.name'), desc: t('shop.box.desc') },
       { id: 'evobox', name: t('shop.evobox.name'), desc: t('shop.evobox.desc') },
       { id: 'sleeve', name: t('shop.sleeve.name'), desc: t('shop.sleeve.desc') },
@@ -651,7 +667,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       { id: 'slot', name: t('shop.slot.name'), desc: t('shop.slot.desc', s.slots.length, MAX_SLOTS) },
       { id: 'luck', name: t('shop.luck.name'), desc: t('shop.luck.desc', s.luck, MAX_LUCK) },
     ];
-    const shop = shopItems.map(i => ({ ...i, price: priceOf(s, i.id) }));
+    const shop = shopItems.map(i => ({ ...i, price: priceOf(s, i.id, true) }));
     const b = (x: { input: number; cached: number; output: number; credits: number }) => ({ ...x, total: totalOf(x) });
     const slots = await Promise.all(s.slots.map(async t => {
       if (!t) { return null; }
@@ -669,7 +685,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       today: b(agg.today), month: b(agg.month),
       byModel: Object.entries(agg.byModel).map(([k, v]) => ({ name: k, ...b(v) })).sort((a, c) => c.total - a.total),
       daily: agg.daily,
-      boxes: s.boxes, evoBoxes: s.evoBoxes ?? 0, items: s.items, packs: s.packs, premium: s.premium, balls: s.balls, nextPack: nextPackProgress(s, lifetime, every),
+      boxes: s.boxes, evoBoxes: s.evoBoxes ?? 0, items: s.items, packs: s.packs, premium: s.premium, balls: s.balls, spooky: s.spooky ?? 0, event: halloweenActive(Date.now()) ? 'halloween' : undefined, nextPack: nextPackProgress(s, lifetime, every),
       coins: Math.floor(s.coins), pace, shop, perDay: usage.tokensSince(Date.now() - 7 * 864e5) / 7,
       sound: cfg().get<boolean>('sound.enabled', false), tour: s.tour !== false, recap: recapView(s), fighter: !!s.fighter, goalsDone: GOALS.filter(g => s.goals?.[g.id]).length, goalsTotal: GOALS.length,
       slots, recent, albumUnique: owned.length, albumTotal: owned.reduce((n, o) => n + o.count, 0), mastered: s.mastered,
@@ -800,10 +816,10 @@ function renderBar(bar: vscode.StatusBarItem, unit: Unit, usedNow: number, pct: 
 }
 
 function renderPackBar(item: vscode.StatusBarItem, s: GameState): void {
-  const n = s.packs + s.premium + s.balls;
+  const n = s.packs + s.premium + s.balls + (s.spooky ?? 0);
   if (!n) { item.hide(); return; }
   item.text = `$(gift) ${n}`;
-  item.tooltip = t(n === 1 ? 'packbar.one' : 'packbar.many', n, s.packs, s.premium, s.balls);
+  item.tooltip = t(n === 1 ? 'packbar.one' : 'packbar.many', n, s.packs, s.premium, s.balls, s.spooky ?? 0);
   item.show();
 }
 

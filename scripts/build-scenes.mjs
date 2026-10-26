@@ -368,6 +368,39 @@ const SCENES = {
     const r = rng(23); for (let i = 0; i < 40; i++) set(r() * W, GROUND + 4 + r() * 34, r() < 0.5 ? '#ff4a1a' : '#8a1818');
     for (let i = 0; i < 5; i++) { const x = 20 + i * 36; rect(x, GROUND + 8 + (i % 2) * 10, 14, 1, '#8a1818'); rect(x + 5, GROUND + 9 + (i % 2) * 10, 1, 5, '#8a1818'); }
   },
+  haunted() {   // Halloween boss: full moon, dead trees, graveyard fence, jack-o'-lanterns, bats, cobwebs and mist
+    sky('#0e0420', '#4a1f6a', GROUND, 7);
+    stars(30, '#d8c8ff', 41, 44);
+    disc(150, 24, 15, '#ff9a2a'); disc(150, 24, 12, '#ffc65a'); disc(145, 20, 3, '#f2a83a'); disc(155, 29, 2, '#f2a83a');   // the moon and its craters
+    mountains('#1c0a30', GROUND, [[24, 22, 34], [100, 18, 40], [176, 26, 36]]);
+    const dead = (x, h) => {   // a bare tree: trunk and forking branches
+      rect(x, GROUND - h, 3, h, '#0a0412');
+      for (let i = 0; i < 4; i++) { const by = GROUND - h + 4 + i * 6, d = i % 2 ? 1 : -1; for (let k = 0; k < 9 - i; k++) set(x + 1 + d * k, by - Math.floor(k / 2), '#0a0412'); }
+    };
+    dead(12, 40); dead(172, 46); dead(96, 30);
+    for (let x = 4; x < W; x += 6) { rect(x, GROUND - 9, 2, 9, '#150822'); set(x, GROUND - 10, '#150822'); }   // the fence
+    rect(0, GROUND - 7, W, 1, '#150822');
+    for (const [x, h] of [[30, 12], [64, 10], [124, 12], [160, 10]]) { rect(x - 4, GROUND - h, 9, h, '#3a2a52'); rect(x - 3, GROUND - h - 1, 7, 1, '#3a2a52'); rect(x - 3, GROUND - h + 3, 7, 1, '#241838'); rect(x, GROUND - h + 5, 1, 4, '#241838'); }   // tombstones
+    ground('#241638', '#1a1028', { tile: 12, edge: '#5a3a82' });
+    const pumpkin = (x, y, r) => {
+      disc(x, y, r, '#e8641a'); disc(x - Math.floor(r / 2), y, r - 1, '#f2802a'); disc(x + Math.floor(r / 2), y, r - 1, '#f2802a');
+      rect(x - 1, y - r - 2, 3, 3, '#3a6a1a');
+      const e = Math.max(1, Math.floor(r / 3));
+      rect(x - e - 2, y - 2, e + 1, e + 1, '#ffe66a'); rect(x + 2, y - 2, e + 1, e + 1, '#ffe66a');   // glowing eyes
+      for (let i = -r + 3; i <= r - 3; i += 2) rect(x + i, y + 3 + (i % 4 === 0 ? 0 : 1), 2, 2, '#ffe66a');   // grin
+    };
+    pumpkin(84, GROUND + 6, 8); pumpkin(108, GROUND + 10, 7); pumpkin(10, GROUND + 24, 9); pumpkin(182, GROUND + 22, 9);
+    const bat = (x, y) => { rect(x, y, 3, 2, '#0a0412'); rect(x - 4, y - 1, 3, 1, '#0a0412'); rect(x + 6, y - 1, 3, 1, '#0a0412'); set(x - 5, y, '#0a0412'); set(x + 9, y, '#0a0412'); set(x, y - 1, '#0a0412'); set(x + 2, y - 1, '#0a0412'); };
+    bat(70, 20); bat(120, 36); bat(40, 44); bat(168, 52);
+    const web = (x0, dir) => {   // a cobweb in a top corner: spokes and arcs
+      for (let k = 1; k < 5; k++) for (let i = 0; i < 18; i++) { const a = (i / 17) * Math.PI / 2; set(x0 + dir * Math.round(Math.cos(a) * k * 5), Math.round(Math.sin(a) * k * 5), '#cfc8e6'); }
+      for (let a = 0; a < 6; a++) { const t = (a / 5) * Math.PI / 2; for (let l = 0; l < 22; l++) set(x0 + dir * Math.round(Math.cos(t) * l), Math.round(Math.sin(t) * l), '#9d96bd'); }
+    };
+    web(0, 1); web(W - 1, -1);
+    for (let y = 8; y < 26; y++) set(176, y, '#cfc8e6');   // a spider on its thread
+    disc(176, 28, 2, '#1a0a2a'); for (const [dx, dy] of [[-3, 30 - 28], [3, 2], [-3, -2], [3, -2]]) set(176 + dx, 28 + dy, '#1a0a2a');
+    const r = rng(77); for (let i = 0; i < 90; i++) { const y = GROUND - 6 + Math.floor(r() * 14); if (BAYER[y & 3][i & 3] < 5) rect(Math.floor(r() * W), y, 5 + Math.floor(r() * 9), 1, '#7a6a9a'); }   // low mist
+  },
 };
 
 function png(width, height, rgba) {

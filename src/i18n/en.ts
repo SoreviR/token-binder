@@ -7,8 +7,8 @@ export const en = {
   'bar.tooltip.byModel': '**By model**',
   'bar.tooltip.noData': '- (no data)',
   'bar.tooltip.links': '[Set quota](command:tokenBinder.setQuota) · [Open panel](command:tokenBinder.open)',
-  'packbar.one': 'TokenBinder: {0} unopened pack ({1} regular · {2} premium · {3} Poké Balls). Click to open the panel.',
-  'packbar.many': 'TokenBinder: {0} unopened packs ({1} regular · {2} premium · {3} Poké Balls). Click to open the panel.',
+  'packbar.one': 'TokenBinder: {0} unopened pack ({1} regular · {2} premium · {3} Poké Balls · {4} Halloween). Click to open the panel.',
+  'packbar.many': 'TokenBinder: {0} unopened packs ({1} regular · {2} premium · {3} Poké Balls · {4} Halloween). Click to open the panel.',
   'alert.quota': 'TokenBinder: you have used {0}% of the monthly quota (threshold {1}%).',
 
   // messages
@@ -68,6 +68,8 @@ export const en = {
   'shop.premium.desc': '2 cards, better rarities',
   'shop.ball.name': 'Poké Ball',
   'shop.ball.desc': '1 card',
+  'shop.spooky.name': '🎃 Halloween pack',
+  'shop.spooky.desc': '2 ghost and dark cards · until Nov 3',
   'shop.slot.name': 'Training slot',
   'shop.slot.desc': '{0}/{1} · one more card growing',
   'shop.luck.name': 'Luck upgrade',
@@ -91,6 +93,7 @@ export const en = {
   'battle.locked': 'TokenBinder: beat the previous gym leader first.',
   'battle.soaked': 'TokenBinder: your battle card is soaked. Dry it with a Charmandryer or choose another one.',
   'rocket.none': 'TokenBinder: Team Rocket has none of your cards.',
+  'hw.noAttempts': 'TokenBinder: you used all of today\'s attempts against the Halloween boss (or the event is over).',
   'boss.noAttempts': 'TokenBinder: you used all your attempts against this week\'s boss. A new one arrives on Monday.',
   'cup.played': 'TokenBinder: you already played today\'s cup. Come back tomorrow.',
   'cup.noCoins': 'TokenBinder: you need {0} coins to enter the cup.',

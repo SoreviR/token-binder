@@ -363,6 +363,7 @@ body.drag-from-dock .agrid { outline: 2px dashed var(--vscode-focusBorder); outl
 .arena-fighters.scene-elite-dragon { --sky: #34346a; background-image: url('scenes/elite-dragon.png'); }
 .arena-fighters.scene-colosseum { --sky: #c8a878; background-image: url('scenes/colosseum.png'); }
 .arena-fighters.scene-boss-arena { --sky: #5a1020; background-image: url('scenes/boss-arena.png'); }
+.arena-fighters.scene-haunted { --sky: #2a1248; background-image: url('scenes/haunted.png'); }
 
 /* attack effects, drawn by media/battle.js */
 .fx-layer { position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden; }
@@ -436,3 +437,28 @@ body.drag-from-dock .agrid { outline: 2px dashed var(--vscode-focusBorder); outl
 /* team leagues: the two cards backing each fighter up, under its line in the ranking */
 .lteam { display: flex; align-items: center; gap: 4px; margin-top: 3px; }
 .lteam .mini { width: 26px; }
+
+/* Pumpkin frame (sold during the Halloween event, kept by whoever bought it: this block stays after the event) */
+.thumb.frame-pumpkin, .card3d.frame-pumpkin, .framesw.frame-pumpkin { border-color: #ff7a1a; box-shadow: 0 0 0 2px #4a1a7a, 0 0 14px #ff7a1a, 0 0 22px rgba(122,60,255,.55); }
+
+/* ── Halloween event (the whole block goes away when the event is removed) ── */
+body.ev-halloween { --hw-orange: #ff7a1a; --hw-purple: #7a3cff; }
+body.ev-halloween .card-box { position: relative; border-color: color-mix(in srgb, var(--hw-purple) 55%, var(--vscode-widget-border, #444)); }
+body.ev-halloween .card-box::before, body.ev-halloween .card-box::after { content: ""; position: absolute; top: 0; width: 46px; height: 46px; pointer-events: none; opacity: .7; background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 60' fill='none' stroke='%23d8d0f0' stroke-width='1'><path d='M0 0L60 0M0 0L55 25M0 0L40 40M0 0L25 55M0 0L0 60'/><path d='M14 0Q12 12 0 14M28 0Q24 24 0 28M42 0Q36 36 0 42M56 0Q48 48 0 56'/></svg>") no-repeat top left / contain; }
+body.ev-halloween .card-box::before { left: 0; }
+body.ev-halloween .card-box::after { right: 0; transform: scaleX(-1); }
+body.ev-halloween button.btn:not(.ghost) { background: var(--hw-orange); color: #1a0a00; }
+body.ev-halloween button.btn:hover:not(:disabled):not(.ghost) { background: #ff9a40; }
+body.ev-halloween .barwrap > i { background: linear-gradient(90deg, var(--hw-purple), var(--hw-orange)); }
+body.ev-halloween h4::after { content: " 🎃"; }
+.hw-banner { margin: 0 0 10px; padding: 6px 10px; border-radius: 8px; font-size: 11px; text-align: center; color: #ffe6c8; background: linear-gradient(90deg, #2a0f4a, #5a2a08); border: 1px solid #ff7a1a; }
+body.ev-halloween::before { content: "🕷️"; position: fixed; top: 0; right: 18px; z-index: 1; font-size: 18px; line-height: 1; pointer-events: none; padding-top: 34px; background: linear-gradient(#c9c2e0, #c9c2e0) top center / 1px 38px no-repeat; transform-origin: top center; animation: hw-dangle 3.2s ease-in-out infinite; }
+body.ev-halloween::after { content: "🦇"; position: fixed; top: 14px; left: -30px; z-index: 1; font-size: 16px; pointer-events: none; opacity: 0; animation: hw-bat 14s linear infinite; }
+.pack.spooky { background: linear-gradient(160deg, #1a0a2e, #5a2a08 55%, #1a0a2e); }
+.pack.spooky .ball { background: none; border: 0; display: grid; place-items: center; font-size: 26px; }
+.pack.spooky .ball::before { content: "🎃"; }
+.pack.big.spooky .ball { font-size: 44px; }
+@keyframes hw-dangle { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(6deg); } }
+@keyframes hw-bat { 0% { left: -30px; opacity: 0; transform: translateY(0); } 6% { opacity: .9; } 25% { transform: translateY(18px); } 50% { transform: translateY(-4px); } 75% { transform: translateY(14px); } 94% { opacity: .9; } 100% { left: 105%; opacity: 0; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { body.ev-halloween::before, body.ev-halloween::after { animation: none; } body.ev-halloween::after { display: none; } }
+/* ── end Halloween event ── */

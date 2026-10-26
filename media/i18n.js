@@ -17,7 +17,8 @@ window.I18N = {
 
     'unit.tokens': ' tokens', 'unit.credits': ' credits',
     'quota.title': 'Monthly quota', 'quota.of': '{0}% of {1}', 'quota.today': 'Today', 'quota.month': 'Month',
-    'packs.title': 'Packs', 'packs.pack': 'Pack', 'packs.premium': 'Premium', 'packs.ball': 'Poké Ball',
+    'packs.title': 'Packs', 'packs.pack': 'Pack', 'packs.premium': 'Premium', 'packs.ball': 'Poké Ball', 'packs.spooky': 'Halloween',
+    'hw.banner': '🎃 Halloween event · Halloween pack, a boss and a pumpkin frame until Nov 3', 'hw.gift': '🎃 Happy Halloween! A free Halloween pack is waiting.', 'hw.title': 'Halloween boss', 'hw.reward': 'First win of the event: 🪙 {0} + 🎁 {1} mystery boxes + 🎃 {2} Halloween pack', 'hw.attempts': '{0} of {1} attempts left today', 'hw.beaten': '✔ Beaten', 'hw.beatenNow': 'Halloween boss beaten!', 'hw.packReward': '🎃 +{0} Halloween pack', 'battle.vsHw': 'Halloween boss {0} · {1}', 'frame.pumpkin.name': 'Pumpkin',
     'packs.next': '{0} / {1} tokens to the next free pack {2}',
     'training.title': 'Training ({0}/{1})',
     'slot.freeAlbum': 'Free slot: open the album, pick a card and press “Train”.',
@@ -234,7 +235,8 @@ window.I18N = {
 
     'unit.tokens': ' tokens', 'unit.credits': ' créditos',
     'quota.title': 'Cuota mensual', 'quota.of': '{0}% de {1}', 'quota.today': 'Hoy', 'quota.month': 'Mes',
-    'packs.title': 'Sobres', 'packs.pack': 'Sobre', 'packs.premium': 'Premium', 'packs.ball': 'Pokébola',
+    'packs.title': 'Sobres', 'packs.pack': 'Sobre', 'packs.premium': 'Premium', 'packs.ball': 'Pokébola', 'packs.spooky': 'Halloween',
+    'hw.banner': '🎃 Evento de Halloween · sobre de Halloween, un jefe y un marco de calabaza hasta el 3 de noviembre', 'hw.gift': '🎃 ¡Feliz Halloween! Te espera un sobre de Halloween gratis.', 'hw.title': 'Jefe de Halloween', 'hw.reward': 'Primera victoria del evento: 🪙 {0} + 🎁 {1} cajas misteriosas + 🎃 {2} sobre de Halloween', 'hw.attempts': 'Te quedan {0} de {1} intentos hoy', 'hw.beaten': '✔ Vencido', 'hw.beatenNow': '¡Jefe de Halloween vencido!', 'hw.packReward': '🎃 +{0} sobre de Halloween', 'battle.vsHw': 'Jefe de Halloween {0} · {1}', 'frame.pumpkin.name': 'Calabaza',
     'packs.next': '{0} / {1} tokens al próximo sobre gratis {2}',
     'training.title': 'Entrenando ({0}/{1})',
     'slot.freeAlbum': 'Hueco libre: abre el álbum, elige una carta y pulsa «Entrenar».',

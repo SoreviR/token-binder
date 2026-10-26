@@ -160,11 +160,13 @@ export interface GameState {
   showcase?: string;      // key of the card pinned as the league showcase (see showcase.ts); none = the most valuable one
   team?: string[];        // keys of the cards that back up the battle card in team fights (see team.ts)
   elite?: { beaten: string[]; daily: { day: string; n: number } };   // Elite Four trainers beaten and today's paid rematches
+  spooky?: number;        // unopened Halloween packs (event, see halloween.ts)
+  hw?: { gift?: boolean; won?: boolean; day: string; attempts: number };   // Halloween event: gift given, boss beaten, today's boss attempts
 }
 
 /* ───────── Packs ───────── */
 
-export type PackKind = 'pack' | 'premium' | 'ball';
+export type PackKind = 'pack' | 'premium' | 'ball' | 'spooky';
 
 type EraWeights = Record<Era, number>;
 /** Era weights for a normal card, for the "star" card, and for the last cards of a premium pack. */
@@ -279,7 +281,7 @@ export function newState(lifetime: number): GameState {
 
 /** Fills in the fields added in newer versions to a previously saved state (without giving retroactive coins). */
 export function normalize(s: GameState, lifetime: number): GameState {
-  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime; s.boxes ??= 0; s.evoBoxes ??= 0; s.items ??= {}; s.battle ??= newBattleRecord(); s.battle.daily.xpFights ??= 0;
+  s.premium ??= 0; s.balls ??= 0; s.coins ??= 0; s.luck ??= 0; s.lastLifetime ??= lifetime; s.boxes ??= 0; s.evoBoxes ??= 0; s.spooky ??= 0; s.items ??= {}; s.battle ??= newBattleRecord(); s.battle.daily.xpFights ??= 0;
   s.tour ??= Object.keys(s.collection).length > 0;   // players who already have cards do not need the guide
   for (const o of Object.values(s.collection)) { o.xp ??= 0; }
   // Cards that were already training receive the XP of everything trained so far (since they entered the slot).
@@ -321,26 +323,29 @@ export function earnCoins(s: GameState, lifetime: number, bonus: boolean): numbe
   return earned;
 }
 
-export type Item = 'pack' | 'premium' | 'ball' | 'box' | 'evobox' | 'sleeve' | 'toploader' | 'hair-dryer' | 'slot' | 'luck';
+export type Item = 'pack' | 'premium' | 'ball' | 'spooky' | 'box' | 'evobox' | 'sleeve' | 'toploader' | 'hair-dryer' | 'slot' | 'luck';
 
 const SLOT_PRICES = [400, 900, 1600, 2600, 4000];   // slots 2 to 6
 const LUCK_PRICES = [300, 600, 1200, 2400, 4800];   // levels 1 to 5
-const FIXED_PRICES: Record<'pack' | 'premium' | 'ball' | 'box' | 'evobox' | 'sleeve' | 'toploader' | 'hair-dryer', number> = { pack: 80, premium: 250, ball: 15, box: BOX_PRICE, evobox: EVO_BOX_PRICE, sleeve: 15, toploader: 50, 'hair-dryer': 40 };
+export const SPOOKY_PRICE = 150;
+const FIXED_PRICES: Record<'pack' | 'premium' | 'ball' | 'spooky' | 'box' | 'evobox' | 'sleeve' | 'toploader' | 'hair-dryer', number> = { pack: 80, premium: 250, ball: 15, spooky: SPOOKY_PRICE, box: BOX_PRICE, evobox: EVO_BOX_PRICE, sleeve: 15, toploader: 50, 'hair-dryer': 40 };
 
-/** Current price of an item, or null if the maximum was already bought. */
-export function priceOf(s: GameState, item: Item): number | null {
+/** Current price of an item, or null if the maximum was already bought (or, for the Halloween pack, the event is not open). */
+export function priceOf(s: GameState, item: Item, eventOpen = false): number | null {
+  if (item === 'spooky' && !eventOpen) { return null; }
   if (item === 'slot') { return s.slots.length >= MAX_SLOTS ? null : SLOT_PRICES[s.slots.length - 1]; }
   if (item === 'luck') { return s.luck >= MAX_LUCK ? null : LUCK_PRICES[s.luck]; }
   return FIXED_PRICES[item];
 }
 
-export function buy(s: GameState, item: Item): boolean {
-  const price = priceOf(s, item);
+export function buy(s: GameState, item: Item, eventOpen = false): boolean {
+  const price = priceOf(s, item, eventOpen);
   if (price === null || s.coins < price) { return false; }
   s.coins -= price;
   if (item === 'pack') { s.packs++; }
   else if (item === 'premium') { s.premium++; }
   else if (item === 'ball') { s.balls++; }
+  else if (item === 'spooky') { s.spooky = (s.spooky ?? 0) + 1; }
   else if (item === 'box') { s.boxes++; }
   else if (item === 'evobox') { s.evoBoxes = (s.evoBoxes ?? 0) + 1; }
   else if (item === 'sleeve' || item === 'toploader' || item === 'hair-dryer') { grantItem(s, item); }
@@ -351,9 +356,9 @@ export function buy(s: GameState, item: Item): boolean {
 
 /** Takes a pack/Poké Ball out of the inventory. Returns false if there is none. */
 export function consume(s: GameState, kind: PackKind): boolean {
-  const key = kind === 'pack' ? 'packs' : kind === 'premium' ? 'premium' : 'balls';
-  if (s[key] < 1) { return false; }
-  s[key]--;
+  const key = kind === 'pack' ? 'packs' : kind === 'premium' ? 'premium' : kind === 'spooky' ? 'spooky' : 'balls';
+  if ((s[key] ?? 0) < 1) { return false; }
+  s[key] = (s[key] ?? 0) - 1;
   return true;
 }
 
