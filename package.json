@@ -2,7 +2,7 @@
   "name": "token-binder",
   "displayName": "TokenBinder",
   "description": "%extension.description%",
-  "version": "1.28.0",
+  "version": "1.29.0",
   "publisher": "sorevir",
   "license": "MIT",
   "engines": {
@@ -118,6 +118,11 @@
           "type": "boolean",
           "default": false,
           "markdownDescription": "%config.sound.enabled%"
+        },
+        "tokenBinder.battle.figures": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%config.battle.figures%"
         },
         "tokenBinder.online.enabled": {
           "type": "boolean",

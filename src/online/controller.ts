@@ -31,6 +31,8 @@ export interface LeagueHost {
   sendRounds(rounds: unknown[]): void;
   /** A card thumbnail that is already on disk (and a background download of it if not). */
   thumb(card: { id: string; image?: string }): string | undefined;
+  /** The animated figure for a card by id; undefined when it cannot be had (the arena then draws the card). */
+  sprite(cardId: string, facing: 'front' | 'back'): Promise<string | undefined>;
   openExternal(url: string): void;
   copy(text: string): void;
   serverUrl(): string;
@@ -298,15 +300,23 @@ export class LeagueController {
         }
         await this.h.save(); await this.h.refresh();
       }
-      this.play(replay, { coins: 0, ...outcome, elo: r.elo, eloChange: r.eloChange });
+      await this.play(replay, { coins: 0, ...outcome, elo: r.elo, eloChange: r.eloChange });
       await this.loadBoard();
     });
   }
 
   /** Sends a duel to the arena: one fight, or a team duel as the series of fights it was. */
-  private play(r: Replay, outcome: object): void {
-    if (r.team) { this.h.sendRounds(this.teamRounds(r, outcome)); }
-    else { this.h.sendBattle({ ...this.view(r), outcome }); }
+  private async play(r: Replay, outcome: object): Promise<void> {
+    if (r.team) { const rounds = this.teamRounds(r, outcome); await this.figures(rounds); this.h.sendRounds(rounds); }
+    else { const data = { ...this.view(r), outcome }; await this.figures([data]); this.h.sendBattle(data); }
+  }
+
+  /** Adds the animated figure of each fighter (yours from behind, the rival's from the front); one that cannot be had stays a card. */
+  private async figures(rounds: { me: any; foe: any }[]): Promise<void> {
+    await Promise.all(rounds.flatMap(x => [
+      this.h.sprite(x.me.cardId, 'back').then(s => { x.me.sprite = s; }),
+      this.h.sprite(x.foe.cardId, 'front').then(s => { x.foe.sprite = s; }),
+    ]));
   }
 
   /** Vote to lift another member's BUSTED flag. A majority of the other members clears it. */
@@ -369,7 +379,7 @@ export class LeagueController {
   private async replay(id: number): Promise<void> {
     const r = this.replays().find(x => x.id === id);
     if (!r) { return; }
-    this.play(r, { coins: 0, xp: 0, eloChange: r.eloChange });
+    await this.play(r, { coins: 0, xp: 0, eloChange: r.eloChange });
   }
 
   /** Duels other players started against the player: kept for replay and announced once. */

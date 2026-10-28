@@ -83,6 +83,7 @@ Esta extensión **no consulta a GitHub ni a tu organización**: calcula el porce
 | `tokenBinder.alerts.thresholds` | `[50, 80, 100]` | Porcentajes que disparan un aviso. |
 | `tokenBinder.packs.everyTokens` | `750000` | Cada cuántos tokens usados ganas un sobre. |
 | `tokenBinder.growth.multiplier` | `1` | Escala los tokens que necesita cada carta para evolucionar (0.1–2). |
+| `tokenBinder.battle.figures` | `true` | En los combates el Pokémon sale de su carta como una figura animada (sprites descargados una vez y guardados). Desactivado, o sin el sprite, los combates usan las cartas. |
 | `tokenBinder.sound.enabled` | `false` | Efectos de sonido cortos (abrir sobres, combates, metas), generados por el navegador: sin archivos de audio. Desactivado por defecto. |
 | `tokenBinder.mishaps.enabled` | `false` | Percances por pasarte del 100 % de tu propia cuota mensual (mira [Pasarse de la cuota](#pasarse-de-la-cuota-percances)). Desactivado por defecto; las cartas en las que has invertido nunca se pierden. |
 | `tokenBinder.online.enabled` | `false` | Activa las ligas online (mira [Ligas online](#ligas-online-opcional)). |

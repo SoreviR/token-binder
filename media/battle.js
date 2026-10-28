@@ -191,10 +191,22 @@ window.PTBattle = (function () {
     const hpText = el('span', { class: 'hptext', text: f.hp + ' / ' + f.hp });
     const hp = bar(1, 'big');
     hp.setAttribute('role', 'progressbar'); hp.setAttribute('aria-label', t('stats.hp') + ' ' + f.name); hp.setAttribute('aria-valuemin', '0'); hp.setAttribute('aria-valuemax', String(f.hp)); hp.setAttribute('aria-valuenow', String(f.hp));
-    const card = cardEl({ name: f.name, tier: f.tier, src: f.src, variant: f.variant, care: f.care, grade: f.grade }, 170);
-    const wrap = el('div', { class: 'arena-side ' + cls }, el('div', { class: 'arena-card' }, card),
-      el('div', { class: 'row' }, el('b', { text: f.name }), el('span', { class: 'sub', text: t('stats.level', f.level) + ' ' + typeIcons(f.types) })), hp, hpText);
-    return { wrap, hp: hp.querySelector('i'), hpText, max: f.hp, card: wrap.querySelector('.arena-card') };
+    const info = { name: f.name, tier: f.tier, src: f.src, variant: f.variant, care: f.care, grade: f.grade };
+    const big = cardEl(info, 170), holder = el('div', { class: 'arena-card' }, big);
+    let mini = null, figure = null;
+    if (f.sprite) {
+      // The Pokémon comes out of its card: the card is summoned in the middle, then shrinks beside the name while the figure fights.
+      holder.classList.add('has-figure'); big.classList.add('summon-card');
+      if (f.frame) big.classList.add('frame-' + f.frame);
+      figure = el('img', { class: 'figure', src: f.sprite, alt: f.name, draggable: 'false' });
+      // Showdown sprites come in very different sizes: scaled up, within bounds, so a small one is not lost and a big one does not fill the arena.
+      figure.addEventListener('load', () => { figure.style.height = Math.max(84, Math.min(150, figure.naturalHeight * 2)) + 'px'; });
+      mini = cardEl(info, 34); mini.classList.add('mini-card');
+      holder.prepend(el('div', { class: 'figure-stage' }, figure));
+    }
+    const wrap = el('div', { class: 'arena-side ' + cls }, holder,
+      el('div', { class: 'row' }, mini, el('b', { text: f.name }), el('span', { class: 'sub', text: t('stats.level', f.level) + ' ' + typeIcons(f.types) })), hp, hpText);
+    return { wrap, hp: hp.querySelector('i'), hpText, max: f.hp, card: holder, big, figure, mini };
   }
 
   let cupQueue = [];
@@ -212,7 +224,7 @@ window.PTBattle = (function () {
     const fxLayer = el('div', { class: 'fx-layer' });
     const arena = el('div', { class: 'arena' },
       el('div', { class: 'arena-title', text: r.team ? t('battle.vsTeam', r.leader.name, r.team.duel, r.team.of) : r.leader.kind === 'elite' ? t('battle.vsElite', r.leader.name, r.elite.duel, t('stats.level', r.leader.level)) : r.leader.kind === 'cup' ? t('battle.vsCup', r.cup.round, r.cup.of, r.leader.name, t('stats.level', r.leader.level)) : t(r.leader.kind === 'hw' ? 'battle.vsHw' : r.leader.kind === 'boss' ? 'battle.vsBoss' : 'battle.vs', r.leader.name, t('stats.level', r.leader.level)) }),
-      el('div', { class: 'arena-fighters scene-' + sceneOf(r) }, foe.wrap, el('div', { class: 'vs', text: 'VS' }), me.wrap),
+      el('div', { class: 'arena-fighters scene-' + sceneOf(r) + (r.me.sprite || r.foe.sprite ? ' figures' : '') }, foe.wrap, el('div', { class: 'vs', text: 'VS' }), me.wrap),
       logBox, el('div', { class: 'row', style: 'gap:8px;justify-content:center' }, speedBtn, skipBtn), resultBox, fxLayer);
     stage.replaceChildren(arena);
     skipBtn.focus();
@@ -290,9 +302,38 @@ window.PTBattle = (function () {
       if (!ev.miss && ev.eff) line(t(ev.eff === 'weak' ? 'battle.superEffective' : 'battle.notVery'), 'note');
     }
 
+    /** The summoning, as in the games: the card lifts and glows, bursts, flies to a corner beside the name and the Pokémon appears. */
+    const figured = [me, foe].filter(s => s.figure);
+    let settled = false;
+    function settle() {   // the end state of the summoning, also what Skip and reduced motion jump to
+      if (settled) return;
+      settled = true;
+      for (const s of figured) { s.big.getAnimations().forEach(a => a.cancel()); s.big.style.display = 'none'; s.figure.classList.add('out'); s.mini.classList.add('on'); }
+    }
+    function summon(done) {
+      if (!figured.length) { timers.push(setTimeout(done, 600)); return; }
+      if (calm()) { settle(); timers.push(setTimeout(done, 300)); return; }
+      sfx('summon');
+      figured.forEach(s => s.big.classList.add('glow'));
+      timers.push(setTimeout(() => {
+        const base = arena.getBoundingClientRect();
+        for (const s of figured) {
+          const a = s.big.getBoundingClientRect(), b = s.mini.getBoundingClientRect();
+          const dx = b.left + b.width / 2 - (a.left + a.width / 2), dy = b.top + b.height / 2 - (a.top + a.height / 2);
+          s.big.animate([{ transform: 'none', opacity: 1 }, { transform: 'translate(' + dx + 'px,' + dy + 'px) scale(' + b.width / a.width + ')', opacity: 0.9 }], { duration: 500 / speed, easing: 'ease-in', fill: 'forwards' });
+          s.figure.classList.add('out');
+          const ring = el('div', { class: 'fx fx-Colorless ring', style: 'left:' + (a.left - base.left + a.width / 2 - 22) + 'px;top:' + (a.top - base.top + a.height / 2 - 22) + 'px' });
+          fxLayer.append(ring);
+          const anim = ring.animate([{ transform: 'scale(.3)', opacity: 0.9 }, { transform: 'scale(3)', opacity: 0 }], { duration: 560 / speed, easing: 'ease-out', fill: 'both' });
+          anim.onfinish = () => ring.remove();
+        }
+      }, 900 / speed));
+      timers.push(setTimeout(() => { settle(); done(); }, 1500 / speed));
+    }
+
     function finish(skipped) {
       if (finished) return;
-      finished = true; clearTimers();
+      finished = true; clearTimers(); settle();
       if (skipped) { for (; i < r.log.length; i++) { const ev = r.log[i]; if (ev.t === 'attack') applyAttack(ev, false); } }
       setHp(me, r.log[r.log.length - 1].hp.a); setHp(foe, r.log[r.log.length - 1].hp.b);
       (r.won ? foe : me).card.classList.add('fainted');
@@ -310,7 +351,7 @@ window.PTBattle = (function () {
       else if (ev.t === 'end') finish(false);
       else next();
     }
-    timers.push(setTimeout(next, 600));
+    summon(next);
   }
 
   /** Victory / defeat banner, the reward and a short explanation of why it went that way. */

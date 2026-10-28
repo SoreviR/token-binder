@@ -40,7 +40,7 @@ function player(w: World, token: string, cardId: string, level: number): Player 
     enabled: () => settings.enabled, setEnabled: async on => { settings.enabled = on; },
     confirmConsent: async () => true, confirm: async () => true,
     notify: async (m, ..._a) => { notes.push(m); return undefined; },
-    post: d => posts.push(d), sendBattle: d => battles.push(d), sendRounds: r => rounds.push(r), thumb: c => 'img/' + c.id, openExternal: () => {}, copy: () => {},
+    post: d => posts.push(d), sendBattle: d => battles.push(d), sendRounds: r => rounds.push(r), thumb: c => 'img/' + c.id, sprite: async () => undefined,openExternal: () => {}, copy: () => {},
     serverUrl: () => 'https://league.test', memory: { get: (k, f) => (memory.has(k) ? memory.get(k) as never : f), set: async (k, v) => { memory.set(k, v); } },
     now: () => w.clock.t, t: (k, ...a) => k + ':' + a.join(','),
   };

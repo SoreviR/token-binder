@@ -13,6 +13,7 @@ import {
 import { collectorLabel, marketValue, statsOf } from './game/stats';
 import { MIN_TRANSFORM_LEVEL, STONE_VALUE, TRANSFORM_BY_ITEM, Transform, canTransform, isItemId } from './game/items';
 import { Tcgdex } from './game/tcgdex';
+import { Facing, Sprites } from './game/sprites';
 import { BinderViewProvider, WebviewMessage } from './webview/provider';
 import { AlbumPanel } from './webview/albumPanel';
 import { migrateLegacySettings, migrateLegacyState, offerUninstallLegacy } from './migrate';
@@ -63,6 +64,13 @@ export function activate(ctx: vscode.ExtensionContext): void {
   const game = new GameStore(ctx.globalState);
   const cacheDir = path.join(ctx.globalStorageUri.fsPath, 'tcg');
   const tcg = new Tcgdex(cacheDir);
+  const sprites = new Sprites(path.join(cacheDir, 'sprites'));
+  /** The animated figure that comes out of a card in a fight; undefined when the setting is off, offline or the card has no Pokédex number. */
+  const figureOf = async (dexId: number | undefined, facing: Facing, download: boolean): Promise<string | undefined> => {
+    if (!cfg().get<boolean>('battle.figures', true) || !Sprites.valid(dexId)) { return undefined; }
+    const file = download ? await Promise.race([sprites.get(dexId, facing), new Promise<undefined>(r => setTimeout(() => r(undefined), 4000))]) : sprites.cached(dexId, facing);
+    return file ? album.uri(file) : undefined;
+  };
 
   const bar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   bar.command = 'tokenBinder.open';
@@ -100,6 +108,11 @@ export function activate(ctx: vscode.ExtensionContext): void {
     post: d => album.send(d as WebviewMessage),
     sendBattle: d => album.send({ type: 'battleResult', data: d }),
     sendRounds: rounds => album.send({ type: 'cupResult', rounds }),
+    sprite: async (cardId, facing) => {
+      // The id comes from the server: it is data, so it must look like a card id before anything is looked up or downloaded.
+      if (!/^[\w.-]{1,40}$/.test(cardId)) { return undefined; }
+      return figureOf((await tcg.detail(cardId))?.dexId, facing, true);
+    },
     thumb: c => {
       // What the server says about a card is data, not a command: only cards from TCGdex's own image host are ever downloaded.
       if (!c.image || !c.image.startsWith('https://assets.tcgdex.net/') || !/^[\w.-]{1,40}$/.test(c.id)) { return undefined; }
@@ -294,7 +307,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
   }
 
   /** The fighter as the battle screen needs it: names, stats, the strength breakdown and the card art. */
-  async function fighterView(f: Fighter, card: Card, download: boolean) {
+  async function fighterView(f: Fighter, card: Card, download: boolean, facing: Facing = 'front') {
     // The panel refreshes constantly, so it only uses art that is already on disk (large if there, otherwise the thumbnail);
     // the fight itself, started by the player, is allowed to download the large one.
     const quality = download || tcg.cachedImage(card, 'high') ? 'high' : 'low';
@@ -303,6 +316,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       care: view.care, wear: view.wear, wearRisk: view.wearRisk, grade: view.grade, held: view.held,
       name: f.name, key: f.key, level: f.level, hp: f.hp, atk: f.atk, def: f.def, spd: f.spd, types: f.types, strength: f.strength, moves: f.moves.map(m => m.name),
       src: view.src, tier: card.tier, variant: card.variant, rarity: card.rarity,
+      sprite: await figureOf(card.dexId, facing, download), frame: facing === 'back' ? state?.cosmetics?.frame : undefined,
     };
   }
 
@@ -427,7 +441,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       type: 'battleResult',
       data: {
         leader: { id: def.id, name: def.name, level: def.level, kind: hw ? 'hw' : boss ? 'boss' : undefined },
-        me: await fighterView(me.fighter, state.collection[state.fighter!].card, true), foe: await fighterView(foe, card, true),
+        me: await fighterView(me.fighter, state.collection[state.fighter!].card, true, 'back'), foe: await fighterView(foe, card, true),
         odds, won, rounds: result.rounds, reason: result.reason, log: result.log, outcome, worn,
         gaps: factorGaps(me.fighter, foe).slice(0, 3),
         typeEdge: effectiveness(me.fighter, foe).eff === 'weak' ? 'me' : effectiveness(foe, me.fighter).eff === 'weak' ? 'foe' : undefined,
@@ -453,7 +467,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       cards.push(c);
     }
     if (!enterCup(state, now).ok) { return; }
-    const mine = await fighterView(me.fighter, state.collection[state.fighter!].card, true);
+    const mine = await fighterView(me.fighter, state.collection[state.fighter!].card, true, 'back');
     const rounds: unknown[] = [];
     let wins = 0;
     for (let i = 0; i < rivals.length; i++) {
@@ -509,7 +523,7 @@ export function activate(ctx: vscode.ExtensionContext): void {
       const last = i === result.duels.length - 1;
       rounds.push({
         leader: { id: 'elite:' + tr.id, name: tr.name, level: defs[d.b].level, kind: 'elite' }, elite: { duel: i + 1, last, aliveA: result.aliveA, aliveB: result.aliveB },
-        me: await fighterView(mine[d.a], state.collection[keys[d.a]].card, true), foe: await fighterView(foes[d.b], cards[d.b], true),
+        me: await fighterView(mine[d.a], state.collection[keys[d.a]].card, true, 'back'), foe: await fighterView(foes[d.b], cards[d.b], true),
         odds: estimateWin(mine[d.a], foes[d.b], 100, 70 + i), won: d.result.winner === 'a', rounds: d.result.rounds, reason: d.result.reason, log: d.result.log,
         outcome: last ? outcome : { coins: 0, firstWin: false, capped: false, xp: 0 },
         gaps: factorGaps(mine[d.a], foes[d.b]).slice(0, 3),

@@ -187,6 +187,7 @@ window.PT = (function () {
     lose: () => run([392, 330, 262, 196], 0.14, { type: 'triangle', vol: 0.05 }),
     goal: () => run([784, 988, 1319], 0.1, { type: 'sine', vol: 0.06 }),
     level: () => run([523, 784], 0.09, { type: 'triangle' }),
+    summon: () => { tone(330, 0.5, { type: 'sine', to: 1320, vol: 0.05 }); tone(1760, 0.18, { at: 0.5, type: 'triangle', vol: 0.04 }); },
   };
   function sfx(name) {
     if (!soundOn || !SFX[name]) return;
